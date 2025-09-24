@@ -9,7 +9,6 @@
 import "dotenv/config";
 import { analyzeScreenshot } from './engines/visual-analysis-engine.js';
 import { parseFigmaUrl, fetchFigmaScreenshot, fetchNodeData } from './utils/figma-utils.js';
-import { processIconsFromAIRequest, getNodeStructureForAI } from './utils/icon-processor.js';
 import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -37,7 +36,7 @@ export const processInput = async (input, context = {}) => {
     console.log('\n📸 VISUAL ANALYSIS');
     const visualAnalysis = await analyzeScreenshot(screenshotPath, { ...context, figmaData });
 
-    // Step 3: Direct component generation (one shot, no loops)
+    // Step 4: Direct component generation (one shot, no loops)
     console.log('\n🔧 GENERATING ALL COMPONENTS');
     const components = await generateAllComponents(visualAnalysis, figmaData);
 
@@ -46,7 +45,12 @@ export const processInput = async (input, context = {}) => {
     const savedComponents = await saveAllComponents(components);
 
     console.log('\n✅ PROCESSING COMPLETE!');
-    console.log(`Generated ${savedComponents.length} components:`);
+
+    const totalItems = savedComponents.length;
+    console.log(`Generated ${totalItems} items total:`);
+
+
+    console.log(`\n🧩 Components (${savedComponents.length}):`);
     savedComponents.forEach(comp => {
       console.log(`  • ${comp.name} → ${comp.path}`);
     });
@@ -195,27 +199,7 @@ IMPORTANT GUIDELINES:
 3. **Universal Design**: Work with any design system, color scheme, or component patterns
 4. **Clean Code**: No markdown code fences in output - pure TypeScript only
 5. **Complete Implementation**: Every component should be fully functional for any design system
-6. **Icon Identification**: When you see icons in the design:
-   - Look at the visual analysis and node structure
-   - Identify which nodes are actual icons (not buttons, inputs, or other UI elements)
-   - Icons are typically small, simple graphical elements used for visual communication
-   - Do NOT mistake input fields, buttons, or other interactive elements as icons
-
 OUTPUT FORMAT (NO MARKDOWN CODE FENCES):
-
-FIRST, if you identify any icons in the design, list them:
----ICONS-SECTION---
-ICON_REQUESTS:
-[
-  {
-    "nodeId": "[Figma node ID from structure]",
-    "componentName": "[Icon name like SearchIcon, MenuIcon, etc]",
-    "description": "[What this icon represents]"
-  }
-]
----ICONS-SECTION---
-
-THEN generate all other components:
 ---COMPONENT-SEPARATOR---
 COMPONENT_NAME: [PascalCase name]
 COMPONENT_TYPE: [atom|molecule|organism - based on complexity]
@@ -227,7 +211,7 @@ import { cn } from '@/lib/utils';
 ---COMPONENT-SEPARATOR---
 
 Generate ALL components you see in the visual analysis. Adapt to any design system, any complexity level, any visual patterns.
-For components that use icons, import them from '@/ui/icons' (they will be generated separately).`;
+Note: Icons are processed separately, so focus on interactive components, layout elements, and form controls.`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-4o",
@@ -239,43 +223,19 @@ For components that use icons, import them from '@/ui/icons' (they will be gener
   const generatedContent = response.choices[0].message.content;
   console.log(`✅ Generated ${generatedContent.length} characters of component code`);
 
-  // Parse icon requests and components separately
-  const { iconRequests, components } = parseGeneratedContent(generatedContent);
-
-  // Process icon requests if any were identified
-  if (iconRequests && iconRequests.length > 0 && figmaData) {
-    console.log(`\n🎨 AI identified ${iconRequests.length} icons to fetch`);
-    await processIconsFromAIRequest(figmaData, iconRequests);
-  }
+  // Parse components only (icons are handled separately now)
+  const components = parseGeneratedComponents(generatedContent);
 
   return components;
 };
 
 /**
- * Parse the generated content including icon requests and components
+ * Parse the generated components from GPT-4 response
  */
-const parseGeneratedContent = (content) => {
+const parseGeneratedComponents = (content) => {
   const components = [];
-  let iconRequests = [];
 
-  // First, check for icon requests section
-  const iconSectionMatch = content.match(/---ICONS-SECTION---([\s\S]*?)---ICONS-SECTION---/);
-  if (iconSectionMatch) {
-    const iconSection = iconSectionMatch[1];
-    const iconRequestsMatch = iconSection.match(/ICON_REQUESTS:\s*(\[[\s\S]*?\])/);
-    if (iconRequestsMatch) {
-      try {
-        iconRequests = JSON.parse(iconRequestsMatch[1]);
-        console.log(`  📍 Found ${iconRequests.length} icon requests`);
-      } catch (e) {
-        console.log('  ⚠️  Failed to parse icon requests');
-      }
-    }
-    // Remove icon section from content for component parsing
-    content = content.replace(iconSectionMatch[0], '');
-  }
-
-  // Then parse components
+  // Parse components directly
   const sections = content.split('---COMPONENT-SEPARATOR---').filter(section => section.trim());
 
   sections.forEach(section => {
@@ -334,7 +294,7 @@ const parseGeneratedContent = (content) => {
     console.log(`  • ${comp.name} (${comp.type})`);
   });
 
-  return { iconRequests, components };
+  return components;
 };
 
 /**

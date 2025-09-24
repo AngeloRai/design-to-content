@@ -10,6 +10,7 @@ import "dotenv/config";
 import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import OpenAI from 'openai';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -21,6 +22,10 @@ const FIGMA_TOKEN = process.env.FIGMA_ACCESS_TOKEN;
 if (!FIGMA_TOKEN) {
   console.warn('⚠️  FIGMA_ACCESS_TOKEN not found. Figma API features will be disabled.');
 }
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
 
 /**
  * Generic Figma API call helper
@@ -419,13 +424,307 @@ export const findIconNodes = async (fileKey, nodeId) => {
   }
 };
 
+/**
+ * AI-guided node exploration for intelligent discovery
+ * Let AI navigate unpredictable Figma node structures
+ */
+export const exploreNodesWithAI = async (fileKey, nodeId, visualAnalysis, explorationGoal = "icons") => {
+  try {
+    console.log(`\n🤖 AI-GUIDED NODE EXPLORATION`);
+    console.log(`Goal: Find ${explorationGoal} using visual context`);
+
+    // Get initial node structure with good depth
+    const initialData = await callFigmaAPI(`/files/${fileKey}/nodes`, {
+      ids: nodeId,
+      depth: 6
+    });
+
+    if (!initialData.nodes || !initialData.nodes[nodeId]) {
+      throw new Error(`Node ${nodeId} not found`);
+    }
+
+    const rootNode = initialData.nodes[nodeId].document;
+    const nodeStructure = simplifyNodeForAI(rootNode, 6);
+
+    // AI analyzes visual + structure to plan exploration
+    const explorationPlan = await planExplorationWithAI(visualAnalysis, nodeStructure, explorationGoal);
+
+    console.log(`🎯 AI identified ${explorationPlan.targetNodes.length} areas to explore`);
+
+    // Execute the exploration plan
+    const discoveredNodes = [];
+    for (const target of explorationPlan.targetNodes) {
+      console.log(`  🔍 Exploring ${target.nodeId}: ${target.reason}`);
+
+      // Get more details on this specific node if needed
+      if (target.needsDeepDive) {
+        const detailData = await callFigmaAPI(`/files/${fileKey}/nodes`, {
+          ids: target.nodeId,
+          depth: 4
+        });
+
+        if (detailData.nodes && detailData.nodes[target.nodeId]) {
+          const detailedNode = detailData.nodes[target.nodeId].document;
+          const specificNodes = await extractSpecificNodesWithAI(detailedNode, visualAnalysis, explorationGoal);
+          discoveredNodes.push(...specificNodes);
+        }
+      } else {
+        // Use the node directly
+        discoveredNodes.push({
+          nodeId: target.nodeId,
+          name: target.name,
+          type: target.type,
+          reason: target.reason
+        });
+      }
+    }
+
+    console.log(`✅ AI-guided exploration complete: found ${discoveredNodes.length} ${explorationGoal}`);
+    return discoveredNodes;
+
+  } catch (error) {
+    console.error(`❌ AI-guided exploration failed:`, error.message);
+    return [];
+  }
+};
+
+/**
+ * AI plans the exploration strategy
+ */
+const planExplorationWithAI = async (visualAnalysis, nodeStructure, explorationGoal) => {
+  if (!process.env.OPENAI_API_KEY) {
+    // Fallback to simple structural analysis
+    console.log('⚠️  No OpenAI key, using fallback exploration');
+    return fallbackExploration(nodeStructure, explorationGoal);
+  }
+
+  const prompt = `You are exploring a Figma design to find ${explorationGoal}.
+
+VISUAL ANALYSIS:
+${visualAnalysis.analysis}
+
+FIGMA NODE STRUCTURE:
+${JSON.stringify(nodeStructure, null, 2)}
+
+Based on the visual analysis mentioning "${explorationGoal}" and the node structure above:
+
+1. Identify which parent nodes likely contain the ${explorationGoal}
+2. Determine if you need to dive deeper into any nodes to find individual items
+3. Consider that Figma structures can be messy - ${explorationGoal} might be nested in frames, groups, or unusual hierarchies
+
+Respond with a JSON exploration plan:
+{
+  "strategy": "Brief explanation of your exploration approach",
+  "targetNodes": [
+    {
+      "nodeId": "node_id_here",
+      "name": "node_name",
+      "type": "node_type",
+      "reason": "Why this node is relevant",
+      "needsDeepDive": true/false
+    }
+  ]
+}
+
+If you see patterns like "many small nodes of similar size" or "grid-like structure", those likely contain individual ${explorationGoal}.`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 2000,
+      temperature: 0.1
+    });
+
+    const aiResponse = response.choices[0].message.content;
+
+    // Parse the JSON response
+    const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const explorationPlan = JSON.parse(jsonMatch[0]);
+      console.log(`  🧠 AI Strategy: ${explorationPlan.strategy}`);
+      return explorationPlan;
+    }
+
+    throw new Error('Failed to parse AI exploration plan');
+  } catch (error) {
+    console.log(`⚠️  AI exploration planning failed: ${error.message}`);
+    return fallbackExploration(nodeStructure, explorationGoal);
+  }
+};
+
+/**
+ * AI extracts specific nodes from a detailed structure
+ */
+const extractSpecificNodesWithAI = async (detailedNode, visualAnalysis, explorationGoal) => {
+  if (!process.env.OPENAI_API_KEY) {
+    return extractSpecificNodesFallback(detailedNode, explorationGoal);
+  }
+
+  const prompt = `You are examining a specific Figma node to extract individual ${explorationGoal}.
+
+VISUAL CONTEXT: ${visualAnalysis.analysis}
+
+NODE DETAILS:
+${JSON.stringify(simplifyNodeForAI(detailedNode, 3), null, 2)}
+
+List all individual ${explorationGoal} nodes within this structure. Look for:
+- Actual ${explorationGoal}, not containers or decorative elements
+- Individual items that should become separate React components
+- Ignore frames/groups that are just for organization
+
+Respond with JSON array:
+[
+  {
+    "nodeId": "specific_node_id",
+    "name": "descriptive_name",
+    "type": "node_type",
+    "reason": "Why this is a valid ${explorationGoal}"
+  }
+]`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 3000,
+      temperature: 0.1
+    });
+
+    const aiResponse = response.choices[0].message.content;
+    const jsonMatch = aiResponse.match(/\[[\s\S]*\]/);
+    if (jsonMatch) {
+      const specificNodes = JSON.parse(jsonMatch[0]);
+      return specificNodes;
+    }
+
+    return extractSpecificNodesFallback(detailedNode, explorationGoal);
+  } catch (error) {
+    console.log(`⚠️  AI specific extraction failed: ${error.message}`);
+    return extractSpecificNodesFallback(detailedNode, explorationGoal);
+  }
+};
+
+/**
+ * Simplify node structure for AI analysis
+ */
+const simplifyNodeForAI = (node, maxDepth, currentDepth = 0) => {
+  if (!node || currentDepth >= maxDepth) return null;
+
+  const simplified = {
+    id: node.id,
+    name: node.name,
+    type: node.type
+  };
+
+  // Add useful metadata
+  if (node.absoluteBoundingBox) {
+    simplified.dimensions = {
+      width: Math.round(node.absoluteBoundingBox.width),
+      height: Math.round(node.absoluteBoundingBox.height)
+    };
+  }
+
+  // For potential icons, note if they're small and likely individual items
+  if (node.type === 'VECTOR' || node.type === 'COMPONENT') {
+    if (simplified.dimensions && simplified.dimensions.width <= 100 && simplified.dimensions.height <= 100) {
+      simplified.likelyIcon = true;
+    }
+  }
+
+  // Add children recursively
+  if (node.children && node.children.length > 0) {
+    simplified.childCount = node.children.length;
+    simplified.children = node.children
+      .map(child => simplifyNodeForAI(child, maxDepth, currentDepth + 1))
+      .filter(Boolean);
+  }
+
+  return simplified;
+};
+
+/**
+ * Fallback exploration when AI is not available
+ */
+const fallbackExploration = (nodeStructure, explorationGoal) => {
+  console.log('  🔧 Using fallback exploration logic');
+
+  const targetNodes = [];
+
+  // Simple heuristic for icons: look for nodes with many small children
+  if (explorationGoal === 'icons') {
+    const findIconContainers = (node) => {
+      if (node.children && node.children.length > 10) {
+        // Check if children are small and uniform (likely icons)
+        const smallChildren = node.children.filter(child =>
+          child.dimensions &&
+          child.dimensions.width <= 100 &&
+          child.dimensions.height <= 100
+        );
+
+        if (smallChildren.length > 10) {
+          targetNodes.push({
+            nodeId: node.id,
+            name: node.name,
+            type: node.type,
+            reason: `Container with ${smallChildren.length} small items`,
+            needsDeepDive: true
+          });
+        }
+      }
+
+      if (node.children) {
+        node.children.forEach(findIconContainers);
+      }
+    };
+
+    findIconContainers(nodeStructure);
+  }
+
+  return {
+    strategy: "Fallback heuristic-based exploration",
+    targetNodes
+  };
+};
+
+/**
+ * Fallback specific node extraction
+ */
+const extractSpecificNodesFallback = (detailedNode, explorationGoal) => {
+  const specificNodes = [];
+
+  const extractNodes = (node) => {
+    if (explorationGoal === 'icons') {
+      if ((node.type === 'VECTOR' || node.type === 'COMPONENT') &&
+          node.absoluteBoundingBox &&
+          node.absoluteBoundingBox.width <= 100 &&
+          node.absoluteBoundingBox.height <= 100) {
+        specificNodes.push({
+          nodeId: node.id,
+          name: node.name || `Icon_${node.id}`,
+          type: node.type,
+          reason: `Small ${node.type.toLowerCase()} (fallback detection)`
+        });
+      }
+    }
+
+    if (node.children) {
+      node.children.forEach(extractNodes);
+    }
+  };
+
+  extractNodes(detailedNode);
+  return specificNodes;
+};
+
 const figmaUtils = {
   parseFigmaUrl,
   fetchFigmaScreenshot,
   fetchNodeData,
   fetchDesignVariables,
   fetchIconSVG,
-  findIconNodes
+  findIconNodes,
+  exploreNodesWithAI
 };
 
 export default figmaUtils;
