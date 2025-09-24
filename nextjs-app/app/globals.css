@@ -1,0 +1,337 @@
+@import "tailwindcss";
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  /* Brand Colors - DTCG Compliant */
+  --color-brand-primary: #000000;
+  --color-brand-secondary: #242424;
+  --color-brand-accent: #9B9B9B;
+  --color-neutral-dark: #000000;
+  --color-neutral-light: #EDEBEB;
+  --color-surface-soft: #F3F3F5;
+  --color-surface-pure: #FFFFFF;
+
+  /* Alert Colors */
+  --color-error: #D62727;
+  --color-warning: #F9AF21;
+  --color-success: #2C813F;
+  --color-info: #182C52;
+
+  /* Content Colors */
+  --color-content-blue: #182C52;
+  --color-content-sage: #B4C5BB;
+  --color-content-rust: #B56047;
+  --color-content-beige: #D9CDC4;
+
+  /* Typography Scale */
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: 1.875rem;
+  --font-size-4xl: 2.25rem;
+  --font-size-5xl: 3rem;
+  --font-size-6xl: 3.75rem;
+
+  /* Spacing Scale - Figma Design Tokens */
+  --spacing-2xs: 0.25rem;  /* 4px */
+  --spacing-xs: 0.5rem;    /* 8px */
+  --spacing-s: 0.75rem;    /* 12px */
+  --spacing-sm: 0.5rem;    /* 8px */
+  --spacing-m: 1rem;       /* 16px */
+  --spacing-md: 1rem;      /* 16px */
+  --spacing-l: 1.25rem;    /* 20px */
+  --spacing-lg: 1.5rem;    /* 24px */
+  --spacing-xl: 2rem;      /* 32px */
+  --spacing-2xl: 3rem;     /* 48px */
+  --spacing-3xl: 4rem;     /* 64px */
+  --spacing-4xl: 6rem;     /* 96px */
+  --spacing-11: 5rem;      /* 80px */
+
+  /* Border Radius */
+  --radius-sm: 0.125rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+}
+
+:root {
+  /* Root Font Size */
+  --font-size: 16px;
+
+  /* Shadcn/UI Base Colors */
+  --background: #ffffff;
+  --foreground: oklch(0.145 0 0);
+  --card: #ffffff;
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: #000000;
+  --primary-foreground: #ffffff;
+  --secondary: #242424;
+  --secondary-foreground: #ffffff;
+  --muted: #EDEBEB;
+  --muted-foreground: #9B9B9B;
+  --accent: #e9ebef;
+  --accent-foreground: #030213;
+  --destructive: #D62727;
+  --destructive-foreground: #ffffff;
+  --border: rgba(0, 0, 0, 0.1);
+  --input: transparent;
+  --input-background: #f3f3f5;
+  --switch-background: #cbced4;
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: #030213;
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+
+  /* Figma Design System Colors - Semantic Naming */
+  --color-brand-primary: #000000;
+  --color-brand-secondary: #242424;
+  --color-brand-accent: #9B9B9B;
+  --color-neutral-dark: #000000;
+  --color-neutral-light: #EDEBEB;
+  --color-surface-soft: #F3F3F5;
+  --color-surface-pure: #FFFFFF;
+
+  /* Alert Colors from Figma */
+  --color-error: #D62727;
+  --color-warning: #F9AF21;
+  --color-success: #2C813F;
+  --color-info: #182C52;
+
+  /* Content Colors from Figma */
+  --color-content-blue: #182C52;
+  --color-content-sage: #B4C5BB;
+  --color-content-rust: #B56047;
+  --color-content-beige: #D9CDC4;
+
+  /* Semantic Colors - Following DTCG Pattern */
+  --color-text-primary: var(--color-neutral-dark);
+  --color-text-secondary: var(--color-brand-accent);
+  --color-text-inverse: var(--color-surface-pure);
+  --color-background-primary: var(--color-surface-pure);
+  --color-background-secondary: var(--color-surface-soft);
+
+  /* Typography Scale - DTCG Standard */
+  --font-size-xs: 12px;
+  --font-size-sm: 14px;
+  --font-size-base: 16px;
+  --font-size-lg: 18px;
+  --font-size-xl: 20px;
+  --font-size-2xl: 24px;
+  --font-size-3xl: 30px;
+  --font-size-4xl: 36px;
+  --font-size-5xl: 48px;
+  --font-size-6xl: 64px;
+
+  /* Typography Weights */
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* Line Heights - Following 1.2-1.6 Range */
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.6;
+
+  /* Spacing Scale - 4px Base */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
+  --spacing-3xl: 64px;
+  --spacing-4xl: 96px;
+
+  /* Border Radius - Consistent with Root Font Size */
+  --radius: 0.546875rem; /* Maintains 8.75px at 16px root */
+  --radius-none: 0;
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-full: 9999px;
+
+  /* Shadows - Expanded Palette */
+  --shadow-none: none;
+  --shadow-xs: 0 1px 2px rgba(26, 26, 26, 0.05);
+  --shadow-sm: 0 2px 4px rgba(26, 26, 26, 0.08);
+  --shadow-md: 0 4px 8px rgba(26, 26, 26, 0.1);
+  --shadow-lg: 0 8px 16px rgba(26, 26, 26, 0.12);
+  --shadow-xl: 0 16px 32px rgba(26, 26, 26, 0.15);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.145 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.145 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.985 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.396 0.141 25.723);
+  --destructive-foreground: oklch(0.637 0.237 25.331);
+  --border: oklch(0.269 0 0);
+  --input: oklch(0.269 0 0);
+  --ring: oklch(0.439 0 0);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-switch-background: var(--switch-background);
+  --color-ring: var(--ring);
+
+  /* Brand Colors for Tailwind */
+  --color-brand-primary: var(--color-brand-primary);
+  --color-brand-secondary: var(--color-brand-secondary);
+  --color-brand-accent: var(--color-brand-accent);
+  --color-neutral-dark: var(--color-neutral-dark);
+  --color-neutral-light: var(--color-neutral-light);
+  --color-surface-soft: var(--color-surface-soft);
+  --color-surface-pure: var(--color-surface-pure);
+  --color-text-primary: var(--color-text-primary);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-text-inverse: var(--color-text-inverse);
+  --color-background-primary: var(--color-background-primary);
+  --color-background-secondary: var(--color-background-secondary);
+
+  /* Alert Colors */
+  --color-error: var(--color-error);
+  --color-warning: var(--color-warning);
+  --color-success: var(--color-success);
+  --color-info: var(--color-info);
+
+  /* Content Colors */
+  --color-content-blue: var(--color-content-blue);
+  --color-content-sage: var(--color-content-sage);
+  --color-content-rust: var(--color-content-rust);
+  --color-content-beige: var(--color-content-beige);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Base Typography - Using Consistent Token Names */
+@layer base {
+  :where(:not(:has([class*=" text-"]), :not(:has([class^="text-"])))) {
+    h1 {
+      font-size: var(--font-size-4xl);
+      font-weight: var(--font-weight-bold);
+      line-height: var(--line-height-tight);
+    }
+
+    h2 {
+      font-size: var(--font-size-3xl);
+      font-weight: var(--font-weight-bold);
+      line-height: var(--line-height-tight);
+    }
+
+    h3 {
+      font-size: var(--font-size-2xl);
+      font-weight: var(--font-weight-semibold);
+      line-height: var(--line-height-normal);
+    }
+
+    h4 {
+      font-size: var(--font-size-xl);
+      font-weight: var(--font-weight-semibold);
+      line-height: var(--line-height-normal);
+    }
+
+    h5 {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-medium);
+      line-height: var(--line-height-normal);
+    }
+
+    h6 {
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-medium);
+      line-height: var(--line-height-normal);
+    }
+
+    p {
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-normal);
+      line-height: var(--line-height-normal);
+    }
+
+    label {
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      line-height: var(--line-height-normal);
+    }
+
+    button {
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      line-height: var(--line-height-normal);
+    }
+
+    input {
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-normal);
+      line-height: var(--line-height-normal);
+    }
+  }
+}
+
+html {
+  font-size: var(--font-size);
+}

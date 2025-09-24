@@ -1,0 +1,75 @@
+# Dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# Next.js
+/.next/
+/out/
+**/.next/
+**/out/
+
+# Production build
+/build
+
+# TypeScript compilation output (we don't use these)
+/dist/
+*.tsbuildinfo
+*.d.ts.map
+*.js.map
+
+# Environment variables
+.env
+.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.envrc
+.envrc.local
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Figma processing artifacts
+ui/screenshots/
+component-registry.json
+visual-verification-report.json
+refinement-report.html
+ai-audit-report.html
+figma-processor/node_modules
+
+# Logs
+/logs/
+
+# Playwright artifacts
+playwright-report/
+test-results/
+.playwright/
+blob-report/
+
+# Test coverage
+coverage/
+
+# Vercel
+.vercel/
+
+# Tool caches
+.eslintcache
+
+# Temp files
+tmp/
+.tmp/
+
+# Package manager logs
+pnpm-debug.log*
