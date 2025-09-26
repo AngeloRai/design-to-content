@@ -1,5 +1,9 @@
 # Dependencies
+node_modules/
 /node_modules
+/nextjs-app/node_modules
+nextjs-app/node_modules
+/figma-processor/node_modules
 /.pnp
 .pnp.js
 

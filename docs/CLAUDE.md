@@ -21,7 +21,7 @@ npm run figma:resume   # Resume interrupted processing
 The system handles all processing automatically:
 - **Discovery**: Extract Figma components using MCP tools
 - **Classification**: Simple (icons) vs complex (buttons, inputs)
-- **AI Selection**: GPT-3.5 for simple, GPT-4 for complex analysis
+- **AI Selection**: GPT-4o
 - **Generation**: Create React components with TypeScript
 - **Verification**: Strict visual verification (non-blocking)
 - **Integration**: Update component showcase automatically
