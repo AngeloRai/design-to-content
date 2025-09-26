@@ -103,7 +103,7 @@ export const fetchFigmaScreenshot = async (fileKey, nodeId, options = {}) => {
     const imageUrl = data.images[nodeId];
 
     // Download and save locally
-    const screenshotsDir = join(__dirname, '..', 'screenshots');
+    const screenshotsDir = join(__dirname, '..', 'data', 'screenshots');
     if (!existsSync(screenshotsDir)) {
       mkdirSync(screenshotsDir, { recursive: true });
     }
@@ -136,9 +136,9 @@ export const fetchFigmaScreenshot = async (fileKey, nodeId, options = {}) => {
 /**
  * Get node data for measurements - SECONDARY tool for precision
  */
-export const fetchNodeData = async (fileKey, nodeId, depth = 2) => {
+export const fetchNodeData = async (fileKey, nodeId, depth = 4) => {
   try {
-    console.log(`📏 Fetching node data for measurements...`);
+    console.log(`📏 Fetching node data (depth: ${depth}) for comprehensive component discovery...`);
 
     const data = await callFigmaAPI(`/files/${fileKey}/nodes`, {
       ids: nodeId,
@@ -154,7 +154,9 @@ export const fetchNodeData = async (fileKey, nodeId, depth = 2) => {
     // Extract key measurements for AI
     const measurements = extractMeasurements(node);
 
-    console.log(`✅ Node data extracted`);
+    // Count nested components for visibility
+    const nestedStats = countNestedComponents(node);
+    console.log(`✅ Node data extracted: ${nestedStats.totalNodes} nodes, ${nestedStats.frames} frames, ${nestedStats.textNodes} text nodes`);
 
     return {
       success: true,
@@ -164,13 +166,50 @@ export const fetchNodeData = async (fileKey, nodeId, depth = 2) => {
         fileKey,
         nodeId,
         name: node.name,
-        type: node.type
+        type: node.type,
+        depth,
+        nestedStats
       }
     };
   } catch (error) {
     console.error(`❌ Node data fetch failed:`, error.message);
     throw error;
   }
+};
+
+/**
+ * Count nested components for visibility into traversal depth
+ */
+const countNestedComponents = (node) => {
+  const stats = { totalNodes: 0, frames: 0, textNodes: 0, components: 0, instances: 0 };
+
+  const traverse = (currentNode) => {
+    if (!currentNode) return;
+
+    stats.totalNodes++;
+
+    switch (currentNode.type) {
+      case 'FRAME':
+        stats.frames++;
+        break;
+      case 'TEXT':
+        stats.textNodes++;
+        break;
+      case 'COMPONENT':
+        stats.components++;
+        break;
+      case 'INSTANCE':
+        stats.instances++;
+        break;
+    }
+
+    if (currentNode.children) {
+      currentNode.children.forEach(traverse);
+    }
+  };
+
+  traverse(node);
+  return stats;
 };
 
 /**
@@ -428,7 +467,7 @@ export const findIconNodes = async (fileKey, nodeId) => {
  * AI-guided node exploration for intelligent discovery
  * Let AI navigate unpredictable Figma node structures
  */
-export const exploreNodesWithAI = async (fileKey, nodeId, visualAnalysis, explorationGoal = "icons") => {
+export const aiExploreNodes = async (fileKey, nodeId, visualAnalysis, explorationGoal = "icons") => {
   try {
     console.log(`\n🤖 AI-GUIDED NODE EXPLORATION`);
     console.log(`Goal: Find ${explorationGoal} using visual context`);
@@ -720,11 +759,7 @@ const extractSpecificNodesFallback = (detailedNode, explorationGoal) => {
 const figmaUtils = {
   parseFigmaUrl,
   fetchFigmaScreenshot,
-  fetchNodeData,
-  fetchDesignVariables,
-  fetchIconSVG,
-  findIconNodes,
-  exploreNodesWithAI
+  fetchNodeData
 };
 
 export default figmaUtils;
