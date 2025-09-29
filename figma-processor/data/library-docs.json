@@ -5,7 +5,7 @@
       "type": "atom",
       "filePath": "elements/Avatar.tsx",
       "absolutePath": "/Users/angraimo/Work/design-to-content/nextjs-app/ui/elements/Avatar.tsx",
-      "lastModified": "2025-09-26T19:53:25.626Z",
+      "lastModified": "2025-09-26T21:49:10.090Z",
       "metadata": {},
       "interfaces": {
         "AvatarProps": {
@@ -46,7 +46,7 @@
       "type": "atom",
       "filePath": "elements/Badge.tsx",
       "absolutePath": "/Users/angraimo/Work/design-to-content/nextjs-app/ui/elements/Badge.tsx",
-      "lastModified": "2025-09-26T19:53:25.626Z",
+      "lastModified": "2025-09-26T21:49:10.091Z",
       "metadata": {},
       "interfaces": {
         "BadgeProps": {
@@ -87,7 +87,7 @@
       "type": "atom",
       "filePath": "elements/Button.tsx",
       "absolutePath": "/Users/angraimo/Work/design-to-content/nextjs-app/ui/elements/Button.tsx",
-      "lastModified": "2025-09-26T19:53:25.627Z",
+      "lastModified": "2025-09-26T21:49:10.091Z",
       "metadata": {},
       "interfaces": {
         "ButtonProps": {
@@ -140,7 +140,7 @@
       "type": "atom",
       "filePath": "elements/Checkbox.tsx",
       "absolutePath": "/Users/angraimo/Work/design-to-content/nextjs-app/ui/elements/Checkbox.tsx",
-      "lastModified": "2025-09-26T19:53:25.628Z",
+      "lastModified": "2025-09-26T21:49:10.091Z",
       "metadata": {},
       "interfaces": {
         "CheckboxProps": {
@@ -187,7 +187,7 @@
       "type": "atom",
       "filePath": "elements/Icon.tsx",
       "absolutePath": "/Users/angraimo/Work/design-to-content/nextjs-app/ui/elements/Icon.tsx",
-      "lastModified": "2025-09-26T19:53:25.628Z",
+      "lastModified": "2025-09-26T21:49:10.091Z",
       "metadata": {},
       "interfaces": {
         "IconProps": {
@@ -234,15 +234,15 @@
       "type": "atom",
       "filePath": "elements/Input.tsx",
       "absolutePath": "/Users/angraimo/Work/design-to-content/nextjs-app/ui/elements/Input.tsx",
-      "lastModified": "2025-09-26T19:53:25.628Z",
+      "lastModified": "2025-09-26T21:49:10.092Z",
       "metadata": {},
       "interfaces": {
         "InputProps": {
           "name": "InputProps",
           "properties": {
-            "size": {
-              "name": "size",
-              "type": "'sm' | 'md' | 'lg'",
+            "label": {
+              "name": "label",
+              "type": "string",
               "required": false,
               "description": null
             },
@@ -253,7 +253,7 @@
               "description": null
             }
           },
-          "raw": "interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {\n  size?: 'sm' | 'md' | 'lg';\n  className?: string;\n}"
+          "raw": "interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {\n  label?: string;\n  className?: string;\n}"
         }
       },
       "variants": {},
@@ -275,7 +275,7 @@
       "type": "atom",
       "filePath": "elements/Label.tsx",
       "absolutePath": "/Users/angraimo/Work/design-to-content/nextjs-app/ui/elements/Label.tsx",
-      "lastModified": "2025-09-26T19:53:25.629Z",
+      "lastModified": "2025-09-26T21:49:10.092Z",
       "metadata": {},
       "interfaces": {
         "LabelProps": {
@@ -316,7 +316,7 @@
       "type": "atom",
       "filePath": "elements/RadioButton.tsx",
       "absolutePath": "/Users/angraimo/Work/design-to-content/nextjs-app/ui/elements/RadioButton.tsx",
-      "lastModified": "2025-09-26T19:53:25.629Z",
+      "lastModified": "2025-09-26T21:49:10.092Z",
       "metadata": {},
       "interfaces": {
         "RadioButtonProps": {
@@ -359,7 +359,7 @@
       "type": "atom",
       "filePath": "elements/Slider.tsx",
       "absolutePath": "/Users/angraimo/Work/design-to-content/nextjs-app/ui/elements/Slider.tsx",
-      "lastModified": "2025-09-26T19:53:25.629Z",
+      "lastModified": "2025-09-26T21:49:10.093Z",
       "metadata": {},
       "interfaces": {
         "SliderProps": {
@@ -418,7 +418,7 @@
       "type": "atom",
       "filePath": "elements/Switch.tsx",
       "absolutePath": "/Users/angraimo/Work/design-to-content/nextjs-app/ui/elements/Switch.tsx",
-      "lastModified": "2025-09-26T19:53:25.630Z",
+      "lastModified": "2025-09-26T21:49:10.093Z",
       "metadata": {},
       "interfaces": {
         "SwitchProps": {
@@ -465,7 +465,7 @@
       "type": "atom",
       "filePath": "elements/Text.tsx",
       "absolutePath": "/Users/angraimo/Work/design-to-content/nextjs-app/ui/elements/Text.tsx",
-      "lastModified": "2025-09-26T19:53:25.630Z",
+      "lastModified": "2025-09-26T21:49:10.093Z",
       "metadata": {},
       "interfaces": {
         "TextProps": {
@@ -512,7 +512,7 @@
       "type": "atom",
       "filePath": "elements/TextInput.tsx",
       "absolutePath": "/Users/angraimo/Work/design-to-content/nextjs-app/ui/elements/TextInput.tsx",
-      "lastModified": "2025-09-26T19:53:25.631Z",
+      "lastModified": "2025-09-26T21:49:10.094Z",
       "metadata": {},
       "interfaces": {
         "TextInputProps": {
@@ -559,7 +559,7 @@
       "type": "atom",
       "filePath": "elements/Textarea.tsx",
       "absolutePath": "/Users/angraimo/Work/design-to-content/nextjs-app/ui/elements/Textarea.tsx",
-      "lastModified": "2025-09-26T19:53:25.631Z",
+      "lastModified": "2025-09-26T21:49:10.094Z",
       "metadata": {},
       "interfaces": {
         "TextareaProps": {
@@ -602,50 +602,44 @@
       "type": "molecule",
       "filePath": "components/ActionCard.tsx",
       "absolutePath": "/Users/angraimo/Work/design-to-content/nextjs-app/ui/components/ActionCard.tsx",
-      "lastModified": "2025-09-26T19:53:25.622Z",
+      "lastModified": "2025-09-26T21:49:10.085Z",
       "metadata": {},
       "interfaces": {
         "ActionCardProps": {
           "name": "ActionCardProps",
           "properties": {
-            "initials": {
-              "name": "initials",
+            "version": {
+              "name": "version",
               "type": "string",
               "required": true,
               "description": null
             },
-            "title": {
-              "name": "title",
-              "type": "string",
+            "status": {
+              "name": "status",
+              "type": "'info' | 'success' | 'warning' | 'error'",
               "required": true,
               "description": null
             },
-            "description": {
-              "name": "description",
-              "type": "string",
-              "required": true,
-              "description": null
-            },
-            "buttonText": {
-              "name": "buttonText",
-              "type": "string",
-              "required": true,
-              "description": null
-            },
-            "onButtonClick": {
-              "name": "onButtonClick",
+            "onActionClick": {
+              "name": "onActionClick",
               "type": "() => void",
+              "required": true,
+              "description": null
+            },
+            "actionLabel": {
+              "name": "actionLabel",
+              "type": "string",
               "required": true,
               "description": null
             }
           },
-          "raw": "interface ActionCardProps {\n  initials: string;\n  title: string;\n  description: string;\n  buttonText: string;\n  onButtonClick: () => void;\n}"
+          "raw": "interface ActionCardProps {\n  version: string;\n  status: 'info' | 'success' | 'warning' | 'error';\n  onActionClick: () => void;\n  actionLabel: string;\n}"
         }
       },
       "variants": {},
       "dependencies": {
         "internal": [
-          "@/ui/elements/Avatar",
+          "@/ui/elements/Badge",
           "@/ui/elements/Text",
           "@/ui/elements/Button"
         ],
@@ -653,7 +647,7 @@
           "react"
         ],
         "atoms": [
-          "Avatar",
+          "Badge",
           "Text",
           "Button"
         ],
@@ -670,7 +664,7 @@
       "type": "molecule",
       "filePath": "components/BreadcrumbNavigation.tsx",
       "absolutePath": "/Users/angraimo/Work/design-to-content/nextjs-app/ui/components/BreadcrumbNavigation.tsx",
-      "lastModified": "2025-09-26T19:53:25.622Z",
+      "lastModified": "2025-09-26T21:49:10.086Z",
       "metadata": {},
       "interfaces": {
         "BreadcrumbNavigationProps": {
@@ -678,12 +672,12 @@
           "properties": {
             "items": {
               "name": "items",
-              "type": "{ label: string",
+              "type": "{ label: string, href?: string",
               "required": true,
               "description": null
             }
           },
-          "raw": "interface BreadcrumbNavigationProps {\n  items: { label: string; href?: string }"
+          "raw": "interface BreadcrumbNavigationProps {\n  items: { label: string, href?: string }"
         }
       },
       "variants": {},
@@ -712,7 +706,7 @@
       "type": "molecule",
       "filePath": "components/ContactInformation.tsx",
       "absolutePath": "/Users/angraimo/Work/design-to-content/nextjs-app/ui/components/ContactInformation.tsx",
-      "lastModified": "2025-09-26T19:53:25.623Z",
+      "lastModified": "2025-09-26T21:49:10.087Z",
       "metadata": {},
       "interfaces": {
         "ContactInformationProps": {
@@ -786,7 +780,7 @@
       "type": "molecule",
       "filePath": "components/ContentCard.tsx",
       "absolutePath": "/Users/angraimo/Work/design-to-content/nextjs-app/ui/components/ContentCard.tsx",
-      "lastModified": "2025-09-26T19:53:25.623Z",
+      "lastModified": "2025-09-26T21:49:10.087Z",
       "metadata": {},
       "interfaces": {
         "ContentCardProps": {
@@ -848,7 +842,7 @@
       "type": "molecule",
       "filePath": "components/FormField.tsx",
       "absolutePath": "/Users/angraimo/Work/design-to-content/nextjs-app/ui/components/FormField.tsx",
-      "lastModified": "2025-09-26T19:53:25.624Z",
+      "lastModified": "2025-09-26T21:49:10.088Z",
       "metadata": {},
       "interfaces": {
         "FormFieldProps": {
@@ -860,28 +854,48 @@
               "required": true,
               "description": null
             },
-            "inputLabel": {
-              "name": "inputLabel",
+            "inputSize": {
+              "name": "inputSize",
+              "type": "'sm' | 'md' | 'lg'",
+              "required": false,
+              "description": null
+            },
+            "helperText": {
+              "name": "helperText",
               "type": "string",
+              "required": false,
+              "description": null
+            },
+            "inputValue": {
+              "name": "inputValue",
+              "type": "string",
+              "required": false,
+              "description": null
+            },
+            "onInputChange": {
+              "name": "onInputChange",
+              "type": "(value: string) => void",
               "required": false,
               "description": null
             }
           },
-          "raw": "interface FormFieldProps {\n  label: string;\n  inputLabel?: string;\n}"
+          "raw": "interface FormFieldProps {\n  label: string;\n  inputSize?: 'sm' | 'md' | 'lg';\n  helperText?: string;\n  inputValue?: string;\n  onInputChange?: (value: string) => void;\n}"
         }
       },
       "variants": {},
       "dependencies": {
         "internal": [
           "@/ui/elements/Label",
-          "@/ui/elements/Input"
+          "@/ui/elements/Input",
+          "@/ui/elements/Text"
         ],
         "external": [
           "react"
         ],
         "atoms": [
           "Label",
-          "Input"
+          "Input",
+          "Text"
         ],
         "utilities": []
       },
@@ -896,7 +910,7 @@
       "type": "molecule",
       "filePath": "components/InputWithLabel.tsx",
       "absolutePath": "/Users/angraimo/Work/design-to-content/nextjs-app/ui/components/InputWithLabel.tsx",
-      "lastModified": "2025-09-26T19:53:25.624Z",
+      "lastModified": "2025-09-26T21:49:10.088Z",
       "metadata": {},
       "interfaces": {
         "InputWithLabelProps": {
@@ -945,12 +959,54 @@
         "complexity": "simple"
       }
     },
+    "NavigationBar": {
+      "name": "NavigationBar",
+      "type": "molecule",
+      "filePath": "components/NavigationBar.tsx",
+      "absolutePath": "/Users/angraimo/Work/design-to-content/nextjs-app/ui/components/NavigationBar.tsx",
+      "lastModified": "2025-09-26T21:49:10.088Z",
+      "metadata": {},
+      "interfaces": {
+        "NavigationBarProps": {
+          "name": "NavigationBarProps",
+          "properties": {
+            "items": {
+              "name": "items",
+              "type": "{ label: string",
+              "required": true,
+              "description": null
+            }
+          },
+          "raw": "interface NavigationBarProps {\n  items: { label: string; active: boolean }"
+        }
+      },
+      "variants": {},
+      "dependencies": {
+        "internal": [
+          "@/ui/elements/Text",
+          "@/ui/elements/Button"
+        ],
+        "external": [
+          "react"
+        ],
+        "atoms": [
+          "Text",
+          "Button"
+        ],
+        "utilities": []
+      },
+      "examples": [],
+      "composition": {
+        "usesAtoms": [],
+        "complexity": "simple"
+      }
+    },
     "Pagination": {
       "name": "Pagination",
       "type": "molecule",
       "filePath": "components/Pagination.tsx",
       "absolutePath": "/Users/angraimo/Work/design-to-content/nextjs-app/ui/components/Pagination.tsx",
-      "lastModified": "2025-09-26T19:53:25.624Z",
+      "lastModified": "2025-09-26T21:49:10.089Z",
       "metadata": {},
       "interfaces": {
         "PaginationProps": {
@@ -1004,7 +1060,7 @@
       "type": "molecule",
       "filePath": "components/ProfileCard.tsx",
       "absolutePath": "/Users/angraimo/Work/design-to-content/nextjs-app/ui/components/ProfileCard.tsx",
-      "lastModified": "2025-09-26T19:53:25.625Z",
+      "lastModified": "2025-09-26T21:49:10.089Z",
       "metadata": {},
       "interfaces": {
         "ProfileCardProps": {
@@ -1022,14 +1078,20 @@
               "required": true,
               "description": null
             },
-            "status": {
-              "name": "status",
-              "type": "'info' | 'success' | 'warning' | 'error'",
+            "onFollow": {
+              "name": "onFollow",
+              "type": "() => void",
+              "required": true,
+              "description": null
+            },
+            "isFollowing": {
+              "name": "isFollowing",
+              "type": "boolean",
               "required": true,
               "description": null
             }
           },
-          "raw": "interface ProfileCardProps {\n  initials: string;\n  name: string;\n  status: 'info' | 'success' | 'warning' | 'error';\n}"
+          "raw": "interface ProfileCardProps {\n  initials: string;\n  name: string;\n  onFollow: () => void;\n  isFollowing: boolean;\n}"
         }
       },
       "variants": {},
@@ -1037,7 +1099,7 @@
         "internal": [
           "@/ui/elements/Avatar",
           "@/ui/elements/Text",
-          "@/ui/elements/Badge"
+          "@/ui/elements/Button"
         ],
         "external": [
           "react"
@@ -1045,7 +1107,7 @@
         "atoms": [
           "Avatar",
           "Text",
-          "Badge"
+          "Button"
         ],
         "utilities": []
       },
@@ -1060,7 +1122,7 @@
       "type": "molecule",
       "filePath": "components/SearchBar.tsx",
       "absolutePath": "/Users/angraimo/Work/design-to-content/nextjs-app/ui/components/SearchBar.tsx",
-      "lastModified": "2025-09-26T19:53:25.625Z",
+      "lastModified": "2025-09-26T21:49:10.089Z",
       "metadata": {},
       "interfaces": {
         "SearchBarProps": {
@@ -1108,13 +1170,67 @@
         "usesAtoms": [],
         "complexity": "simple"
       }
+    },
+    "SearchComponent": {
+      "name": "SearchComponent",
+      "type": "molecule",
+      "filePath": "components/SearchComponent.tsx",
+      "absolutePath": "/Users/angraimo/Work/design-to-content/nextjs-app/ui/components/SearchComponent.tsx",
+      "lastModified": "2025-09-26T21:49:10.090Z",
+      "metadata": {},
+      "interfaces": {
+        "SearchComponentProps": {
+          "name": "SearchComponentProps",
+          "properties": {
+            "placeholder": {
+              "name": "placeholder",
+              "type": "string",
+              "required": false,
+              "description": null
+            },
+            "buttonText": {
+              "name": "buttonText",
+              "type": "string",
+              "required": false,
+              "description": null
+            },
+            "onSearch": {
+              "name": "onSearch",
+              "type": "(query: string) => void",
+              "required": false,
+              "description": null
+            }
+          },
+          "raw": "interface SearchComponentProps {\n  placeholder?: string;\n  buttonText?: string;\n  onSearch?: (query: string) => void;\n}"
+        }
+      },
+      "variants": {},
+      "dependencies": {
+        "internal": [
+          "@/ui/elements/Input",
+          "@/ui/elements/Button"
+        ],
+        "external": [
+          "react"
+        ],
+        "atoms": [
+          "Input",
+          "Button"
+        ],
+        "utilities": []
+      },
+      "examples": [],
+      "composition": {
+        "usesAtoms": [],
+        "complexity": "simple"
+      }
     }
   },
-  "lastUpdated": "2025-09-26T19:53:25.621Z",
+  "lastUpdated": "2025-09-26T21:49:10.085Z",
   "version": "1.0.0",
   "summary": {
     "totalAtoms": 13,
-    "totalMolecules": 9,
-    "lastScan": "2025-09-26T19:53:25.622Z"
+    "totalMolecules": 11,
+    "lastScan": "2025-09-26T21:49:10.085Z"
   }
 }

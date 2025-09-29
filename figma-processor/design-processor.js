@@ -10,6 +10,7 @@ import "dotenv/config";
 import { analyzeScreenshot } from './utils/engines/visual-analysis-engine.js';
 import { parseFigmaUrl, fetchFigmaScreenshot, fetchNodeData } from './utils/figma-utils.js';
 import { routeComponentGeneration } from './generators/ai-generation-router.js';
+import { auditGeneratedComponents } from './audit-engine.js';
 import { writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -32,6 +33,35 @@ export const processDesignToCode = async (input, context = {}) => {
     const visualAnalysis = await analyzeScreenshot(screenshotPath, { ...context, figmaData });
 
     const generationResult = await routeComponentGeneration(visualAnalysis, figmaData);
+
+    // Optional AI audit step
+    let auditResult = null;
+    if (context.enableAudit) {
+      console.log('\n🔍 AI AUDIT SYSTEM');
+      console.log('=' .repeat(30));
+
+      try {
+        const auditConfig = {
+          enableTypeScriptValidation: context.auditConfig?.enableTypeScriptValidation !== false,
+          enableStructureAnalysis: context.auditConfig?.enableStructureAnalysis !== false,
+          enableAIAnalysis: context.auditConfig?.enableAIAnalysis || false,
+          maxCostPerComponent: context.auditConfig?.maxCostPerComponent || 0.50
+        };
+
+        auditResult = await auditGeneratedComponents(generationResult.components, figmaData, auditConfig);
+
+        if (auditResult.overallSuccess) {
+          console.log('✅ Audit completed successfully');
+        } else {
+          console.warn('⚠️ Audit found issues, but components were generated');
+        }
+
+      } catch (auditError) {
+        console.warn('⚠️ Audit failed, continuing with original components:', auditError.message);
+        auditResult = { error: auditError.message, overallSuccess: false };
+      }
+    }
+
     const endTime = Date.now();
     const duration = endTime - startTime;
     const durationSeconds = (duration / 1000).toFixed(2);
@@ -76,6 +106,7 @@ export const processDesignToCode = async (input, context = {}) => {
       components: components,
       strategy: generationResult.strategy,
       stats: generationResult.stats,
+      auditResult,
       status: 'completed',
       duration: durationSeconds,
       startTime: new Date(startTime).toISOString(),
@@ -152,14 +183,76 @@ const saveProcessingReport = async (report) => {
  * Test with the design system screenshot
  */
 export const testWithDesignSystem = async () => {
-  const screenshotPath = join(__dirname, 'data', 'screenshots', '29-1058.png');
+  const screenshotPath = join(__dirname, 'data', 'screenshots', '33-3174.png');
 
   const context = {
     projectType: 'design-system',
-    purpose: 'Generate React components from comprehensive design system'
+    purpose: 'Generate React components from comprehensive design system',
+    enableAudit: true,
+    auditConfig: {
+      enableTypeScriptValidation: true,
+      enableStructureAnalysis: true,
+      enableAIAnalysis: true,
+      maxCostPerComponent: 1.50
+    }
   };
 
   return await processDesignToCode(screenshotPath, context);
+};
+
+/**
+ * Test audit functionality with existing UI components
+ */
+export const testAuditWithExistingComponents = async () => {
+  console.log('🧪 Testing Audit with Existing UI Components');
+  console.log('=' .repeat(50));
+
+  const { auditGeneratedComponents } = await import('./audit-engine.js');
+
+  // Mock components that represent the UI components
+  const mockComponents = [
+    {
+      name: 'Label',
+      path: join(__dirname, '..', 'nextjs-app', 'ui', 'elements', 'Label.tsx'),
+      fullPath: join(__dirname, '..', 'nextjs-app', 'ui', 'elements', 'Label.tsx')
+    },
+    {
+      name: 'Button',
+      path: join(__dirname, '..', 'nextjs-app', 'ui', 'elements', 'Button.tsx'),
+      fullPath: join(__dirname, '..', 'nextjs-app', 'ui', 'elements', 'Button.tsx')
+    },
+    {
+      name: 'TextInput',
+      path: join(__dirname, '..', 'nextjs-app', 'ui', 'elements', 'TextInput.tsx'),
+      fullPath: join(__dirname, '..', 'nextjs-app', 'ui', 'elements', 'TextInput.tsx')
+    }
+  ];
+
+  const auditConfig = {
+    enableTypeScriptValidation: true,
+    enableStructureAnalysis: true,
+    enableAIAnalysis: false, // Keep costs low for testing
+    enableOverlapDetection: false
+  };
+
+  console.log('\n🔍 AI AUDIT SYSTEM');
+  console.log('=' .repeat(30));
+
+  try {
+    const auditResult = await auditGeneratedComponents(mockComponents, null, auditConfig);
+
+    if (auditResult.overallSuccess) {
+      console.log('✅ Audit completed successfully');
+    } else {
+      console.warn('⚠️ Audit found issues, but components were audited');
+    }
+
+    return { auditResult, mockComponents };
+
+  } catch (auditError) {
+    console.warn('⚠️ Audit failed:', auditError.message);
+    return { error: auditError.message, mockComponents };
+  }
 };
 
 /**

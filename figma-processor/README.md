@@ -1,252 +1,266 @@
-# Visual-First Component Generator
+# Figma Processor - AI-Powered Design-to-Code System
 
-Transform any Figma design or screenshot into production-ready React components using **visual intelligence**. Simple, fast, and effective.
+## Overview
 
-## What This Does
+The Figma Processor is an intelligent design-to-code generation system that transforms Figma designs and screenshots into production-ready React components using advanced AI visual analysis and code generation. It employs a visual-first architecture where AI models analyze UI designs, identify components, and generate TypeScript React code with Tailwind CSS styling.
 
-Point this tool at any UI design (Figma URL or screenshot) and get complete TypeScript React components with:
+## Core Architecture
 
-- **All visual variants** identified automatically
-- **Proper TypeScript interfaces**
-- **Tailwind CSS styling**
-- **Atomic design classification** (atoms/molecules/organisms)
-- **Production-ready code** saved to your project
+### Processing Pipeline
 
-## Quick Start
+The system follows a sophisticated multi-stage processing pipeline:
 
-### 1. Setup
-
-```bash
-cd figma-processor
-npm install
-
-# Required: OpenAI API key
-export OPENAI_API_KEY="your-openai-api-key"
-
-# Optional: For Figma integration
-export FIGMA_ACCESS_TOKEN="your-figma-token"
+```
+1. Visual Input → 2. AI Visual Analysis → 3. Component Routing → 4. Code Generation → 5. Validation & Audit → 6. Output
 ```
 
-### 2. Run
+### Key Components
+
+#### 1. **Design Processor** (`design-processor.js`)
+The main orchestrator that coordinates the entire processing workflow:
+- Accepts Figma URLs or local screenshot paths as input
+- Manages the processing pipeline from visual analysis to component generation
+- Handles session tracking and reporting
+- Provides CLI interface for different processing modes
+
+#### 2. **Visual Analysis Engine** (`utils/engines/visual-analysis-engine.js`)
+Leverages OpenAI's GPT-4 Vision model for intelligent UI analysis:
+- Performs comprehensive visual analysis of screenshots
+- Identifies UI components, variants, and visual patterns
+- Determines component boundaries and hierarchies
+- Outputs structured analysis for downstream processing
+
+#### 3. **AI Generation Router** (`generators/ai-generation-router.js`)
+Intelligent routing system that determines optimal generation strategy:
+- Analyzes visual complexity to choose generation approach
+- Routes between three strategies:
+  - **ATOM_GENERATION**: For simple, reusable UI elements
+  - **MOLECULE_GENERATION**: For composed components
+  - **MIXED_GENERATION**: Combines both approaches
+- Maintains debug logging for transparency
+
+#### 4. **Component Generators**
+Specialized generators for different component types:
+
+- **Atom Generator** (`generators/atom-generator.js`): Creates basic UI elements (buttons, inputs, badges)
+- **Molecule Generator** (`generators/molecule-generator.js`): Builds composed components using existing atoms
+- **Generation Common** (`generators/generation-common.js`): Shared utilities for code generation
+
+#### 5. **Audit Engine** (`audit-engine.js`)
+Quality assurance system for generated components:
+- TypeScript validation using ts-morph
+- Component structure analysis
+- Optional AI-powered code review
+- Overlap detection between components
+
+### Supporting Systems
+
+#### Figma Integration (`utils/figma-utils.js`)
+- Parses Figma URLs to extract file keys and node IDs
+- Fetches screenshots via Figma API
+- Retrieves node data for precise measurements
+- Handles various Figma URL formats
+
+#### Library Management
+- **Library Documentation** (`utils/library-doc.js`): Maintains component library documentation
+- **Dependency Registry** (`utils/dependency-registry.js`): Tracks atom-molecule relationships
+- **Atom Context** (`utils/atom-context.js`): Manages atom component context
+
+#### OpenAI Integration (`utils/openai-utils.js`)
+- Manages OpenAI API interactions
+- Handles prompt engineering
+- Provides token optimization
+
+## Data Flow Architecture
+
+### Input Processing
+1. **Figma URL Input**: URL → Parse → Fetch Screenshot → Fetch Node Data
+2. **Local Screenshot**: Direct file path processing
+
+### Analysis Phase
+1. Visual analysis using GPT-4 Vision
+2. Component identification and classification
+3. Variant detection and relationship mapping
+
+### Generation Phase
+1. AI router determines strategy based on complexity
+2. Appropriate generator creates TypeScript React code
+3. Components use Tailwind CSS for styling
+4. TypeScript interfaces ensure type safety
+
+### Output Structure
+```
+nextjs-app/ui/
+├── elements/      # Atomic components (Button, Input, Badge)
+├── components/    # Molecular components (SearchForm, LoginCard)
+└── modules/       # Complex organisms (Dashboard, Navigation)
+```
+
+## Technology Stack
+
+### Core Technologies
+- **Node.js v18+**: Runtime environment (ES modules)
+- **TypeScript**: Type-safe component generation
+- **React**: Target framework for generated components
+- **Tailwind CSS**: Utility-first CSS framework
+
+### AI/ML Tools
+- **OpenAI GPT-4 Vision**: Visual analysis and component identification
+- **OpenAI GPT-4**: Code generation and routing decisions
+- **Custom prompts**: Specialized for UI component generation
+
+### Development Tools
+- **ts-morph**: TypeScript AST manipulation and validation
+- **dotenv**: Environment configuration
+- **node-fetch**: HTTP requests for API interactions
+
+## Processing Methods
+
+### Visual-First Approach
+The system prioritizes visual analysis over structural data:
+1. Screenshots provide the primary source of truth
+2. AI vision models identify components visually
+3. Figma node data supplements with precise measurements
+4. Visual patterns drive component generation
+
+### Intelligent Component Classification
+Components are classified using atomic design principles:
+- **Atoms**: Basic UI elements (buttons, inputs, labels)
+- **Molecules**: Composed components using atoms
+- **Organisms**: Complex layouts and modules
+
+### Deduplication & Dependency Management
+- Prevents regeneration of existing components
+- Tracks atom usage in molecules
+- Maintains component relationships
+- Updates registry on each generation run
+
+## Installation & Setup
+
+```bash
+# Clone repository
+git clone <repository-url>
+cd figma-processor
+
+# Install dependencies
+npm install
+
+# Configure environment
+export OPENAI_API_KEY="your-openai-api-key"
+export FIGMA_ACCESS_TOKEN="your-figma-token" # Optional
+```
+
+## Usage
+
+### CLI Commands
 
 ```bash
 # Test with included design system
 node design-processor.js test
 
-# Process your Figma URL
-node design-processor.js process "https://figma.com/design/abc123?node-id=1:2"
+# Process Figma design
+node design-processor.js process "https://figma.com/design/FILE_KEY?node-id=NODE_ID"
 
 # Process local screenshot
 node design-processor.js process ./path/to/screenshot.png
 ```
 
-### 3. Results
+### Programmatic Usage
 
-Components are automatically saved to:
+```javascript
+import { processDesignToCode } from './design-processor.js';
+
+const result = await processDesignToCode(input, {
+  projectType: 'design-system',
+  enableAudit: true,
+  auditConfig: {
+    enableTypeScriptValidation: true,
+    enableStructureAnalysis: true,
+    enableAIAnalysis: false
+  }
+});
 ```
-nextjs-app/ui/
-├── elements/      # Buttons, inputs, badges
-├── components/    # Cards, form groups
-└── modules/       # Complex layouts
-```
-
-## Example Output
-
-```bash
-✅ PROCESSING COMPLETE!
-⏱️  Total time: 8.42s
-Strategy Used: ATOM_GENERATION
-Generated 10 components:
-  📦 Atoms: 8
-  🧩 Molecules: 2
-  • Button → nextjs-app/ui/elements/Button.tsx
-  • TextInput → nextjs-app/ui/elements/TextInput.tsx
-  • Checkbox → nextjs-app/ui/elements/Checkbox.tsx
-  • Switch → nextjs-app/ui/elements/Switch.tsx
-  • Badge → nextjs-app/ui/elements/Badge.tsx
-  • SearchForm → nextjs-app/ui/components/SearchForm.tsx
-  • LoginCard → nextjs-app/ui/components/LoginCard.tsx
-```
-
-## Generated Component Example
-
-```typescript
-import { cn } from '@/lib/utils';
-
-interface ButtonProps {
-  variant?: 'default' | 'secondary' | 'destructive' | 'outline' | 'ghost' | 'link';
-  size?: 'sm' | 'md' | 'lg';
-  disabled?: boolean;
-  children?: React.ReactNode;
-  className?: string;
-  onClick?: () => void;
-}
-
-export function Button({
-  variant = 'default',
-  size = 'md',
-  disabled = false,
-  className,
-  children,
-  onClick,
-  ...props
-}: ButtonProps) {
-  return (
-    <button
-      className={cn(
-        "px-4 py-2 rounded transition-colors",
-        {
-          "bg-blue-500 text-white hover:bg-blue-600": variant === 'default',
-          "bg-gray-500 text-white hover:bg-gray-600": variant === 'secondary',
-          "bg-red-500 text-white hover:bg-red-600": variant === 'destructive',
-          "border border-gray-300 bg-transparent hover:bg-gray-50": variant === 'outline',
-          "bg-transparent text-gray-600 hover:bg-gray-100": variant === 'ghost',
-          "text-blue-500 underline hover:no-underline": variant === 'link',
-          "text-sm px-3 py-1.5": size === 'sm',
-          "text-base px-4 py-2": size === 'md',
-          "text-lg px-6 py-3": size === 'lg',
-          "opacity-50 cursor-not-allowed": disabled,
-        },
-        className
-      )}
-      disabled={disabled}
-      onClick={onClick}
-      {...props}
-    >
-      {children}
-    </button>
-  );
-}
-```
-
-## How It Works
-
-**AI-Driven Generation Process:**
-
-1. **📸 Screenshot**: Get visual representation from Figma or local file
-2. **🔍 AI Analysis**: GPT-4o Vision identifies all components and variants
-3. **🤖 Smart Routing**: AI decides optimal generation strategy (atoms vs molecules vs mixed)
-4. **⚡ Generate**: Specialized generators create components with library awareness
-5. **🔗 Track Dependencies**: System tracks molecule-atom relationships
-6. **💾 Save**: Components saved intelligently, avoiding duplicates
-
-**Key Features:**
-
-- **AI-Driven Strategy**: Intelligent routing between atom, molecule, and mixed generation
-- **Component Deduplication**: Won't regenerate existing components unless improvements detected
-- **Dependency Tracking**: Prevents breaking changes when updating atoms used by molecules
-- **Library Awareness**: Scans existing components and builds on them intelligently
-- **Figma Integration**: Direct URL processing with exact measurements
-- **Production Ready**: Complete TypeScript + Tailwind components with proper interfaces
-
-## Requirements
-
-- **Node.js** v18+
-- **OpenAI API Key** with GPT-4 access
-- **Figma Access Token** (optional, for Figma URLs)
 
 ## Configuration
 
-The system is controlled through AI prompts embedded in the generators:
+### Environment Variables
+- `OPENAI_API_KEY`: Required for AI processing
+- `FIGMA_ACCESS_TOKEN`: Required for Figma URL processing
 
-- **Visual Analysis**: Prompts in `utils/engines/visual-analysis-engine.js`
-- **Atom Generation**: Prompts in `generators/atom-generator.js`
-- **Molecule Generation**: Prompts in `generators/molecule-generator.js`
-- **AI Routing**: Decision prompts in `generators/ai-generation-router.js`
-
-## Troubleshooting
-
-**"OpenAI API error"**
-- Verify `OPENAI_API_KEY` is set and has GPT-4 access
-
-**"Figma API error"**
-- Check `FIGMA_ACCESS_TOKEN` is valid
-- Ensure you have access to the Figma file
-- Verify URL format: `https://figma.com/design/FILE-KEY?node-id=NODE-ID`
-
-**"No components generated"**
-- Ensure screenshot contains clear UI components
-- Try with a simpler design first
-- Check OpenAI API status
-
-## Data Folder Structure
-
-The `figma-processor/data/` folder contains all generated files and caches organized by purpose:
-
-### 📁 Core Data Files
-
-**`library-docs.json`** 🔄 *Auto-regenerated*
-- **Purpose**: Component library documentation cache
-- **Content**: All atoms/molecules with interfaces, variants, dependencies
-- **Usage**: Regenerated on each AI generation run for intelligent component deduplication
-- **Format**: Structured JSON with component metadata, TypeScript interfaces, usage examples
-
-**`dependency-registry.json`** 🔄 *Auto-regenerated*
-- **Purpose**: Tracks which molecules use which atoms
-- **Content**: Atom usage mapping and molecule dependency tracking
-- **Usage**: Prevents breaking changes when updating atoms used by existing molecules
-- **Regeneration**: Automatically synced with component files on each run
-
-### 📁 Process Data Folders
-
-**`screenshots/`**
-- **Purpose**: Figma design exports and local images for processing
-- **Content**: PNG files from Figma API or user uploads
-- **Cleanup**: Contains working images, safe to clean periodically
-
-**`self-review-reports/`**
-- **Purpose**: AI-generated quality assessments of generated components
-- **Content**: JSON reports with component analysis, recommendations, quality scores
-- **Usage**: Post-generation validation and improvement suggestions
-
-**`analysis/`**
-- **Purpose**: Visual analysis results and development artifacts
-- **Content**: Cached AI analysis outputs from processing runs
-- **Cleanup**: Development cache, can be cleaned periodically
-
-### 🧹 Maintenance Commands
-
-```bash
-# Clean old analysis cache (optional)
-rm -rf data/analysis/*
-
-# Clean old screenshots (optional)
-find data/screenshots -name "*.png" -mtime +7 -delete  # Remove screenshots older than 7 days
-
-# Clean old self-review reports (optional)
-find data/self-review-reports -name "*.json" -mtime +30 -delete  # Remove reports older than 30 days
+### Processing Context Options
+```javascript
+{
+  projectType: 'design-system',        // Project context
+  purpose: 'Generate React components', // Generation purpose
+  enableAudit: true,                   // Enable component auditing
+  auditConfig: {
+    enableTypeScriptValidation: true,  // Validate TypeScript
+    enableStructureAnalysis: true,     // Analyze structure
+    enableAIAnalysis: false,           // AI-powered review
+    maxCostPerComponent: 0.50         // Cost limit per component
+  }
+}
 ```
 
-### 📊 Data Regeneration
+## Data Management
 
-Core data files regenerate automatically on each generation run:
-- **`library-docs.json`**: Scans all components in `nextjs-app/ui/`
-- **`dependency-registry.json`**: Rebuilds from actual component imports
+### Generated Files
+- `data/screenshots/`: Figma exports and processed images
+- `data/reports/`: Processing session reports
+- `data/analysis/`: Visual analysis cache
+- `data/debug/`: Debug logs for troubleshooting
 
-## Architecture
+### Registry Files
+- `data/library-docs.json`: Component library documentation
+- `data/dependency-registry.json`: Component dependency tracking
 
-**AI-Driven Generation System:**
-```
-generators/
-├── ai-generation-router.js     # Intelligent strategy routing
-├── atom-generator.js           # Simple component generation
-└── molecule-generator.js       # Composed component generation
+Both registry files are automatically regenerated on each processing run to maintain consistency.
 
-utils/
-├── library-doc.js             # Component documentation engine
-├── dependency-registry.js     # Molecule-atom dependency tracking
-└── figma-utils.js             # Figma API integration
-```
+## Performance Characteristics
 
-**Data Flow:**
-```
-Input → Screenshot → AI Analysis → Smart Routing → Generate → Save → Update Registry
-```
+### Processing Times
+- Visual analysis: 2-4 seconds per screenshot
+- Component generation: 1-2 seconds per component
+- Total pipeline: 8-15 seconds for typical design system
+
+### Resource Usage
+- Memory: ~200-500MB during processing
+- API calls: 2-5 OpenAI requests per processing session
+- Storage: ~10-50KB per generated component
+
+## Error Handling
+
+The system implements comprehensive error handling:
+- Graceful API failure recovery
+- Detailed error reporting
+- Session state preservation
+- Fallback strategies for component generation
+
+## Extensibility
+
+### Adding New Generators
+1. Create generator in `generators/` directory
+2. Implement generation interface
+3. Register in AI routing system
+4. Update generation strategies
+
+### Custom Processing Steps
+1. Modify `design-processor.js` pipeline
+2. Add new utility functions in `utils/`
+3. Update audit configurations
+
+## Best Practices
+
+1. **Use high-quality screenshots** for better component detection
+2. **Process atomic components first** to build library foundation
+3. **Enable auditing** for production-ready code
+4. **Review generated code** before integration
+5. **Maintain registry files** for dependency tracking
 
 ## License
 
-MIT - Use freely for any project.
+MIT License - Open source for commercial and non-commercial use.
 
 ---
 
-**From design to code in seconds. Visual intelligence meets functional simplicity.**
+**Built with AI-driven visual intelligence for rapid UI development**
