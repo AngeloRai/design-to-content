@@ -1,0 +1,26 @@
+{
+  "name": "figma-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP Server for Figma + OpenAI Integration",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "client": "node client.js",
+    "process": "node client.js",
+    "test:openai": "node test-openai.js",
+    "test:discovery": "node test-atoms-discovery.js",
+    "test:vision": "node vision-comparison/test-gpt4-vision.js",
+    "test:visual-first": "node test-visual-first-system.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "node-fetch": "^3.3.2",
+    "openai": "^4.24.1",
+    "ts-morph": "^27.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
