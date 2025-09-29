@@ -52,6 +52,7 @@
     - Server components are preferred for better performance and SEO
     - Use proper naming: PascalCase for React components, camelCase for utilities/classes
     - Non-React files (utilities, classes, types) should use camelCase naming
+    - **Prefer Functional Logic**: Use functional React components, hooks, and pure utility functions over class-based components or inheritance patterns unless a compelling, documented reason exists (e.g., integrating with a legacy API). Functional patterns improve composability, testability, and reduce hidden state.
  
 ## Documentation
 14. **Update Documentation**:
@@ -89,3 +90,4 @@
 - **Preserve stability**: Never risk breaking working code for minor improvements
 - **Be thorough**: Complete investigation before implementing fixes
 - **Stay focused**: Only work on the assigned task, note other issues for later
+ - **Favor functional patterns**: When in doubt, default to pure functions, composition, and hooks rather than classes or deep inheritance.
