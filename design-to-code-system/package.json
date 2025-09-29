@@ -1,0 +1,35 @@
+{
+  "name": "design-to-content-langgraph",
+  "version": "1.0.0",
+  "description": "LangGraph-powered design-to-code generation system",
+  "type": "module",
+  "main": "langgraph-workflow/index.js",
+  "scripts": {
+    "test": "npm run test:workflow",
+    "test:workflow": "node --test langgraph-workflow/test/*.test.js",
+    "test:basic": "node langgraph-workflow/test/workflow.test.js",
+    "test:state": "node langgraph-workflow/test/state.test.js",
+    "test:models": "node langgraph-workflow/test/model-selector.test.js",
+    "test:costs": "node langgraph-workflow/test/cost-tracker.test.js",
+    "dev": "node --watch langgraph-workflow/index.js",
+    "build": "tsc",
+    "figma:process": "node ../figma-processor/design-processor.js"
+  },
+  "dependencies": {
+    "@langchain/langgraph": "^0.4.9",
+    "@langchain/openai": "^0.4.6",
+    "@langchain/anthropic": "^0.3.28",
+    "zod": "^3.25.76",
+    "dotenv": "^16.3.1",
+    "openai": "^4.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.3",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.20.5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
