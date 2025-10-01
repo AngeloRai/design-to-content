@@ -8,7 +8,7 @@
  */
 
 import { generateReport } from '../utils/report-generator.js';
-import { generateShowcasePage } from '../utils/showcase-generator.js';
+import { generateStories } from '../utils/storybook-generator.js';
 import path from 'path';
 
 export const finalizerNode = async (state) => {
@@ -68,18 +68,21 @@ export const finalizerNode = async (state) => {
       console.log(`   - Component Inventory: ${reportResult.inventoryPath}`);
       console.log(`   - Total size: ${((reportResult.markdownSize + reportResult.jsonSize + reportResult.inventorySize) / 1024).toFixed(2)} KB`);
 
-      // Generate UI showcase page from inventory
-      let showcaseResult = null;
+      // Generate Storybook stories from inventory
+      let storiesResult = null;
       try {
-        const showcasePath = path.join(process.cwd(), 'nextjs-app', 'app', 'ui-showcase', 'page.tsx');
-        showcaseResult = await generateShowcasePage(reportResult.inventoryPath, showcasePath);
+        const storiesDir = path.join(process.cwd(), 'storybook-app', 'stories');
+        storiesResult = await generateStories(reportResult.inventoryPath, storiesDir);
 
-        console.log(`\n🎨 UI Showcase page generated:`);
-        console.log(`   - Path: ${showcaseResult.path}`);
-        console.log(`   - Components: ${showcaseResult.componentsCount}`);
-        console.log(`   - Size: ${(showcaseResult.size / 1024).toFixed(2)} KB`);
-      } catch (showcaseError) {
-        console.warn(`⚠️  Failed to generate showcase page: ${showcaseError.message}`);
+        console.log(`\n📚 Storybook stories generated:`);
+        console.log(`   - Total: ${storiesResult.totalGenerated} stories`);
+        console.log(`   - Errors: ${storiesResult.totalErrors}`);
+
+        if (storiesResult.generated.length > 0) {
+          console.log(`   - Categories: ${[...new Set(storiesResult.generated.map(s => s.category))].join(', ')}`);
+        }
+      } catch (storiesError) {
+        console.warn(`⚠️  Failed to generate stories: ${storiesError.message}`);
       }
 
       return {
@@ -88,7 +91,7 @@ export const finalizerNode = async (state) => {
           markdown: reportResult.markdownPath,
           json: reportResult.jsonPath,
           inventory: reportResult.inventoryPath,
-          showcase: showcaseResult?.path
+          storiesDir: storiesResult ? path.join(process.cwd(), 'storybook-app', 'stories') : null
         }
       };
     } catch (reportError) {

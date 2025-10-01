@@ -1,0 +1,28 @@
+{
+  "name": "storybook-app",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@chromatic-com/storybook": "^4.1.1",
+    "@storybook/addon-a11y": "^9.1.10",
+    "@storybook/addon-docs": "^9.1.10",
+    "@storybook/addon-onboarding": "^9.1.10",
+    "@storybook/addon-vitest": "^9.1.10",
+    "@storybook/nextjs": "^9.1.10",
+    "eslint-plugin-storybook": "^9.1.10",
+    "storybook": "^9.1.10"
+  },
+  "dependencies": {
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  }
+}
