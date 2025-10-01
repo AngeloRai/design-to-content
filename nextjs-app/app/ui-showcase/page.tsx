@@ -4,29 +4,29 @@
  * Auto-generated from component inventory
  * Displays all available UI components with examples
  *
- * Generated: 2025-10-01T15:33:39.502Z
- * Total Components: 19
+ * Generated: 2025-10-01T15:39:25.908Z
+ * Total Components: 17
  */
 
 import Link from 'next/link';
 
-import Badge from '@/ui/elements/Badge';
-import Button from '@/ui/elements/Button';
-import IconButton from '@/ui/elements/IconButton';
-import PlayButton from '@/ui/elements/PlayButton';
-import Card from '@/ui/components/Card';
-import ChatBar from '@/ui/components/ChatBar';
-import ChatButton from '@/ui/components/ChatButton';
-import CloseIcon from '@/ui/icons/CloseIcon';
-import Frame633719Icon from '@/ui/icons/Frame633719Icon';
-import LongArrowIcon from '@/ui/icons/LongArrowIcon';
-import NounPaint1539578Icon from '@/ui/icons/NounPaint1539578Icon';
-import PhchatIcon from '@/ui/icons/PhchatIcon';
-import PlayIcon from '@/ui/icons/PlayIcon';
-import Property1secondaryCtaIconLeftIcon from '@/ui/icons/Property1secondaryCtaIconLeftIcon';
-import UnionIcon from '@/ui/icons/UnionIcon';
-import Vector53Icon from '@/ui/icons/Vector53Icon';
-import VectorstrokeIcon from '@/ui/icons/VectorstrokeIcon';
+import { Badge } from '@/ui/elements/Badge';
+import { Button } from '@/ui/elements/Button';
+import { IconButton } from '@/ui/elements/IconButton';
+import { PlayButton } from '@/ui/elements/PlayButton';
+import { Card } from '@/ui/components/Card';
+import { ChatBar } from '@/ui/components/ChatBar';
+import { ChatButton } from '@/ui/components/ChatButton';
+import { CloseIcon } from '@/ui/icons/CloseIcon';
+import { Frame633719Icon } from '@/ui/icons/Frame633719Icon';
+import { LongArrowIcon } from '@/ui/icons/LongArrowIcon';
+import { NounPaint1539578Icon } from '@/ui/icons/NounPaint1539578Icon';
+import { PhchatIcon } from '@/ui/icons/PhchatIcon';
+import { PlayIcon } from '@/ui/icons/PlayIcon';
+import { Property1secondaryCtaIconLeftIcon } from '@/ui/icons/Property1secondaryCtaIconLeftIcon';
+import { UnionIcon } from '@/ui/icons/UnionIcon';
+import { Vector53Icon } from '@/ui/icons/Vector53Icon';
+import { VectorstrokeIcon } from '@/ui/icons/VectorstrokeIcon';
 
 export default function UIShowcasePage() {
   return (
@@ -36,7 +36,7 @@ export default function UIShowcasePage() {
         <header className="mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">UI Component Library</h1>
           <p className="text-gray-600">
-            Showcasing 19 components: 6 elements, 3 components, 0 modules, 10 icons
+            Showcasing 17 components: 4 elements, 3 components, 0 modules, 10 icons
           </p>
           <p className="text-sm text-gray-500 mt-2">
             Last updated: {new Date().toLocaleDateString()} at {new Date().toLocaleTimeString()}
@@ -110,11 +110,13 @@ export default function UIShowcasePage() {
               <h4 className="font-semibold text-sm text-gray-700 mb-2">Props:</h4>
               <ul className="text-xs text-gray-600 space-y-1">
                 <li><code className="bg-white px-1 py-0.5 rounded">of</code>: <span className="text-gray-500">'solid-black'</span> <span className="text-red-500">*required</span></li>
-                <li><code className="bg-white px-1 py-0.5 rounded">variant</code>: <span className="text-gray-500">'solid-black' | 'solid-white' | 'outline-black' | 'outline-white'</span> <span className="text-red-500">*required</span></li>
+                <li><code className="bg-white px-1 py-0.5 rounded">variant</code>: <span className="text-gray-500">'solid-black' | 'solid-white' | 'outline-black' | 'outline-white' | 'customize'</span> <span className="text-red-500">*required</span></li>
                 <li><code className="bg-white px-1 py-0.5 rounded">iconPosition</code>: <span className="text-gray-500">'icon-left' | 'icon-right'</span></li>
                 <li><code className="bg-white px-1 py-0.5 rounded">of</code>: <span className="text-gray-500">'default'</span> <span className="text-red-500">*required</span></li>
                 <li><code className="bg-white px-1 py-0.5 rounded">state</code>: <span className="text-gray-500">'default' | 'hover' | 'inactive'</span> <span className="text-red-500">*required</span></li>
                 <li><code className="bg-white px-1 py-0.5 rounded">className</code>: <span className="text-gray-500">string</span></li>
+                <li><code className="bg-white px-1 py-0.5 rounded">iconStart</code>: <span className="text-gray-500">React.ReactNode</span></li>
+                <li><code className="bg-white px-1 py-0.5 rounded">iconEnd</code>: <span className="text-gray-500">React.ReactNode</span></li>
               </ul>
             </div>
             </div>
@@ -143,8 +145,9 @@ export default function UIShowcasePage() {
               <h4 className="font-semibold text-sm text-gray-700 mb-2">Props:</h4>
               <ul className="text-xs text-gray-600 space-y-1">
                 <li><code className="bg-white px-1 py-0.5 rounded">icon</code>: <span className="text-gray-500">string</span> <span className="text-red-500">*required</span></li>
-                <li><code className="bg-white px-1 py-0.5 rounded">variant</code>: <span className="text-gray-500">'solid' | 'outline'</span> <span className="text-red-500">*required</span></li>
+                <li><code className="bg-white px-1 py-0.5 rounded">variant</code>: <span className="text-gray-500">'solid' | 'outline' | 'arrow-right' | 'arrow-left'</span> <span className="text-red-500">*required</span></li>
                 <li><code className="bg-white px-1 py-0.5 rounded">className</code>: <span className="text-gray-500">string</span></li>
+                <li><code className="bg-white px-1 py-0.5 rounded">size</code>: <span className="text-gray-500">'small'</span></li>
               </ul>
             </div>
             </div>
