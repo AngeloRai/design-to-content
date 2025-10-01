@@ -21,52 +21,72 @@ import path from "path";
 
 // Zod schema for structured component generation
 const GeneratedComponentSchema = z.object({
-  code: z.string().describe("Complete TypeScript React component code - this is the actual source code that will be written to a .tsx file"),
+  code: z
+    .string()
+    .describe(
+      "Complete TypeScript React component code - this is the actual source code that will be written to a .tsx file"
+    ),
   componentName: z.string().describe("Component name (PascalCase)"),
-  imports: z.array(z.string()).describe("List of imports used in the component"),
+  imports: z
+    .array(z.string())
+    .describe("List of imports used in the component"),
   exports: z.array(z.string()).describe("Exported names from component"),
-  props: z.array(z.object({
-    name: z.string(),
-    type: z.string(),
-    required: z.boolean(),
-    description: z.string().nullable()
-  })).describe("Component props interface definition"),
-  confidence: z.number().min(0).max(1).describe("Generation confidence score")
+  props: z
+    .array(
+      z.object({
+        name: z.string(),
+        type: z.string(),
+        required: z.boolean(),
+        description: z.string().nullable(),
+      })
+    )
+    .describe("Component props interface definition"),
+  confidence: z.number().min(0).max(1).describe("Generation confidence score"),
 });
 
 /**
  * Handle component updates (add variants, props, etc.)
  */
 const handleComponentUpdates = async (toUpdate, state) => {
-  const fsModule = await import('fs-extra');
+  const fsModule = await import("fs-extra");
   const fs = fsModule.default;
   const { visualAnalysis, outputPath } = state;
 
   for (const update of toUpdate) {
     try {
       const componentSpec = visualAnalysis.components.find(
-        c => c.name === update.component.name
+        (c) => c.name === update.component.name
       );
 
       if (!componentSpec) continue;
 
       // Determine file path
-      const targetDir = componentSpec.atomicLevel === 'atom' ? 'elements' :
-                        componentSpec.atomicLevel === 'molecule' ? 'components' : 'modules';
-      const componentPath = path.join(outputPath, targetDir, `${componentSpec.name}.tsx`);
+      const targetDir =
+        componentSpec.atomicLevel === "atom"
+          ? "elements"
+          : componentSpec.atomicLevel === "molecule"
+          ? "components"
+          : "modules";
+      const componentPath = path.join(
+        outputPath,
+        targetDir,
+        `${componentSpec.name}.tsx`
+      );
 
-      if (!await fs.pathExists(componentPath)) {
-        console.log(`  ⚠️  ${componentSpec.name} doesn't exist, skipping update`);
+      if (!(await fs.pathExists(componentPath))) {
+        console.log(
+          `  ⚠️  ${componentSpec.name} doesn't exist, skipping update`
+        );
         continue;
       }
 
       console.log(`  → Updating ${componentSpec.name}...`);
 
       // Read existing component
-      const existingCode = await fs.readFile(componentPath, 'utf-8');
+      const existingCode = await fs.readFile(componentPath, "utf-8");
 
       // Generate updated version preserving existing functionality
-      const patchPath = componentPath.replace('.tsx', '.update.tsx');
+      const patchPath = componentPath.replace(".tsx", ".update.tsx");
 
       // Use AI to generate updated version
       const model = new ChatOpenAI({
@@ -77,7 +97,9 @@ const handleComponentUpdates = async (toUpdate, state) => {
       }).withStructuredOutput(GeneratedComponentSchema);
 
       // Build update prompt
-      const { buildComponentUpdatePrompt } = await import("../prompts/generation/component-update-prompt.js");
+      const { buildComponentUpdatePrompt } = await import(
+        "../prompts/generation/component-update-prompt.js"
+      );
       const updatePrompt = buildComponentUpdatePrompt(
         existingCode,
         componentSpec,
@@ -87,15 +109,21 @@ const handleComponentUpdates = async (toUpdate, state) => {
       try {
         const result = await model.invoke([
           { role: "system", content: updatePrompt },
-          { role: "user", content: "Generate the updated component preserving all existing functionality while adding the new requirements." }
+          {
+            role: "user",
+            content:
+              "Generate the updated component preserving all existing functionality while adding the new requirements.",
+          },
         ]);
 
         // Save updated version for review
         await fs.writeFile(patchPath, result.code);
-        console.log(`    ✓ Update saved to ${path.basename(patchPath)} for review`);
+        console.log(
+          `    ✓ Update saved to ${path.basename(patchPath)} for review`
+        );
 
         // Also save a diff file showing what changed
-        const diffPath = componentPath.replace('.tsx', '.diff.md');
+        const diffPath = componentPath.replace(".tsx", ".diff.md");
         const diffContent = `# Component Update: ${componentSpec.name}
 
 ## Reason for Update
@@ -122,13 +150,13 @@ ${update.reason}
 
         await fs.writeFile(diffPath, diffContent);
         console.log(`    ✓ Review notes saved to ${path.basename(diffPath)}`);
-
       } catch (error) {
         console.log(`    ❌ Update generation failed: ${error.message}`);
       }
-
     } catch (error) {
-      console.log(`  ❌ Failed to update ${update.component.name}: ${error.message}`);
+      console.log(
+        `  ❌ Failed to update ${update.component.name}: ${error.message}`
+      );
     }
   }
 };
@@ -140,26 +168,24 @@ ${update.reason}
 const generateIconComponents = async (icons, outputPath) => {
   if (!icons || icons.length === 0) return [];
 
-  const fs = await import('fs-extra');
+  const fs = await import("fs-extra");
   const generatedIcons = [];
-  const iconsDir = path.join(outputPath, 'icons');
+  const iconsDir = path.join(outputPath, "icons");
 
   // Ensure icons directory exists
   await fs.default.ensureDir(iconsDir);
 
   // Helper to normalize icon names
   const normalizeIconName = (name) => {
-    const cleanName = name
-      .replace(/[^a-zA-Z0-9]/g, '')
-      .replace(/^(\d)/, '_$1');
-    return cleanName.endsWith('Icon') ? cleanName : `${cleanName}Icon`;
+    const cleanName = name.replace(/[^a-zA-Z0-9]/g, "").replace(/^(\d)/, "_$1");
+    return cleanName.endsWith("Icon") ? cleanName : `${cleanName}Icon`;
   };
 
   // Deduplicate icons by component name BEFORE processing
   const uniqueIcons = [];
   const seenNames = new Set();
 
-  icons.forEach(icon => {
+  icons.forEach((icon) => {
     const fileName = normalizeIconName(icon.name);
     if (!seenNames.has(fileName)) {
       seenNames.add(fileName);
@@ -167,7 +193,9 @@ const generateIconComponents = async (icons, outputPath) => {
     }
   });
 
-  console.log(`\n🎨 Generating ${uniqueIcons.length} unique icon components (from ${icons.length} total)...`);
+  console.log(
+    `\n🎨 Generating ${uniqueIcons.length} unique icon components (from ${icons.length} total)...`
+  );
 
   for (const icon of uniqueIcons) {
     try {
@@ -177,11 +205,11 @@ const generateIconComponents = async (icons, outputPath) => {
       // Convert SVG attributes to React format
       const reactifyContent = (content) => {
         return content
-          .replace(/fill-rule=/g, 'fillRule=')
-          .replace(/clip-rule=/g, 'clipRule=')
-          .replace(/stroke-width=/g, 'strokeWidth=')
-          .replace(/stroke-linecap=/g, 'strokeLinecap=')
-          .replace(/stroke-linejoin=/g, 'strokeLinejoin=')
+          .replace(/fill-rule=/g, "fillRule=")
+          .replace(/clip-rule=/g, "clipRule=")
+          .replace(/stroke-width=/g, "strokeWidth=")
+          .replace(/stroke-linecap=/g, "strokeLinecap=")
+          .replace(/stroke-linejoin=/g, "strokeLinejoin=")
           .replace(/fill="#[^"]+"/g, `fill={color}`); // Make fill dynamic
       };
 
@@ -213,7 +241,7 @@ export const ${fileName}: React.FC<${fileName}Props> = ({
     <svg
       width={size}
       height={size}
-      viewBox="${icon.viewBox || '0 0 24 24'}"
+      viewBox="${icon.viewBox || "0 0 24 24"}"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
@@ -234,8 +262,8 @@ export default ${fileName};`;
         filePath: iconPath,
         action: "created",
         atomicLevel: "atom",
-        linesOfCode: iconComponent.split('\n').length,
-        timestamp: new Date().toISOString()
+        linesOfCode: iconComponent.split("\n").length,
+        timestamp: new Date().toISOString(),
       });
 
       console.log(`    ✓ Saved to icons/${fileName}.tsx`);
@@ -256,31 +284,40 @@ export const generatorNode = async (state) => {
     // Generate icons first if they exist
     let generatedIcons = [];
     if (figmaData?.extractedIcons && figmaData.extractedIcons.length > 0) {
-      generatedIcons = await generateIconComponents(figmaData.extractedIcons, outputPath);
+      generatedIcons = await generateIconComponents(
+        figmaData.extractedIcons,
+        outputPath
+      );
     }
 
     if (!componentStrategy || componentStrategy.length === 0) {
       // If no component strategy but we generated icons, that's still success
       if (generatedIcons.length > 0) {
-        console.log(`\n✅ Generation complete: ${generatedIcons.length} icons generated`);
+        console.log(
+          `\n✅ Generation complete: ${generatedIcons.length} icons generated`
+        );
         return {
           currentPhase: "generation",
-          generatedComponents: generatedIcons
+          generatedComponents: generatedIcons,
         };
       }
       throw new Error("No component strategy available for generation");
     }
 
     // Filter for components that need generation or updating
-    const toGenerate = componentStrategy.filter(s => s.action === "create_new");
-    const toUpdate = componentStrategy.filter(s => s.action === "update_existing");
+    const toGenerate = componentStrategy.filter(
+      (s) => s.action === "create_new"
+    );
+    const toUpdate = componentStrategy.filter(
+      (s) => s.action === "update_existing"
+    );
 
     if (toGenerate.length === 0 && toUpdate.length === 0) {
       console.log("ℹ️  No components to generate or update");
       // But we might have generated icons
       return {
         currentPhase: "generation",
-        generatedComponents: generatedIcons
+        generatedComponents: generatedIcons,
       };
     }
 
@@ -310,11 +347,13 @@ export const generatorNode = async (state) => {
 
         // Find the full component spec from visual analysis
         const componentSpec = visualAnalysis.components.find(
-          c => c.name === strategyItem.component.name
+          (c) => c.name === strategyItem.component.name
         );
 
         if (!componentSpec) {
-          console.warn(`  ⚠️  Component spec not found for ${strategyItem.component.name}, skipping`);
+          console.warn(
+            `  ⚠️  Component spec not found for ${strategyItem.component.name}, skipping`
+          );
           continue;
         }
 
@@ -323,13 +362,17 @@ export const generatorNode = async (state) => {
         const generationPrompt = buildComponentGenerationPrompt(componentSpec, {
           outputPath,
           atomicLevel: componentSpec.atomicLevel,
-          targetPath: strategyItem.targetPath
+          targetPath: strategyItem.targetPath,
         });
 
         // Invoke directly without template (avoids {} escaping issues in prompt)
         const result = await model.invoke([
           { role: "system", content: generationPrompt },
-          { role: "user", content: "Generate the React TypeScript component based on the specifications provided. Return the complete component code in the 'code' field." }
+          {
+            role: "user",
+            content:
+              "Generate the React TypeScript component based on the specifications provided. Return the complete component code in the 'code' field.",
+          },
         ]);
 
         // Validate we got code
@@ -338,11 +381,14 @@ export const generatorNode = async (state) => {
           continue;
         }
 
-        console.log(`  ✓ AI generated ${result.code.split("\n").length} lines of code`);
+        console.log(
+          `  ✓ AI generated ${result.code.split("\n").length} lines of code`
+        );
 
         // Skip TypeScript validation - Next.js will validate when building
         // Standalone validation has too many false positives with paths/types
-        const componentName = result.componentName || strategyItem.component.name;
+        const componentName =
+          result.componentName || strategyItem.component.name;
 
         // Determine file path based on atomic level
         const filePath = determineFilePath(
@@ -371,13 +417,15 @@ export const generatorNode = async (state) => {
           props: result.props || [],
           imports: result.imports || [],
           exports: result.exports || [],
-          confidence: result.confidence || componentSpec.confidence || 0.8
+          confidence: result.confidence || componentSpec.confidence || 0.8,
         });
 
         console.log(`  ✅ Generated successfully`);
-
       } catch (error) {
-        console.error(`  ❌ Failed to generate ${strategyItem.component.name}:`, error.message);
+        console.error(
+          `  ❌ Failed to generate ${strategyItem.component.name}:`,
+          error.message
+        );
       }
     }
 
@@ -386,7 +434,9 @@ export const generatorNode = async (state) => {
 
     console.log(`\n✅ Generation complete:`);
     if (componentsGenerated > 0) {
-      console.log(`   - ${componentsGenerated}/${toGenerate.length} components generated`);
+      console.log(
+        `   - ${componentsGenerated}/${toGenerate.length} components generated`
+      );
     }
     if (generatedIcons.length > 0) {
       console.log(`   - ${generatedIcons.length} icons generated`);
@@ -400,19 +450,20 @@ export const generatorNode = async (state) => {
         generationTime: new Date().toISOString(),
         generatedCount: totalGenerated,
         iconsCount: generatedIcons.length,
-        componentsCount: componentsGenerated
-      }
+        componentsCount: componentsGenerated,
+      },
     };
-
   } catch (error) {
     console.error("❌ Component generation failed:", error.message);
     return {
-      errors: [{
-        message: error.message,
-        phase: "generation",
-        timestamp: new Date().toISOString()
-      }],
-      status: "error"
+      errors: [
+        {
+          message: error.message,
+          phase: "generation",
+          timestamp: new Date().toISOString(),
+        },
+      ],
+      status: "error",
     };
   }
 };
@@ -425,7 +476,7 @@ function determineFilePath(componentName, atomicLevel, outputPath) {
   const directoryMap = {
     atom: "elements",
     molecule: "components",
-    organism: "modules"
+    organism: "modules",
   };
 
   const directory = directoryMap[atomicLevel] || "components";

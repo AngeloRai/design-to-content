@@ -1,6 +1,7 @@
 # Development Guidelines for Claude in VSCode
- 
+
 ## Planning & Analysis
+
 1. **Analyze First**: Read and understand the existing codebase structure, dependencies, and patterns before proposing changes, use CODEBASE_BLUEPRINT.md as the blueprint
 2. **Document Plan For more complex tasks**: Write a detailed plan to `tasks/todo.md` with:
    - Current state analysis
@@ -8,8 +9,9 @@
    - Potential risks/impacts
    - Step-by-step implementation tasks
 3. **Get Approval**: Present the plan and wait for verification before proceeding
- 
+
 ## Implementation Principles
+
 4. **Incremental Changes**: Make one small, testable change at a time. Each change should:
    - Be independently verifiable
    - Not break existing functionality
@@ -23,22 +25,25 @@
    - Test each change immediately after implementation
    - Verify edge cases and error conditions
    - Check for unintended side effects
- 
+
 ## Communication
+
 7. **Status Updates**: Provide concise updates:
    - What was changed and why
    - Any issues encountered
    - What's being worked on next
 8. **Ask When Uncertain**: If multiple approaches exist or requirements are ambiguous, ask for clarification rather than assuming
- 
+
 ## Problem-Solving Approach
+
 9. **Root Cause Analysis**:
    - Investigate issues thoroughly using debugging and logging
    - Fix the underlying problem, not symptoms
    - Document the root cause and solution
 10. **No Temporary Fixes**: Every solution should be production-ready and maintainable
- 
+
 ## Code Organization
+
 11. **File Management**:
     - Only create new files when logically necessary
     - Keep related code together
@@ -53,8 +58,9 @@
     - Use proper naming: PascalCase for React components, camelCase for utilities/classes
     - Non-React files (utilities, classes, types) should use camelCase naming
     - **Prefer Functional Logic**: Use functional React components, hooks, and pure utility functions over class-based components or inheritance patterns unless a compelling, documented reason exists (e.g., integrating with a legacy API). Functional patterns improve composability, testability, and reduce hidden state.
- 
+
 ## Documentation
+
 14. **Update Documentation**:
     - Keep README files current
     - Document any new environment variables or configuration
@@ -63,8 +69,9 @@
     - Complex algorithms or business logic
     - Workarounds with explanation
     - TODOs with context
- 
+
 ## Review Process
+
 16. **Self-Review Checklist**:
     - [ ] Changes match the approved plan
     - [ ] No unnecessary code modifications
@@ -77,17 +84,72 @@
     - Summary of modifications
     - Any follow-up tasks identified
     - Potential improvements for future
- 
+
 ## VSCode-Specific
+
 18. **Use VSCode Features**:
     - Utilize integrated terminal for testing
     - Check Problems panel for linting issues
     - Use Source Control panel to review changes
 19. **File Navigation**: Use workspace search and "Go to Definition" to understand code relationships
- 
+
 ## Critical Reminders
+
 - **Simplicity is key**: The simplest solution that works is the best solution
 - **Preserve stability**: Never risk breaking working code for minor improvements
 - **Be thorough**: Complete investigation before implementing fixes
 - **Stay focused**: Only work on the assigned task, note other issues for later
- - **Favor functional patterns**: When in doubt, default to pure functions, composition, and hooks rather than classes or deep inheritance.
+- **Favor functional patterns**: When in doubt, default to pure functions, composition, and hooks rather than classes or deep inheritance.
+
+## 🚨 CRITICAL: AI/ML Schema Design Rules
+
+### NEVER Use Hardcoded Enums or Specific Values in AI Schemas
+
+**FORBIDDEN PATTERNS:**
+```typescript
+// ❌ NEVER DO THIS - Hardcoded size values
+size: z.enum(["xs", "sm", "md", "lg", "xl"])
+
+// ❌ NEVER DO THIS - Hardcoded state values
+state: z.enum(["normal", "hover", "focus", "disabled"])
+
+// ❌ NEVER DO THIS - Hardcoded color names
+color: z.enum(["primary", "secondary", "destructive"])
+
+// ❌ NEVER DO THIS - Any predefined list of values
+variant: z.enum(["default", "outline", "ghost"])
+```
+
+**CORRECT PATTERNS:**
+```typescript
+// ✅ ALWAYS DO THIS - Let AI discover and describe
+size: z.string().describe("Size descriptor observed (e.g., 'small-compact', 'large-spacious')")
+
+// ✅ ALWAYS DO THIS - Open-ended strings
+state: z.string().describe("Interaction state observed in the design")
+
+// ✅ ALWAYS DO THIS - Descriptive strings
+color: z.string().describe("Color role as observed (e.g., 'accent-blue', 'background-gray')")
+
+// ✅ ALWAYS DO THIS - Generic with examples
+variant: z.string().describe("Visual variant name based on appearance (e.g., 'filled-rounded', 'outlined-sharp')")
+```
+
+### Why This Matters
+
+This system is **GENERIC and UNIVERSAL** - it must work with:
+- ANY design system (Material, Chakra, custom, etc.)
+- ANY naming convention
+- ANY visual style
+- ANY component pattern
+
+**The AI must DISCOVER and DESCRIBE what it sees, not fit observations into predefined categories.**
+
+### When You See Hardcoded Values
+
+1. **STOP immediately**
+2. **Replace with z.string()** and descriptive guidance
+3. **Add examples in descriptions** showing the DESCRIPTIVE approach
+4. **Never assume standard patterns exist**
+
+This is a FUNDAMENTAL architectural principle that must NEVER be violated.
