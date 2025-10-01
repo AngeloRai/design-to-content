@@ -7,6 +7,9 @@
  * Simple node with no AI or tool calls, just aggregates state
  */
 
+import { generateReport } from '../utils/report-generator.js';
+import path from 'path';
+
 export const finalizerNode = async (state) => {
   console.log("\n🎉 Finalizing workflow...");
 
@@ -16,7 +19,8 @@ export const finalizerNode = async (state) => {
       componentStrategy = [],
       visualAnalysis = {},
       errors = [],
-      metadata = {}
+      metadata = {},
+      outputPath = 'nextjs-app/ui'
     } = state;
 
     // Calculate statistics
@@ -30,9 +34,8 @@ export const finalizerNode = async (state) => {
       errors: errors.length
     };
 
-    // Build summary report
+    // Build console summary
     const summary = buildSummaryReport(stats, generatedComponents, errors);
-
     console.log("\n" + summary);
 
     // Calculate duration if we have start time
@@ -40,7 +43,9 @@ export const finalizerNode = async (state) => {
       ? ((Date.now() - new Date(metadata.startTime).getTime()) / 1000).toFixed(2)
       : null;
 
-    return {
+    // Update state with final metadata
+    const finalState = {
+      ...state,
       currentPhase: "complete",
       status: errors.length > 0 ? "completed_with_errors" : "success",
       metadata: {
@@ -50,6 +55,29 @@ export const finalizerNode = async (state) => {
         summary: stats
       }
     };
+
+    // Generate comprehensive reports (markdown + JSON)
+    try {
+      const reportsDir = path.join(process.cwd(), 'reports');
+      const reportResult = await generateReport(finalState, reportsDir);
+
+      console.log(`\n📄 Reports generated:`);
+      console.log(`   - Markdown: ${reportResult.markdownPath}`);
+      console.log(`   - JSON: ${reportResult.jsonPath}`);
+      console.log(`   - Total size: ${((reportResult.markdownSize + reportResult.jsonSize) / 1024).toFixed(2)} KB`);
+
+      return {
+        ...finalState,
+        reportPaths: {
+          markdown: reportResult.markdownPath,
+          json: reportResult.jsonPath
+        }
+      };
+    } catch (reportError) {
+      console.warn(`⚠️  Failed to generate report: ${reportError.message}`);
+      // Don't fail the workflow if report generation fails
+      return finalState;
+    }
 
   } catch (error) {
     console.error("❌ Finalization failed:", error.message);

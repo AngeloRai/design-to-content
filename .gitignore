@@ -72,5 +72,8 @@ coverage/
 tmp/
 .tmp/
 
+# Generated reports
+reports/
+
 # Package manager logs
 pnpm-debug.log*
