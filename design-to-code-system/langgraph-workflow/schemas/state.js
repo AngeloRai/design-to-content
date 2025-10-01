@@ -34,11 +34,11 @@ export const ComponentSchema = z.object({
     name: z.string(),
     type: z.string(),
     required: z.boolean(),
-    description: z.string().optional()
-  })).optional(),
-  variants: z.array(z.string()).describe("Component variants supported").optional(),
+    description: z.string().nullable()
+  })).nullable(),
+  variants: z.array(z.string()).describe("Component variants supported").nullable(),
   confidence: z.number().min(0).max(1).describe("Generation confidence"),
-  atoms_used: z.array(z.string()).describe("List of atoms used in molecule").optional()
+  atoms_used: z.array(z.string()).describe("List of atoms used in molecule").nullable()
 });
 
 export const RoutingDecisionSchema = z.object({
@@ -56,13 +56,13 @@ export const ValidationResultSchema = z.object({
   component: z.string().describe("Component name being validated"),
   validationType: z.enum(["visual", "accessibility", "typescript", "overlap"]),
   success: z.boolean(),
-  score: z.number().min(0).max(10).optional(),
+  score: z.number().min(0).max(10).nullable(),
   issues: z.array(z.string()),
   recommendations: z.array(z.string()),
   confidence: z.number().min(0).max(1)
 });
 
-// LangGraph State Schema using modern Annotation.Root pattern
+// LangGraph State Schema using Annotation.Root pattern
 export const StateAnnotation = Annotation.Root({
   // Input data
   input: Annotation({
@@ -72,7 +72,7 @@ export const StateAnnotation = Annotation.Root({
 
   figmaScreenshot: Annotation({
     default: () => null,
-    description: "Base64 screenshot data from Figma"
+    description: "Screenshot url from Figma"
   }),
 
   figmaData: Annotation({
@@ -92,9 +92,20 @@ export const StateAnnotation = Annotation.Root({
     description: "AI routing decision conforming to RoutingDecisionSchema"
   }),
 
+  // Strategy phase
+  componentStrategy: Annotation({
+    default: () => [],
+    description: "Strategy decisions for each component (create/update/skip)"
+  }),
+
   libraryContext: Annotation({
-    default: () => ({}),
-    description: "Existing component library context"
+    default: () => ({
+      elements: [],
+      components: [],
+      modules: [],
+      icons: []
+    }),
+    description: "Existing component library context (scanned from file system)"
   }),
 
   // Generation phase
