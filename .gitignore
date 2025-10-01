@@ -80,3 +80,5 @@ reports/
 
 # Package manager logs
 pnpm-debug.log*
+*storybook.log
+storybook-static
