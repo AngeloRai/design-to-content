@@ -4,35 +4,33 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "lib": ["ES2022"],
+    "allowJs": true,
+    "checkJs": false,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "strict": true,
+    "strict": false,
     "skipLibCheck": true,
     "declaration": false,
     "outDir": "./dist",
-    "rootDir": "./",
     "baseUrl": ".",
     "paths": {
       "@/*": ["./langgraph-workflow/*"],
-      "@/prompts/*": ["./prompts/*"]
+      "@/prompts/*": ["./langgraph-workflow/prompts/*"]
     },
     "allowImportingTsExtensions": false,
-    "noEmit": false,
+    "noEmit": true,
     "resolveJsonModule": true,
-    "isolatedModules": true,
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    "isolatedModules": true
   },
   "include": [
-    "langgraph-workflow/**/*",
-    "prompts/**/*",
-    "*.ts",
-    "*.js"
+    "**/*.js",
+    "**/*.ts"
   ],
   "exclude": [
     "node_modules",
-    "dist"
+    "dist",
+    "data"
   ],
   "ts-node": {
     "esm": true

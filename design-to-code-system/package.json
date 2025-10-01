@@ -11,23 +11,33 @@
     "test:state": "node langgraph-workflow/test/state.test.js",
     "test:models": "node langgraph-workflow/test/model-selector.test.js",
     "test:costs": "node langgraph-workflow/test/cost-tracker.test.js",
+    "test:openai": "node langgraph-workflow/test/openai-integration.test.js",
+    "test:config": "node -e \"import('./langgraph-workflow/utils/config.js').then(m => m.printConfigSummary())\"",
+    "verify": "npm run test:config && npm run test:models && npm run test:costs && npm run test:openai",
+    "lint": "eslint .",
     "dev": "node --watch langgraph-workflow/index.js",
     "build": "tsc",
     "figma:process": "node ../figma-processor/design-processor.js"
   },
   "dependencies": {
+    "@figma/rest-api-spec": "^0.33.0",
+    "@langchain/anthropic": "^0.3.28",
     "@langchain/langgraph": "^0.4.9",
     "@langchain/openai": "^0.4.6",
-    "@langchain/anthropic": "^0.3.28",
-    "zod": "^3.25.76",
     "dotenv": "^16.3.1",
-    "openai": "^4.24.1"
+    "fs-extra": "^11.3.2",
+    "glob": "^11.0.3",
+    "openai": "^4.24.1",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@eslint/js": "^9.36.0",
     "@types/node": "^20.0.0",
-    "typescript": "^5.3.3",
+    "eslint": "^9.36.0",
+    "globals": "^16.4.0",
     "ts-node": "^10.9.2",
-    "tsx": "^4.20.5"
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.3"
   },
   "engines": {
     "node": ">=18"
