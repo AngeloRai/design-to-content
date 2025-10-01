@@ -1,200 +1,213 @@
 #!/usr/bin/env node
 
 /**
- * VISUAL ANALYSIS NODE
- * Uses Command-based routing and centralized prompts
+ * ANALYSIS - Get Figma screenshot URL and analyze with OpenAI
  */
 
-import { Command } from "@langchain/langgraph";
-import { createVisualAnalysisPrompt } from "../../prompts/analysis/visual-analysis.js";
-import { validateAnalysisData, updatePhase, addError, AnalysisDataSchema } from "../schemas/state.js";
-import { createBaseLLM, withRetry, withCostTracking, compose } from "../utils/structured-output.js";
+import dotenv from "dotenv";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
+import { ChatOpenAI } from "@langchain/openai";
+import { z } from "zod";
+import { buildVisualAnalysisPrompt } from "../prompts/analysis/visual-analysis-prompt.js";
+import { buildVisualAnalysisUserPrompt } from "../prompts/analysis/visual-analysis-user-prompt.js";
 
-/**
- * Mock analysis function for testing
- * In production, this would call GPT-4 Vision
- */
-const mockAnalyzeVisual = async (screenshot) => {
-  // Simulate AI processing delay
-  await new Promise(resolve => setTimeout(resolve, 100));
+// Load .env from project root (works regardless of where script is run from)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+dotenv.config({ path: join(__dirname, "..", "..", ".env") });
 
-  // Return mock analysis data that conforms to schema
-  return {
-    overview: "Mock UI screenshot showing a simple form with input fields and buttons",
-    identifiedComponents: [
-      {
-        type: "button",
-        variants: ["primary", "secondary"],
-        priority: "high",
-        evidence: "Two distinct button styles visible in the design",
-        confidence: 0.95
-      },
-      {
-        type: "input",
-        variants: ["text", "email"],
-        priority: "high",
-        evidence: "Multiple input fields with different label styles",
-        confidence: 0.90
-      },
-      {
-        type: "label",
-        variants: ["default"],
-        priority: "medium",
-        evidence: "Labels appear above input fields",
-        confidence: 0.85
-      }
-    ],
-    implementationPriority: "Atoms first (Button, Input, Label), then form molecules",
-    pixelPerfectionNotes: "Button corners appear rounded (4px), inputs have 1px gray border"
-  };
-};
+// Simplified component schema (using nullable for OpenAI compatibility)
+const ComponentSchema = z.object({
+  name: z.string().describe("Component name (e.g., 'Button', 'TextInput')"),
+  atomicLevel: z
+    .enum(["atom", "molecule", "organism"])
+    .describe("Atomic design level"),
+  description: z.string().describe("Brief purpose/usage"),
 
-/**
- * Visual Analysis Node
- * Analyzes Figma screenshots to identify UI components
- */
-export const aiAnalysisNode = async (state) => {
-  console.log('🔍 AI Analysis Node: Starting visual analysis...');
+  // Separate variant types for clarity
+  styleVariants: z
+    .array(z.string())
+    .describe(
+      "Style/color variants, clear semantic naming (e.g., ['default', 'primary', 'secondary'])"
+    ),
+  sizeVariants: z
+    .array(z.string())
+    .describe("Size variants (e.g., ['small', 'medium', 'large'])"),
+  otherVariants: z
+    .array(z.string())
+    .nullable()
+    .describe("Other variants like shape, density, etc."),
+
+  states: z
+    .array(z.string())
+    .describe(
+      "Interactive states (e.g., ['default', 'hover', 'disabled', 'focus'])"
+    ),
+
+  props: z
+    .array(
+      z.object({
+        name: z.string(),
+        type: z.string(),
+        required: z.boolean(),
+      })
+    )
+    .nullable()
+    .describe("Inferred component props"),
+  designTokens: z
+    .object({
+      colors: z.array(z.string()).nullable(),
+      spacing: z.array(z.string()).nullable(),
+      typography: z.array(z.string()).nullable(),
+    })
+    .nullable()
+    .describe("Design tokens used"),
+  dependencies: z
+    .array(z.string())
+    .nullable()
+    .describe("Other components this depends on"),
+  reusabilityScore: z.number().min(1).max(10),
+  complexityScore: z.number().min(1).max(10),
+  confidence: z
+    .number()
+    .min(0)
+    .max(1)
+    .describe("Analysis confidence for this component"),
+});
+
+const AnalysisSchema = z.object({
+  summary: z.string().describe("Overall analysis summary"),
+  componentCount: z.number(),
+  components: z.array(ComponentSchema),
+  globalTokens: z
+    .object({
+      colors: z.array(z.string()).nullable(),
+      spacing: z.array(z.string()).nullable(),
+      typography: z.array(z.string()).nullable(),
+    })
+    .nullable()
+    .describe("Global design tokens across all components"),
+});
+
+export const analyzeFigmaVisualComponents = async (state) => {
+  console.log("🔍 Starting analysis...");
 
   try {
-    // Update phase
-    const updatedState = updatePhase(state, "analysis");
+    // Get Figma screenshot URL and node data
+    console.log("📸 Getting Figma screenshot URL and node data...");
+    const { parseFigmaUrl, fetchNodeData, extractComponentMetadata } = await import(
+      "../../utils/figma-integration.js"
+    );
+    const { fileKey, nodeId } = parseFigmaUrl(state.input);
 
-    // Check if we have screenshot data
-    if (!state.figmaScreenshot) {
-      console.log('⚠️  No Figma screenshot provided, using mock data');
+    // Call Figma API to get image URL and node data in parallel
+    const FIGMA_TOKEN = process.env.FIGMA_ACCESS_TOKEN;
+    const DEPTH = 5; // How deep to recurse in node data
+    const [imageResponse, nodeDataResult] = await Promise.all([
+      fetch(
+        `https://api.figma.com/v1/images/${fileKey}?ids=${nodeId}&format=png&scale=1`,
+        { headers: { "X-Figma-Token": FIGMA_TOKEN } }
+      ),
+      fetchNodeData(fileKey, nodeId, DEPTH),
+    ]);
+
+    const imageData = await imageResponse.json();
+    const screenshotUrl = imageData.images[nodeId];
+
+    if (!screenshotUrl) {
+      throw new Error("Failed to get screenshot URL from Figma");
     }
 
-    // For Phase 0 testing, use mock analysis
-    // In Phase 1, this will integrate with GPT-4 Vision
-    const analysisResult = await mockAnalyzeVisual(state.figmaScreenshot);
+    // Extract component metadata from node data
+    const componentMetadata = extractComponentMetadata(
+      nodeDataResult.metadata.rawDocument
+    );
 
-    // Validate the analysis data
-    const validatedAnalysis = validateAnalysisData(analysisResult);
+    console.log("✅ Got screenshot URL and node data from Figma");
 
-    console.log(`✅ Analysis complete: Found ${validatedAnalysis.identifiedComponents.length} component types`);
-
-    // Use Command for routing based on analysis success
-    return new Command({
-      goto: "routing",
-      update: {
-        ...updatedState,
-        visualAnalysis: validatedAnalysis,
-        metadata: {
-          ...updatedState.metadata,
-          tokensUsed: updatedState.metadata.tokensUsed + 150, // Mock token usage
-          costEstimate: updatedState.metadata.costEstimate + 0.01
-        }
-      }
-    });
-
-  } catch (error) {
-    console.error('❌ Analysis failed:', error.message);
-
-    // Use Command to route to error handling
-    return new Command({
-      goto: "error",
-      update: addError(state, error)
-    });
-  }
-};
-
-/**
- * Production analysis function with structured output and functional middleware
- */
-export const aiAnalysisNodeProduction = async (state) => {
-  console.log('🔍 Analysis Node: Using structured output with middleware...');
-
-  try {
-    const updatedState = updatePhase(state, "analysis");
-
-    // Phase 0: Use mock data for testing
-    if (!state.figmaScreenshot) {
-      console.log('⚠️  Using mock analysis data for Phase 0 testing');
-      const mockResult = await mockAnalyzeVisual(null);
-      const validatedAnalysis = validateAnalysisData(mockResult);
-
-      return new Command({
-        goto: "routing",
-        update: {
-          ...updatedState,
-          visualAnalysis: validatedAnalysis,
-          metadata: {
-            ...updatedState.metadata,
-            tokensUsed: updatedState.metadata.tokensUsed + 150,
-            costEstimate: updatedState.metadata.costEstimate + 0.01
-          }
-        }
-      });
-    }
-
-    // Phase 1+: Use structured output with functional middleware
-    const costTracker = { track: (data) => console.log(`💰 Analysis: ${data.duration}ms`) };
-
-    // Create LLM with native structured output
-    const baseLLM = createBaseLLM({
-      model: "gpt-4o-mini", // Vision model for screenshots
+    // Analyze with OpenAI using detailed prompt (pass URL directly)
+    console.log("🤖 Analyzing with OpenAI (detailed prompt)...");
+    const model = new ChatOpenAI({
+      model: "gpt-4o",
       temperature: 0.1,
-      maxTokens: 2000
-    });
+      maxTokens: 3000,
+      openAIApiKey: process.env.OPENAI_API_KEY,
+    }).withStructuredOutput(AnalysisSchema);
 
-    const structuredLLM = baseLLM.withStructuredOutput(AnalysisDataSchema);
+    // Use the detailed prompt builder
+    const systemPrompt = buildVisualAnalysisPrompt();
 
-    // Apply essential middleware
-    const enhancedAnalysis = compose(
-      withCostTracking(costTracker),
-      withRetry(3)
-    )(async (messages) => structuredLLM.invoke(messages));
-
-    // Create analysis prompt
-    const prompt = createVisualAnalysisPrompt({
-      hasScreenshot: true,
-      figmaData: state.figmaData,
-      includeExamples: true
-    });
-
-    // Prepare messages for vision model
-    const messages = [{
-      role: "user",
-      content: [
-        { type: "text", text: prompt },
-        {
-          type: "image_url",
-          image_url: { url: `data:image/png;base64,${state.figmaScreenshot}` }
-        }
-      ]
-    }];
-
-    console.log('🤖 Invoking structured analysis LLM with middleware...');
-
-    // Call enhanced LLM with middleware - no manual JSON parsing needed
-    const analysisResult = await enhancedAnalysis(messages);
-
-    console.log(`✅ Structured analysis complete: Found ${analysisResult.identifiedComponents.length} component types`);
-
-    return new Command({
-      goto: "routing",
-      update: {
-        ...updatedState,
-        visualAnalysis: analysisResult,
-        metadata: {
-          ...updatedState.metadata,
-          tokensUsed: updatedState.metadata.tokensUsed + 200,
-          costEstimate: updatedState.metadata.costEstimate + 0.02
-        }
+    const result = await model.invoke([
+      { role: "system", content: systemPrompt },
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: buildVisualAnalysisUserPrompt(componentMetadata)
+          },
+          { type: "image_url", image_url: { url: screenshotUrl } }
+        ]
       }
-    });
+    ]);
 
+    if (!result || !result.components) {
+      throw new Error("AI analysis failed or returned no components");
+    }
+    console.log(`✅ Found ${result.components.length} components`);
+
+    // Conditional deep dive for icon extraction
+    const needsIconExtraction =
+      result.components.some(comp =>
+        comp.inferredProps?.some(p => p.name && p.name.toLowerCase().includes('icon')) ||
+        comp.description?.toLowerCase().includes('icon') ||
+        comp.designTokens?.hasIcon === true
+      ) ||
+      componentMetadata.instances?.some(i => i.hasVectorElements);
+
+    let extractedIcons = [];
+    if (needsIconExtraction) {
+      console.log("🔍 Detected potential icons, extracting SVGs...");
+
+      try {
+        // Dynamic import to avoid circular dependencies
+        const svgExtractor = await import("../../utils/svg-extractor.js");
+
+        // Batch extract all icons at once
+        extractedIcons = await svgExtractor.batchExtractIcons(
+          nodeDataResult.metadata.rawDocument,
+          fileKey,
+          componentMetadata.instances
+        );
+
+        if (extractedIcons.length > 0) {
+          console.log(`✅ Extracted ${extractedIcons.length} unique icon SVGs`);
+        } else {
+          console.log("ℹ️  No icons found in the design");
+        }
+      } catch (error) {
+        console.log(`⚠️  Icon extraction skipped: ${error.message}`);
+        // Not critical, continue without icons
+      }
+    }
+
+    // Return state updates directly (for LangGraph StateAnnotation)
+    return {
+      visualAnalysis: result,
+      figmaData: {
+        fileKey,
+        nodeId,
+        screenshotUrl,
+        nodeMetadata: nodeDataResult.metadata,
+        componentMetadata,
+        extractedIcons // Add extracted icons if any
+      },
+      status: "completed",
+      currentPhase: "analysis"
+    };
   } catch (error) {
-    console.error('❌ Structured analysis failed:', error.message);
-    return new Command({
-      goto: "error",
-      update: addError(state, error)
-    });
+    console.error("❌ Analysis failed:", error.message);
+    throw error;
   }
-};
-
-export default {
-  aiAnalysisNode,
-  aiAnalysisNodeProduction
 };
