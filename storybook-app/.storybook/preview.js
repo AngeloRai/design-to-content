@@ -1,3 +1,6 @@
+// Import Tailwind CSS and design tokens from the Next.js app
+import '../../nextjs-app/app/globals.css';
+
 /** @type { import('@storybook/react').Preview } */
 const preview = {
   parameters: {
