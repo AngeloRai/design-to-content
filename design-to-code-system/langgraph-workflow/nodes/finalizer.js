@@ -8,6 +8,7 @@
  */
 
 import { generateReport } from '../utils/report-generator.js';
+import { generateShowcasePage } from '../utils/showcase-generator.js';
 import path from 'path';
 
 export const finalizerNode = async (state) => {
@@ -67,12 +68,27 @@ export const finalizerNode = async (state) => {
       console.log(`   - Component Inventory: ${reportResult.inventoryPath}`);
       console.log(`   - Total size: ${((reportResult.markdownSize + reportResult.jsonSize + reportResult.inventorySize) / 1024).toFixed(2)} KB`);
 
+      // Generate UI showcase page from inventory
+      let showcaseResult = null;
+      try {
+        const showcasePath = path.join(process.cwd(), 'nextjs-app', 'app', 'ui-showcase', 'page.tsx');
+        showcaseResult = await generateShowcasePage(reportResult.inventoryPath, showcasePath);
+
+        console.log(`\n🎨 UI Showcase page generated:`);
+        console.log(`   - Path: ${showcaseResult.path}`);
+        console.log(`   - Components: ${showcaseResult.componentsCount}`);
+        console.log(`   - Size: ${(showcaseResult.size / 1024).toFixed(2)} KB`);
+      } catch (showcaseError) {
+        console.warn(`⚠️  Failed to generate showcase page: ${showcaseError.message}`);
+      }
+
       return {
         ...finalState,
         reportPaths: {
           markdown: reportResult.markdownPath,
           json: reportResult.jsonPath,
-          inventory: reportResult.inventoryPath
+          inventory: reportResult.inventoryPath,
+          showcase: showcaseResult?.path
         }
       };
     } catch (reportError) {
