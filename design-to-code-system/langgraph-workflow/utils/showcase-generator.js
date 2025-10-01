@@ -122,32 +122,42 @@ const buildImports = (byCategory) => {
     return /^[A-Z][a-zA-Z0-9]*$/.test(name);
   };
 
+  // Helper to generate correct import syntax based on export type
+  const generateImport = (comp, category) => {
+    const exportType = comp.exportType || 'default';
+    if (exportType === 'named') {
+      return `import { ${comp.name} } from '@/ui/${category}/${comp.name}';`;
+    } else {
+      return `import ${comp.name} from '@/ui/${category}/${comp.name}';`;
+    }
+  };
+
   // Elements
   byCategory.elements
     .filter(comp => isValidComponentName(comp.name))
     .forEach(comp => {
-      imports.push(`import ${comp.name} from '@/ui/elements/${comp.name}';`);
+      imports.push(generateImport(comp, 'elements'));
     });
 
   // Components
   byCategory.components
     .filter(comp => isValidComponentName(comp.name))
     .forEach(comp => {
-      imports.push(`import ${comp.name} from '@/ui/components/${comp.name}';`);
+      imports.push(generateImport(comp, 'components'));
     });
 
   // Modules
   byCategory.modules
     .filter(comp => isValidComponentName(comp.name))
     .forEach(comp => {
-      imports.push(`import ${comp.name} from '@/ui/modules/${comp.name}';`);
+      imports.push(generateImport(comp, 'modules'));
     });
 
   // Icons
   byCategory.icons
     .filter(comp => isValidComponentName(comp.name))
     .forEach(comp => {
-      imports.push(`import ${comp.name} from '@/ui/icons/${comp.name}';`);
+      imports.push(generateImport(comp, 'icons'));
     });
 
   return imports.join('\n');

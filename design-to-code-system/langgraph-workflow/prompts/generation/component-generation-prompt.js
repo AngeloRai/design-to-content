@@ -29,7 +29,17 @@ Generate a complete, production-ready TypeScript React component for a Next.js a
 
 **NEXT.JS BEST PRACTICES (CRITICAL):**
 
-1. **Server Components by Default**:
+1. **Export Pattern for Component Library**:
+   - ALWAYS use named exports: \`export const ComponentName = ...\`
+   - NEVER use default exports
+   - Benefits for component libraries:
+     - Multiple components can be exported from one file if needed
+     - Import names must match export names (prevents naming inconsistencies)
+     - Better IDE autocomplete and refactoring support
+     - Easier to identify unused exports
+   - Example: \`export const Button = ({ children, ...props }: ButtonProps) => { ... }\`
+
+2. **Server Components by Default**:
    - DO NOT add 'use client' directive unless absolutely necessary
    - Only use 'use client' when the component requires:
      - State management (useState, useReducer)
@@ -39,13 +49,13 @@ Generate a complete, production-ready TypeScript React component for a Next.js a
      - Third-party libraries that require client-side rendering
    - Server components provide better performance, SEO, and initial load times
 
-2. **Use Next.js Optimized Components**:
+3. **Use Next.js Optimized Components**:
    - Replace \`<img>\` with \`next/image\` for automatic optimization
    - Replace \`<a>\` with \`next/link\` for client-side navigation
    - Use \`next/font\` for optimized font loading when needed
    - Leverage \`next/dynamic\` for code splitting when appropriate
 
-3. **Performance Optimizations**:
+4. **Performance Optimizations**:
    - Prefer server-side data fetching in Server Components
    - Use proper loading states with Suspense boundaries
    - Implement proper error boundaries

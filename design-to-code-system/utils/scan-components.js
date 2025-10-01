@@ -58,6 +58,22 @@ const parseComponent = (content, fileName) => {
   // Check if it's a client component
   const isClientComponent = content.includes("'use client'") || content.includes('"use client"');
 
+  // Detect export style (default vs named)
+  const hasDefaultExport = /export\s+default\s+/.test(content);
+  const hasNamedExport = new RegExp(`export\\s+(?:const|function)\\s+${componentName}`).test(content);
+
+  // Determine the export type
+  let exportType = 'default';
+  if (hasNamedExport) {
+    exportType = 'named';
+  } else if (!hasDefaultExport && !hasNamedExport) {
+    // Check if there's a separate export statement
+    const separateExport = new RegExp(`export\\s+{[^}]*${componentName}[^}]*}`).test(content);
+    if (separateExport) {
+      exportType = 'named';
+    }
+  }
+
   // Extract dependencies/imports
   const importMatches = content.matchAll(/import\s+(?:{[^}]+}|\w+)\s+from\s+['"]([^'"]+)['"]/g);
   const dependencies = Array.from(importMatches).map(match => match[1]);
@@ -75,6 +91,7 @@ const parseComponent = (content, fileName) => {
     name: componentName,
     path: fileName,
     isClientComponent,
+    exportType,
     props,
     variants,
     sizes,
