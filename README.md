@@ -23,13 +23,49 @@ design-to-content/
 ## Quick Start
 
 ### 1. Setup Environment
-```bash
-cd figma-processor
 
-# Set your API keys
-export FIGMA_ACCESS_TOKEN="your-figma-access-token"
-export OPENAI_API_KEY="your-openai-api-key"
+#### Create Environment File
+```bash
+# Copy the example environment file to the project root
+cp .env.example .env
 ```
+
+#### Configure API Keys
+Edit the `.env` file and add your API keys:
+
+```bash
+# Required: OpenAI API Key
+OPENAI_API_KEY=sk-your-openai-api-key-here
+
+# Required: Figma Access Token
+FIGMA_ACCESS_TOKEN=figd_your-figma-token-here
+```
+
+**Getting your API keys:**
+
+1. **OpenAI API Key**
+   - Visit: https://platform.openai.com/api-keys
+   - Click "Create new secret key"
+   - Copy the key (starts with `sk-`)
+   - Paste into `.env` file
+
+2. **Figma Access Token**
+   - Visit: https://www.figma.com/settings
+   - Scroll to "Personal Access Tokens"
+   - Click "Generate new token"
+   - Copy the token (starts with `figd_`)
+   - Paste into `.env` file
+
+> **⚠️ Important:** Never commit the `.env` file to git. It contains sensitive credentials and is already in `.gitignore`.
+
+#### Optional Configuration
+The `.env.example` file includes many optional settings you can configure:
+- Model selection (GPT-4o, GPT-4o-mini, etc.)
+- Cost limits and tracking
+- Performance monitoring
+- Debug mode
+
+See `.env.example` for full documentation of all available options.
 
 ### 2. Process Figma Components
 ```bash
@@ -81,35 +117,60 @@ The AI uses screenshots as the primary source of truth:
 
 ## Environment Variables
 
-Set these environment variables before running:
+All environment variables should be set in the `.env` file in the project root.
+
+### Required Variables
 
 ```bash
-FIGMA_ACCESS_TOKEN=your_figma_token
-OPENAI_API_KEY=your_openai_key
+# OpenAI API Key (required)
+OPENAI_API_KEY=sk-your-key-here
+
+# Figma Access Token (required)
+FIGMA_ACCESS_TOKEN=figd_your-token-here
 ```
+
+### Optional Variables
+
+For a complete list of optional configuration variables, see the `.env.example` file. Key options include:
+
+- **Model Configuration**: `DEFAULT_MODEL`, `FALLBACK_MODEL`, `AVAILABLE_MODELS`
+- **Cost Management**: `MAX_SESSION_COST`, `MAX_TASK_COST`, `ENABLE_COST_TRACKING`
+- **Performance**: `SIMPLE_THRESHOLD`, `COMPLEX_THRESHOLD`, `PREFER_SPEED`, `PREFER_QUALITY`
+- **Debug/Logging**: `DEBUG`, `LOG_LEVEL`, `ENABLE_PERFORMANCE_MONITORING`
+- **Output**: `OUTPUT_PATH`
+
+Run `cat .env.example` to see detailed documentation for each variable.
 
 ## Example Workflow
 
 ```bash
-cd figma-processor
+# 1. Setup (one time only)
+cp .env.example .env
+# Edit .env and add your API keys
 
-# Set environment variables
-export FIGMA_ACCESS_TOKEN="figd_..."
-export OPENAI_API_KEY="sk-..."
+# 2. Run the workflow with a Figma URL
+cd design-to-code-system
+npm run figma:workflow "https://www.figma.com/file/abc123/My-Design?node-id=29:1058"
 
-# Process any Figma design
-node ai-processor.js "https://www.figma.com/file/abc123/My-Design?node-id=29:1058"
-
-# AI will:
+# The workflow will:
 # 1. Parse the URL and extract file key/node ID
 # 2. Get node data and take screenshots
-# 3. Analyze component structure and variants
-# 4. Write React components based on visual analysis
-# 5. Save components with proper organization
+# 3. Analyze components visually (using AI)
+# 4. Plan component strategy (create/update/skip)
+# 5. Generate React TypeScript components
+# 6. Save components to nextjs-app/ui/
+# 7. Generate comprehensive reports (markdown + JSON)
 
-# View results
-ls components/        # See generated components
-cat logs/session-*.log # View detailed session log
+# 3. View results
+ls nextjs-app/ui/elements/     # Generated atomic components
+ls nextjs-app/ui/icons/        # Generated icon components
+cat reports/workflow-report-*.md   # Human-readable summary
+cat reports/workflow-report-*.json # Full workflow data
+
+# 4. Preview components
+cd nextjs-app
+npm run dev                    # Start Next.js dev server
+# Visit http://localhost:3000/ui-showcase
 ```
 
 ## Benefits of AI-Centric Architecture

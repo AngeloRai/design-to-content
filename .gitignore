@@ -21,13 +21,16 @@ node_modules/
 
 # Environment variables
 .env
-.env.*
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+.env.*.local
 .envrc
 .envrc.local
+
+# IMPORTANT: Do NOT ignore .env.example - it should be committed
+# !.env.example is not needed as we removed the overly broad .env.* pattern
 
 # Debug
 npm-debug.log*
