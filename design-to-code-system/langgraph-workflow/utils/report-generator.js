@@ -9,6 +9,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
+import { scanExistingComponents } from '../../utils/scan-components.js';
 
 /**
  * Generate comprehensive reports (both markdown and JSON) from workflow state
@@ -34,12 +35,19 @@ export const generateReport = async (state, outputDir = '.') => {
   const jsonPath = path.join(outputDir, `workflow-report-${timestamp}.json`);
   await fs.writeFile(jsonPath, JSON.stringify(jsonContent, null, 2), 'utf-8');
 
+  // Generate component inventory
+  const inventoryContent = await buildComponentInventory(state);
+  const inventoryPath = path.join(outputDir, `component-inventory-${timestamp}.json`);
+  await fs.writeFile(inventoryPath, JSON.stringify(inventoryContent, null, 2), 'utf-8');
+
   return {
     success: true,
     markdownPath,
     jsonPath,
+    inventoryPath,
     markdownSize: markdownContent.length,
-    jsonSize: JSON.stringify(jsonContent).length
+    jsonSize: JSON.stringify(jsonContent).length,
+    inventorySize: JSON.stringify(inventoryContent).length
   };
 };
 
@@ -518,6 +526,47 @@ const calculateAverageComplexity = (components) => {
   if (withComplexity.length === 0) return 0;
   const sum = withComplexity.reduce((acc, c) => acc + c.complexityScore, 0);
   return (sum / withComplexity.length).toFixed(2);
+};
+
+/**
+ * Build component inventory by scanning existing components
+ */
+const buildComponentInventory = async (state) => {
+  const outputPath = state.outputPath || 'nextjs-app/ui';
+
+  // Scan all existing components
+  const scannedComponents = await scanExistingComponents(outputPath);
+
+  return {
+    inventoryMetadata: {
+      generatedAt: new Date().toISOString(),
+      outputPath: outputPath,
+      totalComponents: scannedComponents.all.length
+    },
+
+    // Components organized by category
+    byCategory: {
+      elements: scannedComponents.elements,
+      components: scannedComponents.components,
+      modules: scannedComponents.modules,
+      icons: scannedComponents.icons
+    },
+
+    // Quick lookup by name
+    byName: scannedComponents.byName,
+
+    // Import paths
+    importMap: scannedComponents.importMap,
+
+    // Summary statistics
+    summary: {
+      elements: scannedComponents.elements.length,
+      components: scannedComponents.components.length,
+      modules: scannedComponents.modules.length,
+      icons: scannedComponents.icons.length,
+      total: scannedComponents.all.length
+    }
+  };
 };
 
 export default {

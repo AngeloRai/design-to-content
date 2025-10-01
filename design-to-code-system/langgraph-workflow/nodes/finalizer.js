@@ -56,7 +56,7 @@ export const finalizerNode = async (state) => {
       }
     };
 
-    // Generate comprehensive reports (markdown + JSON)
+    // Generate comprehensive reports (markdown + JSON + component inventory)
     try {
       const reportsDir = path.join(process.cwd(), 'reports');
       const reportResult = await generateReport(finalState, reportsDir);
@@ -64,13 +64,15 @@ export const finalizerNode = async (state) => {
       console.log(`\n📄 Reports generated:`);
       console.log(`   - Markdown: ${reportResult.markdownPath}`);
       console.log(`   - JSON: ${reportResult.jsonPath}`);
-      console.log(`   - Total size: ${((reportResult.markdownSize + reportResult.jsonSize) / 1024).toFixed(2)} KB`);
+      console.log(`   - Component Inventory: ${reportResult.inventoryPath}`);
+      console.log(`   - Total size: ${((reportResult.markdownSize + reportResult.jsonSize + reportResult.inventorySize) / 1024).toFixed(2)} KB`);
 
       return {
         ...finalState,
         reportPaths: {
           markdown: reportResult.markdownPath,
-          json: reportResult.jsonPath
+          json: reportResult.jsonPath,
+          inventory: reportResult.inventoryPath
         }
       };
     } catch (reportError) {
