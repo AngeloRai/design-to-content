@@ -9,10 +9,36 @@
 
 import { generateReport } from "../utils/report-generator.js";
 import { generateStories } from "../utils/storybook-generator.js";
+import { stopStorybookTool } from "../tools/visual-inspection-tools.js";
 import path from "path";
+import { execSync } from "child_process";
 
 export const finalizerNode = async (state) => {
   console.log("\n🎉 Finalizing workflow...");
+
+  // Cleanup: Stop Storybook if it's running
+  try {
+    const ports = [6006, 6007, 6008, 6009];
+    let stoppedCount = 0;
+
+    for (const port of ports) {
+      try {
+        const pids = execSync(`lsof -ti:${port} 2>/dev/null || echo ""`).toString().trim();
+        if (pids) {
+          await stopStorybookTool.invoke({ port });
+          stoppedCount++;
+        }
+      } catch (e) {
+        // Port already free
+      }
+    }
+
+    if (stoppedCount > 0) {
+      console.log(`\n🧹 Cleanup: Stopped ${stoppedCount} Storybook process(es)`);
+    }
+  } catch (cleanupError) {
+    console.warn(`⚠️  Cleanup warning: ${cleanupError.message}`);
+  }
 
   try {
     const {

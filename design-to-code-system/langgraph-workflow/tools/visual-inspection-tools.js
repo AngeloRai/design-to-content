@@ -98,6 +98,75 @@ export const ensureStorybookRunningTool = tool(
 );
 
 /**
+ * Stop Storybook server
+ */
+export const stopStorybookTool = tool(
+  async ({ port = 6006 }) => {
+    const { execSync } = await import("child_process");
+
+    try {
+      // Find and kill process on port
+      const pids = execSync(`lsof -ti:${port} 2>/dev/null || echo ""`).toString().trim();
+
+      if (!pids) {
+        return JSON.stringify({
+          success: true,
+          port,
+          status: "not_running",
+          message: `No Storybook process found on port ${port}`
+        });
+      }
+
+      // Kill all PIDs on this port
+      const pidList = pids.split('\n').filter(p => p);
+      for (const pid of pidList) {
+        try {
+          execSync(`kill -9 ${pid}`);
+        } catch (e) {
+          // Process might already be dead
+        }
+      }
+
+      // Verify port is free
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const checkResult = execSync(`lsof -ti:${port} 2>/dev/null || echo ""`).toString().trim();
+
+      if (!checkResult) {
+        console.log(`    ✓ Storybook stopped on port ${port}`);
+        storybookProcess = null;
+        return JSON.stringify({
+          success: true,
+          port,
+          status: "stopped",
+          message: `Storybook stopped successfully on port ${port}`,
+          killedPids: pidList
+        });
+      } else {
+        return JSON.stringify({
+          success: false,
+          port,
+          error: "Failed to stop Storybook - port still in use"
+        });
+      }
+
+    } catch (error) {
+      return JSON.stringify({
+        success: false,
+        port,
+        error: error.message
+      });
+    }
+  },
+  {
+    name: "stop_storybook",
+    description: "Stop Storybook server running on the specified port. Call this AFTER all visual inspections are complete to free up resources. Returns JSON with success status and killed PIDs.",
+    schema: z.object({
+      port: z.number().nullable().default(6006).describe("Port to stop Storybook on (default 6006)")
+    })
+  }
+);
+
+/**
  * Write component to temp directory for Storybook rendering
  */
 export const writeTempComponentTool = tool(
@@ -271,6 +340,7 @@ export const getStorybookUrlTool = tool(
 
 const visualInspectionTools = [
   ensureStorybookRunningTool,
+  stopStorybookTool,
   writeTempComponentTool,
   compareScreenshotsWithVisionTool,
   getStorybookUrlTool
