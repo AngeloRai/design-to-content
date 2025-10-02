@@ -29,15 +29,15 @@ const ComponentSchema = z.object({
   styleVariants: z
     .array(z.string())
     .describe(
-      "Style/color variants, clear semantic naming (e.g., ['default', 'primary', 'secondary'])"
+      "EVERY distinct style/color variant observed in the design. Use descriptive names based on visual appearance (e.g., ['solid-black', 'solid-gold', 'outline-black', 'ghost', 'solid-white']). List ALL visible variants, not just generic categories."
     ),
   sizeVariants: z
     .array(z.string())
-    .describe("Size variants (e.g., ['small', 'medium', 'large'])"),
+    .describe("EVERY distinct size variant observed (e.g., ['compact', 'default', 'large']). List ALL visible sizes."),
   otherVariants: z
     .array(z.string())
     .nullable()
-    .describe("Other variants like shape, density, etc."),
+    .describe("Other variants like shape, density, icon position, etc. List ALL observed variations."),
 
   states: z
     .array(z.string())
