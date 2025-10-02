@@ -283,11 +283,21 @@ export const generatorNode = async (state) => {
 
     // Generate icons first if they exist
     let generatedIcons = [];
+    let updatedLibraryContext = state.libraryContext || { icons: [], elements: [], components: [], modules: [] };
+
     if (figmaData?.extractedIcons && figmaData.extractedIcons.length > 0) {
       generatedIcons = await generateIconComponents(
         figmaData.extractedIcons,
         outputPath
       );
+
+      // ✅ Update library context with generated icon names
+      const iconNames = generatedIcons.map(icon => icon.name);
+      updatedLibraryContext = {
+        ...updatedLibraryContext,
+        icons: iconNames
+      };
+      console.log(`  ✅ Updated library context with ${iconNames.length} icons`);
     }
 
     if (!componentStrategy || componentStrategy.length === 0) {
@@ -327,23 +337,17 @@ export const generatorNode = async (state) => {
       await handleComponentUpdates(toUpdate, state);
     }
 
-    console.log(`📝 Generating ${toGenerate.length} component(s)...`);
+    console.log(`📝 Generating ${toGenerate.length} component(s) with quality control...`);
 
-    // Initialize AI model with structured output
-    // The AI will generate the actual React component code
-    const model = new ChatOpenAI({
-      model: "gpt-4o",
-      temperature: 0.1,
-      maxTokens: 4000,
-      openAIApiKey: process.env.OPENAI_API_KEY,
-    }).withStructuredOutput(GeneratedComponentSchema);
+    // Import the refinement subgraph
+    const { componentRefinementSubgraph } = await import("./generator-subgraph.js");
 
     // Generate each component (start with icons already generated)
     const generatedComponents = [...generatedIcons];
 
     for (const strategyItem of toGenerate) {
       try {
-        console.log(`\n  → Generating ${strategyItem.component.name}...`);
+        console.log(`\n🔧 Generating ${strategyItem.component.name}...`);
 
         // Find the full component spec from visual analysis
         const componentSpec = visualAnalysis.components.find(
@@ -357,75 +361,69 @@ export const generatorNode = async (state) => {
           continue;
         }
 
-        // Build generation prompt from prompts/generation/component-generation.js
-        // This prompt tells the AI HOW to generate React components
-        const generationPrompt = buildComponentGenerationPrompt(componentSpec, {
-          outputPath,
-          atomicLevel: componentSpec.atomicLevel,
-          targetPath: strategyItem.targetPath,
+        // Invoke refinement subgraph (iterates until quality gates met)
+        // Passes library context for imports awareness (includes generated icons)
+        console.log(`  → Starting iterative refinement workflow...`);
+        const result = await componentRefinementSubgraph.invoke({
+          componentSpec,
+          libraryContext: updatedLibraryContext,  // ✅ Use updated context with icons
+          figmaScreenshot: figmaData?.screenshotUrl || null,  // ✅ Get from figmaData
+          outputPath: state.outputPath || outputPath
         });
 
-        // Invoke directly without template (avoids {} escaping issues in prompt)
-        const result = await model.invoke([
-          { role: "system", content: generationPrompt },
-          {
-            role: "user",
-            content:
-              "Generate the React TypeScript component based on the specifications provided. Return the complete component code in the 'code' field.",
-          },
-        ]);
-
-        // Validate we got code
-        if (!result.code || result.code.trim().length === 0) {
-          console.error(`  ❌ AI returned empty code`);
+        // Check if component was approved
+        if (!result.approved) {
+          console.log(`  ❌ Component generation did not meet quality gates`);
+          if (result.failureReason) {
+            console.log(`     Reason: ${result.failureReason}`);
+          }
           continue;
         }
 
-        console.log(
-          `  ✓ AI generated ${result.code.split("\n").length} lines of code`
-        );
-
-        // Skip TypeScript validation - Next.js will validate when building
-        // Standalone validation has too many false positives with paths/types
-        const componentName =
-          result.componentName || strategyItem.component.name;
-
         // Determine file path based on atomic level
         const filePath = determineFilePath(
-          componentName,
+          componentSpec.name,
           componentSpec.atomicLevel,
           outputPath
         );
 
-        // Write component file to disk
+        // Write final approved component file to disk
         console.log(`  📁 Writing to ${filePath}...`);
-        const writeResult = await writeComponent(filePath, result.code, false);
+        const writeResult = await writeComponent(filePath, result.currentCode, false);
 
         if (!writeResult.success) {
           console.error(`  ❌ Failed to write file: ${writeResult.error}`);
           continue;
         }
 
-        // Add to generated components list
+        // Add to generated components list with quality metrics
         generatedComponents.push({
-          name: result.componentName || strategyItem.component.name,
+          name: componentSpec.name,
           filePath,
           action: "created",
-          linesOfCode: result.code.split("\n").length,
+          linesOfCode: result.currentCode.split("\n").length,
           timestamp: new Date().toISOString(),
           atomicLevel: componentSpec.atomicLevel,
-          props: result.props || [],
-          imports: result.imports || [],
-          exports: result.exports || [],
-          confidence: result.confidence || componentSpec.confidence || 0.8,
+          qualityScore: result.codeReviewResult?.averageScore || null,
+          visualScore: result.visualInspectionResult?.confidenceScore || null,
+          iterations: result.iterationCount || 0,
+          confidence: componentSpec.confidence || 0.8,
         });
 
-        console.log(`  ✅ Generated successfully`);
+        console.log(`  ✅ Success!`);
+        if (result.codeReviewResult) {
+          console.log(`     Quality: ${result.codeReviewResult.averageScore.toFixed(1)}/10`);
+        }
+        if (result.visualInspectionResult) {
+          console.log(`     Visual: ${Math.round(result.visualInspectionResult.confidenceScore * 100)}%`);
+        }
+        console.log(`     Iterations: ${result.iterationCount}`);
       } catch (error) {
         console.error(
           `  ❌ Failed to generate ${strategyItem.component.name}:`,
           error.message
         );
+        console.error(error.stack);
       }
     }
 
