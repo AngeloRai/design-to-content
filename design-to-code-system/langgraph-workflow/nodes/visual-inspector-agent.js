@@ -54,27 +54,30 @@ You have access to these Playwright browser tools:
 - mcp__playwright__browser_close() - Close browser
 
 **YOUR CUSTOM TOOLS:**
+- ensure_storybook_running(port) - Ensure Storybook is running before navigation
 - write_temp_component(componentName, code, outputPath) - Write component to temp for Storybook
-- get_storybook_url(componentName, atomicLevel) - Get Storybook URL
+- get_storybook_url(componentName, atomicLevel, port) - Get Storybook URL
 - compare_screenshots_with_vision(figmaScreenshotUrl, renderedScreenshotBase64, componentName) - Compare via GPT-4 Vision
 
 **YOUR WORKFLOW:**
 
-1. **Write temp component** using write_temp_component tool
-2. **Get Storybook URL** using get_storybook_url tool
-3. **Navigate to Storybook** using mcp__playwright__browser_navigate
-   - Try port 6006 first
-   - If navigation fails (timeout, error), try ports 6007, 6008, 6009
+1. **Ensure Storybook is running** using ensure_storybook_running tool (port 6006)
+   - This will start Storybook if it's not running
+   - Wait for it to be ready before proceeding
+2. **Write temp component** using write_temp_component tool
+3. **Get Storybook URL** using get_storybook_url tool (use same port as step 1)
+4. **Navigate to Storybook** using mcp__playwright__browser_navigate
+   - Use the URL from step 3
    - Wait 2-3 seconds for component to render
-4. **Take screenshot** using mcp__playwright__browser_take_screenshot
+5. **Take screenshot** using mcp__playwright__browser_take_screenshot
    - Use PNG format
    - Don't use fullPage (just capture viewport)
    - Save with filename like "component-name-screenshot.png"
-5. **Compare screenshots** using compare_screenshots_with_vision
+6. **Compare screenshots** using compare_screenshots_with_vision
    - Pass Figma screenshot URL
    - Pass rendered screenshot (base64 from Playwright)
    - Get visual differences and Tailwind fixes
-6. **Return results** with:
+7. **Return results** with:
    - pixelPerfect: boolean
    - confidenceScore: number (0-1)
    - visualDifferences: array
@@ -82,8 +85,8 @@ You have access to these Playwright browser tools:
    - feedback: string
 
 **ERROR HANDLING:**
-- If Storybook navigation fails on port 6006, try 6007, 6008, 6009
-- If all ports fail, return error with helpful message
+- If Storybook fails to start, return error immediately
+- If navigation fails, check if Storybook is actually running
 - If screenshot fails, retry once before giving up
 - If Vision comparison fails, return error details
 
@@ -93,11 +96,12 @@ You have access to these Playwright browser tools:
 - Fail if confidenceScore < 0.9
 
 **IMPORTANT:**
+- Always start by ensuring Storybook is running (step 1)
 - Be thorough - take your time to ensure component renders before screenshot
 - Be resilient - retry navigation/screenshot on failure
 - Be precise - provide exact Tailwind class changes in feedback
 
-Start by writing the temp component, then proceed through the workflow.`;
+Start by ensuring Storybook is running, then proceed through the workflow.`;
 };
 
 /**
@@ -139,11 +143,13 @@ ${componentCode}
 ${figmaScreenshot || 'Not provided - skip visual validation'}
 
 **Your task:**
-1. Write the temp component file
-2. Navigate to Storybook (try ports 6006-6009)
-3. Take a screenshot
-4. Compare with Figma screenshot using Vision
-5. Return the comparison results
+1. Ensure Storybook is running on port 6006
+2. Write the temp component file
+3. Get the Storybook URL for this component
+4. Navigate to Storybook using the URL from step 3
+5. Take a screenshot
+6. Compare with Figma screenshot using Vision
+7. Return the comparison results
 
 If Figma screenshot is not provided, skip visual validation and return a default passing result.`;
 

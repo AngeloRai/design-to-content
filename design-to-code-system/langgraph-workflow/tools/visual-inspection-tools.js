@@ -9,6 +9,93 @@ import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import fs from "fs-extra";
 import path from "path";
+import { spawn } from "child_process";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Track Storybook process globally
+let storybookProcess = null;
+
+/**
+ * Ensure Storybook is running on the specified port
+ */
+export const ensureStorybookRunningTool = tool(
+  async ({ port = 6006 }) => {
+    const { execSync } = await import("child_process");
+
+    try {
+      // Check if port is already in use
+      const result = execSync(`lsof -ti:${port} 2>/dev/null || echo ""`).toString().trim();
+
+      if (result) {
+        return JSON.stringify({
+          success: true,
+          port,
+          status: "already_running",
+          message: `Storybook is already running on port ${port}`
+        });
+      }
+
+      // Port is free, start Storybook
+      const storybookDir = path.join(__dirname, "..", "..", "..", "storybook-app");
+
+      console.log(`    → Starting Storybook on port ${port}...`);
+
+      storybookProcess = spawn("npm", ["run", "storybook", "--", "--port", port.toString()], {
+        cwd: storybookDir,
+        detached: true,
+        stdio: "ignore"
+      });
+
+      storybookProcess.unref();
+
+      // Wait for Storybook to be ready (check if port opens)
+      const maxAttempts = 30; // 30 seconds
+      for (let i = 0; i < maxAttempts; i++) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        try {
+          const checkResult = execSync(`lsof -ti:${port} 2>/dev/null || echo ""`).toString().trim();
+          if (checkResult) {
+            console.log(`    ✓ Storybook started on port ${port}`);
+            return JSON.stringify({
+              success: true,
+              port,
+              status: "started",
+              message: `Storybook started successfully on port ${port}`,
+              pid: storybookProcess.pid
+            });
+          }
+        } catch (e) {
+          // Keep waiting
+        }
+      }
+
+      return JSON.stringify({
+        success: false,
+        port,
+        error: "Storybook failed to start within 30 seconds"
+      });
+
+    } catch (error) {
+      return JSON.stringify({
+        success: false,
+        port,
+        error: error.message
+      });
+    }
+  },
+  {
+    name: "ensure_storybook_running",
+    description: "Ensure Storybook is running on the specified port. If not running, starts it automatically. Returns JSON with success status, port, and whether it was already running or newly started. Call this BEFORE attempting to navigate to Storybook URLs.",
+    schema: z.object({
+      port: z.number().nullable().default(6006).describe("Port to run Storybook on (default 6006)")
+    })
+  }
+);
 
 /**
  * Write component to temp directory for Storybook rendering
@@ -183,6 +270,7 @@ export const getStorybookUrlTool = tool(
 );
 
 const visualInspectionTools = [
+  ensureStorybookRunningTool,
   writeTempComponentTool,
   compareScreenshotsWithVisionTool,
   getStorybookUrlTool
