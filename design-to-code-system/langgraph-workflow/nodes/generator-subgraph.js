@@ -25,6 +25,7 @@ const ComponentRefinementState = Annotation.Root({
   }),
   figmaScreenshot: Annotation({ default: () => null }),
   outputPath: Annotation({ default: () => "nextjs-app/ui" }),
+  storybookPort: Annotation({ default: () => null }),  // Track Storybook port across iterations
 
   // Generation tracking
   currentCode: Annotation({ default: () => "" }),
@@ -230,11 +231,18 @@ const visualInspectionNode = async (state) => {
   console.log(`  → Running visual inspection with autonomous agent...`);
 
   try {
+    // Pass existing Storybook port if available (from parent state via passthrough)
+    const storybookPort = state.storybookPort || null;
+    if (storybookPort) {
+      console.log(`    Using existing Storybook on port ${storybookPort}`);
+    }
+
     const result = await runVisualInspection(
       state.currentCode,
       state.componentSpec,
       state.figmaScreenshot,
-      state.outputPath
+      state.outputPath,
+      storybookPort
     );
 
     const visualPercent = Math.round(result.confidenceScore * 100);
@@ -259,7 +267,15 @@ const visualInspectionNode = async (state) => {
       }
     }
 
-    return { visualInspectionResult: result };
+    // Store the port in parent state for next iteration
+    if (result.storybookPort) {
+      console.log(`    Storybook running on port ${result.storybookPort}`);
+    }
+
+    return {
+      visualInspectionResult: result,
+      storybookPort: result.storybookPort  // Update parent state with port
+    };
   } catch (error) {
     console.error(`    ⚠️  Visual inspection failed: ${error.message}`);
     // Fallback: approve without visual validation

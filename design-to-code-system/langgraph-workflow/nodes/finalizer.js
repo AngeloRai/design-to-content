@@ -18,23 +18,38 @@ export const finalizerNode = async (state) => {
 
   // Cleanup: Stop Storybook if it's running
   try {
-    const ports = [6006, 6007, 6008, 6009];
-    let stoppedCount = 0;
+    const storybookPort = state.storybookPort;
 
-    for (const port of ports) {
-      try {
-        const pids = execSync(`lsof -ti:${port} 2>/dev/null || echo ""`).toString().trim();
-        if (pids) {
-          await stopStorybookTool.invoke({ port });
-          stoppedCount++;
-        }
-      } catch (e) {
-        // Port already free
+    if (storybookPort) {
+      console.log(`\n🧹 Cleanup: Stopping Storybook on port ${storybookPort}...`);
+      const result = await stopStorybookTool.invoke({ port: storybookPort });
+      const parsed = JSON.parse(result);
+
+      if (parsed.success) {
+        console.log(`   ✓ Stopped Storybook (${parsed.status})`);
+      } else {
+        console.log(`   ⚠️  Failed to stop: ${parsed.error}`);
       }
-    }
+    } else {
+      // Fallback: check all common ports if state doesn't have port info
+      const ports = [6006, 6007, 6008, 6009];
+      let stoppedCount = 0;
 
-    if (stoppedCount > 0) {
-      console.log(`\n🧹 Cleanup: Stopped ${stoppedCount} Storybook process(es)`);
+      for (const port of ports) {
+        try {
+          const pids = execSync(`lsof -ti:${port} 2>/dev/null || echo ""`).toString().trim();
+          if (pids) {
+            await stopStorybookTool.invoke({ port });
+            stoppedCount++;
+          }
+        } catch (e) {
+          // Port already free
+        }
+      }
+
+      if (stoppedCount > 0) {
+        console.log(`\n🧹 Cleanup: Stopped ${stoppedCount} Storybook process(es) (fallback scan)`);
+      }
     }
   } catch (cleanupError) {
     console.warn(`⚠️  Cleanup warning: ${cleanupError.message}`);

@@ -77,12 +77,13 @@ You have access to these Playwright browser tools:
    - Pass Figma screenshot URL
    - Pass rendered screenshot (base64 from Playwright)
    - Get visual differences and Tailwind fixes
-7. **Return results** with:
+7. **Return results** as JSON with:
    - pixelPerfect: boolean
    - confidenceScore: number (0-1)
    - visualDifferences: array
    - tailwindFixes: array
    - feedback: string
+   - storybookPort: number (the port you used)
 
 **ERROR HANDLING:**
 - If Storybook fails to start, return error immediately
@@ -123,16 +124,23 @@ export const createVisualInspectorAgent = () => {
 /**
  * Run visual inspection using the agent
  */
-export const runVisualInspection = async (componentCode, componentSpec, figmaScreenshot, outputPath) => {
+export const runVisualInspection = async (componentCode, componentSpec, figmaScreenshot, outputPath, storybookPort = null) => {
   console.log(`  → Creating visual inspector agent...`);
 
   const agent = createVisualInspectorAgent();
+
+  // Use existing port or default to 6006
+  const targetPort = storybookPort || 6006;
+  const portInstruction = storybookPort
+    ? `Use port ${storybookPort} (already running from previous inspection)`
+    : `Use port 6006 (start if needed)`;
 
   const userMessage = `Perform visual inspection for this component:
 
 **Component Name:** ${componentSpec.name}
 **Atomic Level:** ${componentSpec.atomicLevel}
 **Output Path:** ${outputPath}
+**Storybook Port:** ${targetPort} - ${portInstruction}
 
 **Component Code:**
 \`\`\`tsx
@@ -143,9 +151,9 @@ ${componentCode}
 ${figmaScreenshot || 'Not provided - skip visual validation'}
 
 **Your task:**
-1. Ensure Storybook is running on port 6006
+1. Ensure Storybook is running on port ${targetPort} (if already running, skip to step 2)
 2. Write the temp component file
-3. Get the Storybook URL for this component
+3. Get the Storybook URL for this component (use port ${targetPort})
 4. Navigate to Storybook using the URL from step 3
 5. Take a screenshot
 6. Compare with Figma screenshot using Vision
@@ -195,6 +203,10 @@ If Figma screenshot is not provided, skip visual validation and return a default
     try {
       const parsedResult = JSON.parse(lastMessage.content);
       console.log(`  ✓ Successfully parsed JSON from last message`);
+      // Ensure port is included in result
+      if (!parsedResult.storybookPort) {
+        parsedResult.storybookPort = targetPort;
+      }
       return parsedResult;
     } catch (parseError) {
       // If agent didn't return JSON, extract key info from text
@@ -203,6 +215,7 @@ If Figma screenshot is not provided, skip visual validation and return a default
         pixelPerfect: lastMessage.content.includes('pixel perfect') || lastMessage.content.includes('95%'),
         confidenceScore: 0.85,
         visualDifferences: [],
+        storybookPort: targetPort,  // Include port in fallback
         tailwindFixes: [],
         feedback: lastMessage.content
       };

@@ -160,6 +160,12 @@ export const StateAnnotation = Annotation.Root({
       costEstimate: 0
     }),
     description: "Workflow execution metadata"
+  }),
+
+  // Storybook lifecycle tracking
+  storybookPort: Annotation({
+    default: () => null,
+    description: "Port number where Storybook is running (null if not started)"
   })
 });
 
