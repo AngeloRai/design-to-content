@@ -13,7 +13,7 @@
  * Includes checkpointing for state persistence
  */
 
-import { StateGraph } from "@langchain/langgraph";
+import { StateGraph, START, END } from "@langchain/langgraph";
 import { MemorySaver } from "@langchain/langgraph";
 import { StateAnnotation } from "./schemas/state.js";
 import { analyzeFigmaVisualComponents } from "./nodes/analysis.js";
@@ -35,21 +35,17 @@ export function buildGraph() {
   workflow.addNode("finalizer", finalizerNode);
 
   // Define edges
-  workflow.addEdge("__start__", "analysis");
+  workflow.addEdge(START, "analysis");
   workflow.addEdge("analysis", "strategy_planner");
 
   // Conditional routing from strategy planner
-  workflow.addConditionalEdges(
-    "strategy_planner",
-    routeFromStrategyPlanner,
-    {
-      generator: "generator",
-      finalizer: "finalizer"
-    }
-  );
+  workflow.addConditionalEdges("strategy_planner", routeFromStrategyPlanner, {
+    generator: "generator",
+    finalizer: "finalizer",
+  });
 
   workflow.addEdge("generator", "finalizer");
-  workflow.addEdge("finalizer", "__end__");
+  workflow.addEdge("finalizer", END);
 
   return workflow;
 }
@@ -60,7 +56,9 @@ export function buildGraph() {
 function routeFromStrategyPlanner(state) {
   const { componentStrategy = [], errors = [] } = state;
 
-  console.log(`🔀 Routing: componentStrategy has ${componentStrategy.length} items`);
+  console.log(
+    `🔀 Routing: componentStrategy has ${componentStrategy.length} items`
+  );
 
   // If errors occurred, skip to finalizer
   if (errors.length > 0) {
@@ -69,11 +67,19 @@ function routeFromStrategyPlanner(state) {
   }
 
   // Check if any components need generation
-  const needsGeneration = componentStrategy.some(s => s.action === "create_new");
+  const needsGeneration = componentStrategy.some(
+    (s) => s.action === "create_new"
+  );
 
   if (needsGeneration) {
-    const count = componentStrategy.filter(s => s.action === "create_new").length;
-    console.log(`✓ Routing to generator (${count} component${count > 1 ? 's' : ''} to create)`);
+    const count = componentStrategy.filter(
+      (s) => s.action === "create_new"
+    ).length;
+    console.log(
+      `✓ Routing to generator (${count} component${
+        count > 1 ? "s" : ""
+      } to create)`
+    );
     return "generator";
   }
 
@@ -90,7 +96,7 @@ export function compileGraph(workflow, checkpointer = null) {
   const finalCheckpointer = checkpointer || new MemorySaver();
 
   return workflow.compile({
-    checkpointer: finalCheckpointer
+    checkpointer: finalCheckpointer,
   });
 }
 

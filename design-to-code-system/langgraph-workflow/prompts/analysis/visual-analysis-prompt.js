@@ -69,7 +69,7 @@ Examples of INCORRECT analysis:
  - Badge, NumberBadge, StatusBadge (WRONG - all are Badge with variants)
 
 Examples of CORRECT analysis:
- - Button with variants: solid-black, solid-gold, outline, ghost, with-arrow-right, with-arrow-left
+ - Button with variants: solid-black, solid-gold, outline, ghost, etc.
  - Input with variants: default, error, disabled, with-icon
  - Badge with variants: numeric, status, notification
 
