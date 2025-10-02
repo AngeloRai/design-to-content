@@ -7,9 +7,9 @@
  * Simple node with no AI or tool calls, just aggregates state
  */
 
-import { generateReport } from '../utils/report-generator.js';
-import { generateStories } from '../utils/storybook-generator.js';
-import path from 'path';
+import { generateReport } from "../utils/report-generator.js";
+import { generateStories } from "../utils/storybook-generator.js";
+import path from "path";
 
 export const finalizerNode = async (state) => {
   console.log("\n🎉 Finalizing workflow...");
@@ -21,18 +21,20 @@ export const finalizerNode = async (state) => {
       visualAnalysis = {},
       errors = [],
       metadata = {},
-      outputPath = 'nextjs-app/ui'
+      outputPath = "nextjs-app/ui",
     } = state;
 
     // Calculate statistics
     const stats = {
       totalAnalyzed: visualAnalysis.components?.length || 0,
       totalPlanned: componentStrategy.length,
-      created: componentStrategy.filter(s => s.action === "create_new").length,
-      updated: componentStrategy.filter(s => s.action === "update_existing").length,
-      skipped: componentStrategy.filter(s => s.action === "skip").length,
+      created: componentStrategy.filter((s) => s.action === "create_new")
+        .length,
+      updated: componentStrategy.filter((s) => s.action === "update_existing")
+        .length,
+      skipped: componentStrategy.filter((s) => s.action === "skip").length,
       successfullyGenerated: generatedComponents.length,
-      errors: errors.length
+      errors: errors.length,
     };
 
     // Build console summary
@@ -41,7 +43,9 @@ export const finalizerNode = async (state) => {
 
     // Calculate duration if we have start time
     const duration = metadata.startTime
-      ? ((Date.now() - new Date(metadata.startTime).getTime()) / 1000).toFixed(2)
+      ? ((Date.now() - new Date(metadata.startTime).getTime()) / 1000).toFixed(
+          2
+        )
       : null;
 
     // Update state with final metadata
@@ -53,33 +57,64 @@ export const finalizerNode = async (state) => {
         ...metadata,
         endTime: new Date().toISOString(),
         durationSeconds: duration,
-        summary: stats
-      }
+        summary: stats,
+      },
     };
 
     // Generate comprehensive reports (markdown + JSON + component inventory)
     try {
-      const reportsDir = path.join(process.cwd(), 'reports');
+      const reportsDir = path.join(process.cwd(), "reports");
       const reportResult = await generateReport(finalState, reportsDir);
 
       console.log(`\n📄 Reports generated:`);
       console.log(`   - Markdown: ${reportResult.markdownPath}`);
       console.log(`   - JSON: ${reportResult.jsonPath}`);
       console.log(`   - Component Inventory: ${reportResult.inventoryPath}`);
-      console.log(`   - Total size: ${((reportResult.markdownSize + reportResult.jsonSize + reportResult.inventorySize) / 1024).toFixed(2)} KB`);
+      console.log(
+        `   - Total size: ${(
+          (reportResult.markdownSize +
+            reportResult.jsonSize +
+            reportResult.inventorySize) /
+          1024
+        ).toFixed(2)} KB`
+      );
 
       // Generate Storybook stories from inventory
       let storiesResult = null;
       try {
-        const storiesDir = path.join(process.cwd(), 'storybook-app', 'stories');
-        storiesResult = await generateStories(reportResult.inventoryPath, storiesDir);
+        const storiesDir = path.join(process.cwd(), "storybook-app", "stories");
+        // outputPath is already absolute, use it directly
+        const uiBasePath = path.isAbsolute(outputPath)
+          ? outputPath
+          : path.join(process.cwd(), outputPath);
+        storiesResult = await generateStories(
+          reportResult.inventoryPath,
+          storiesDir,
+          uiBasePath
+        );
 
         console.log(`\n📚 Storybook stories generated:`);
-        console.log(`   - Total: ${storiesResult.totalGenerated} stories`);
+        console.log(`   - Generated: ${storiesResult.totalGenerated} stories`);
+        console.log(
+          `   - Skipped: ${
+            storiesResult.totalSkipped || 0
+          } (component files not found)`
+        );
         console.log(`   - Errors: ${storiesResult.totalErrors}`);
 
         if (storiesResult.generated.length > 0) {
-          console.log(`   - Categories: ${[...new Set(storiesResult.generated.map(s => s.category))].join(', ')}`);
+          console.log(
+            `   - Categories: ${[
+              ...new Set(storiesResult.generated.map((s) => s.category)),
+            ].join(", ")}`
+          );
+        }
+
+        if (storiesResult.skipped && storiesResult.skipped.length > 0) {
+          console.log(`\n   ⚠️  Skipped components (not found on disk):`);
+          storiesResult.skipped.forEach((s) => {
+            console.log(`      - ${s.category}/${s.name}`);
+          });
         }
       } catch (storiesError) {
         console.warn(`⚠️  Failed to generate stories: ${storiesError.message}`);
@@ -91,24 +126,27 @@ export const finalizerNode = async (state) => {
           markdown: reportResult.markdownPath,
           json: reportResult.jsonPath,
           inventory: reportResult.inventoryPath,
-          storiesDir: storiesResult ? path.join(process.cwd(), 'storybook-app', 'stories') : null
-        }
+          storiesDir: storiesResult
+            ? path.join(process.cwd(), "storybook-app", "stories")
+            : null,
+        },
       };
     } catch (reportError) {
       console.warn(`⚠️  Failed to generate report: ${reportError.message}`);
       // Don't fail the workflow if report generation fails
       return finalState;
     }
-
   } catch (error) {
     console.error("❌ Finalization failed:", error.message);
     return {
-      errors: [{
-        message: error.message,
-        phase: "finalize",
-        timestamp: new Date().toISOString()
-      }],
-      status: "error"
+      errors: [
+        {
+          message: error.message,
+          phase: "finalize",
+          timestamp: new Date().toISOString(),
+        },
+      ],
+      status: "error",
     };
   }
 };
@@ -138,14 +176,18 @@ function buildSummaryReport(stats, generatedComponents, errors) {
 
   // Generation results
   lines.push("⚙️  Generation:");
-  lines.push(`   Successfully generated: ${stats.successfullyGenerated}/${stats.created}`);
+  lines.push(
+    `   Successfully generated: ${stats.successfullyGenerated}/${stats.created}`
+  );
 
   if (generatedComponents.length > 0) {
     lines.push("");
     lines.push("   Generated components:");
-    generatedComponents.forEach(comp => {
+    generatedComponents.forEach((comp) => {
       lines.push(`   ✓ ${comp.name} (${comp.atomicLevel}) → ${comp.filePath}`);
-      lines.push(`     ${comp.linesOfCode} lines, ${comp.props?.length || 0} props`);
+      lines.push(
+        `     ${comp.linesOfCode} lines, ${comp.props?.length || 0} props`
+      );
     });
   }
 
@@ -153,7 +195,7 @@ function buildSummaryReport(stats, generatedComponents, errors) {
   if (errors.length > 0) {
     lines.push("");
     lines.push("⚠️  Errors:");
-    errors.forEach(err => {
+    errors.forEach((err) => {
       lines.push(`   ✗ [${err.phase}] ${err.message}`);
     });
   }
