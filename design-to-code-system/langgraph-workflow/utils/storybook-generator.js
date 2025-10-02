@@ -8,22 +8,59 @@
  */
 
 import fs from 'fs/promises';
+import fsSync from 'fs';
 import path from 'path';
+
+/**
+ * Clean up old story files before generating new ones
+ */
+const cleanupOldStories = async (storiesDir) => {
+  try {
+    if (fsSync.existsSync(storiesDir)) {
+      console.log(`🧹 Cleaning up old stories in ${storiesDir}...`);
+      const entries = await fs.readdir(storiesDir, { withFileTypes: true });
+
+      for (const entry of entries) {
+        const fullPath = path.join(storiesDir, entry.name);
+        if (entry.isDirectory()) {
+          // Recursively remove category directories
+          await fs.rm(fullPath, { recursive: true, force: true });
+        } else if (entry.name.endsWith('.stories.tsx')) {
+          // Remove story files
+          await fs.unlink(fullPath);
+        }
+      }
+      console.log(`✓ Cleanup complete`);
+    }
+  } catch (error) {
+    console.warn(`⚠️  Failed to cleanup old stories: ${error.message}`);
+  }
+};
 
 /**
  * Generate Storybook stories from component inventory
  */
-export const generateStories = async (inventoryPath, storiesDir) => {
+export const generateStories = async (inventoryPath, storiesDir, uiBasePath = null) => {
   try {
     // Read the inventory file
     const inventoryContent = await fs.readFile(inventoryPath, 'utf-8');
     const inventory = JSON.parse(inventoryContent);
 
+    // Determine UI base path (defaults to nextjs-app/ui relative to inventory location)
+    if (!uiBasePath) {
+      const inventoryDir = path.dirname(inventoryPath);
+      uiBasePath = path.join(inventoryDir, '..', 'nextjs-app', 'ui');
+    }
+
     // Ensure stories directory exists
     await fs.mkdir(storiesDir, { recursive: true });
 
+    // Clean up old stories before generating new ones
+    await cleanupOldStories(storiesDir);
+
     const results = {
       generated: [],
+      skipped: [],
       errors: []
     };
 
@@ -43,9 +80,19 @@ export const generateStories = async (inventoryPath, storiesDir) => {
         }
 
         try {
-          const storyContent = buildStoryFile(component, category);
-          const storyPath = path.join(categoryDir, `${component.name}.stories.tsx`);
+          const storyContent = buildStoryFile(component, category, uiBasePath);
 
+          // Skip if buildStoryFile returned null (component file doesn't exist)
+          if (storyContent === null) {
+            results.skipped.push({
+              name: component.name,
+              category,
+              reason: 'Component file not found'
+            });
+            continue;
+          }
+
+          const storyPath = path.join(categoryDir, `${component.name}.stories.tsx`);
           await fs.writeFile(storyPath, storyContent, 'utf-8');
 
           results.generated.push({
@@ -66,8 +113,10 @@ export const generateStories = async (inventoryPath, storiesDir) => {
     return {
       success: true,
       totalGenerated: results.generated.length,
+      totalSkipped: results.skipped.length,
       totalErrors: results.errors.length,
       generated: results.generated,
+      skipped: results.skipped,
       errors: results.errors
     };
   } catch (error) {
@@ -79,8 +128,15 @@ export const generateStories = async (inventoryPath, storiesDir) => {
 /**
  * Build a complete story file for a component
  */
-const buildStoryFile = (component, category) => {
+const buildStoryFile = (component, category, uiBasePath) => {
   const { name, exportType, props, variants, capabilities } = component;
+
+  // Validate component file exists before creating story
+  const componentFilePath = path.join(uiBasePath, category, `${name}.tsx`);
+  if (!fsSync.existsSync(componentFilePath)) {
+    console.warn(`⚠️  Skipping story for ${name}: component file not found at ${componentFilePath}`);
+    return null;
+  }
 
   // Build import statement
   const importPath = `@/ui/${category}/${name}`;
@@ -157,16 +213,55 @@ const buildArgTypes = (props) => {
 };
 
 /**
+ * Extract variant values from component props
+ * Looks for 'variant' or 'type' prop and parses union type values
+ */
+const extractVariantsFromProps = (props) => {
+  if (!props || props.length === 0) return [];
+
+  // Find variant or type prop
+  const variantProp = props.find(p => p.name === 'variant' || p.name === 'type');
+  if (!variantProp || !variantProp.type) return [];
+
+  // Parse union type: "'value1' | 'value2' | 'value3'"
+  if (variantProp.type.includes('|')) {
+    const variants = variantProp.type
+      .split('|')
+      .map(v => v.trim().replace(/^['"]|['"]$/g, '')) // Remove quotes
+      .filter(v => v && v !== 'string'); // Filter empty and generic types
+    return [...new Set(variants)]; // Deduplicate
+  }
+
+  return [];
+};
+
+/**
  * Generate story examples for a component
  */
 const generateStoryExamples = (component) => {
   const { name, props, variants, capabilities } = component;
   const stories = [];
 
+  // Extract variants from props first (more reliable than inventory.variants)
+  const propsVariants = extractVariantsFromProps(props);
+  const variantsToUse = propsVariants.length > 0 ? propsVariants : (variants || []);
+
   // If has variants, create a story for each variant
-  if (variants && variants.length > 0) {
-    variants.forEach(variant => {
-      const storyName = capitalizeFirst(variant);
+  if (variantsToUse.length > 0) {
+    // Deduplicate variants to prevent duplicate story exports
+    const uniqueVariants = [...new Set(variantsToUse)];
+    const usedStoryNames = new Set();
+
+    uniqueVariants.forEach(variant => {
+      const storyName = toValidIdentifier(variant);
+
+      // Skip if story name already used (handles case-insensitive duplicates)
+      if (usedStoryNames.has(storyName)) {
+        console.warn(`⚠️  Skipping duplicate story name: ${storyName} for component ${name}`);
+        return;
+      }
+      usedStoryNames.add(storyName);
+
       const args = generateArgsForVariant(props, variant);
 
       stories.push(`
@@ -303,6 +398,21 @@ const generatePropValue = (prop) => {
 const capitalizeFirst = (str) => {
   if (!str) return '';
   return str.charAt(0).toUpperCase() + str.slice(1);
+};
+
+/**
+ * Convert variant name to valid JavaScript identifier (PascalCase)
+ * Handles kebab-case, snake_case, and other formats
+ * Examples: "solid-black" -> "SolidBlack", "outline_white" -> "OutlineWhite"
+ */
+const toValidIdentifier = (str) => {
+  if (!str) return '';
+
+  // Split on hyphens, underscores, or spaces
+  return str
+    .split(/[-_\s]+/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join('');
 };
 
 export default {
