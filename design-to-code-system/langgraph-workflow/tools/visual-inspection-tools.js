@@ -104,18 +104,23 @@ Scoring: 1.0=identical, 0.95-0.99=very close, 0.85-0.94=close, 0.70-0.84=similar
 
     try {
       const comparisonResult = await visionModel.invoke([
-        { type: "text", content: comparisonPrompt },
         {
-          type: "image_url",
-          image_url: {
-            url: figmaScreenshotUrl.startsWith('data:')
-              ? figmaScreenshotUrl
-              : `data:image/png;base64,${figmaScreenshotUrl}`
-          }
-        },
-        {
-          type: "image_url",
-          image_url: { url: `data:image/png;base64,${renderedScreenshotBase64}` }
+          role: "user",
+          content: [
+            { type: "text", text: comparisonPrompt },
+            {
+              type: "image_url",
+              image_url: {
+                url: figmaScreenshotUrl.startsWith('data:')
+                  ? figmaScreenshotUrl
+                  : `data:image/png;base64,${figmaScreenshotUrl}`
+              }
+            },
+            {
+              type: "image_url",
+              image_url: { url: `data:image/png;base64,${renderedScreenshotBase64}` }
+            }
+          ]
         }
       ]);
 

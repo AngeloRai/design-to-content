@@ -150,14 +150,19 @@ If Figma screenshot is not provided, skip visual validation and return a default
   try {
     console.log(`  → Agent starting workflow...`);
 
-    const result = await agent.invoke({
-      messages: [
-        {
-          role: "user",
-          content: userMessage
-        }
-      ]
-    });
+    const result = await agent.invoke(
+      {
+        messages: [
+          {
+            role: "user",
+            content: userMessage
+          }
+        ]
+      },
+      {
+        recursionLimit: 50  // Increase from default 25 to allow more tool calls
+      }
+    );
 
     console.log(`  → Agent completed`);
 
