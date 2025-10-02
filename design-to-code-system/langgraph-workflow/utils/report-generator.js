@@ -9,7 +9,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import { scanExistingComponents } from '../../utils/scan-components.js';
+import { scanComponentsWithAI } from '../../utils/ai-component-scanner.js';
 
 /**
  * Generate comprehensive reports (both markdown and JSON) from workflow state
@@ -534,8 +534,17 @@ const calculateAverageComplexity = (components) => {
 const buildComponentInventory = async (state) => {
   const outputPath = state.outputPath || 'nextjs-app/ui';
 
-  // Scan all existing components
-  const scannedComponents = await scanExistingComponents(outputPath);
+  // Scan all existing components using AI for accuracy
+  const scanResult = await scanComponentsWithAI(outputPath);
+  const scannedComponents = {
+    all: scanResult.components,
+    icons: scanResult.components.filter(c => c.type === 'icon'),
+    elements: scanResult.components.filter(c => c.type === 'element'),
+    components: scanResult.components.filter(c => c.type === 'component'),
+    modules: scanResult.components.filter(c => c.type === 'module'),
+    byName: scanResult.byName,
+    importMap: scanResult.importMap
+  };
 
   return {
     inventoryMetadata: {

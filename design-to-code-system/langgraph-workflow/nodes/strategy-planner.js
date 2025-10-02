@@ -46,10 +46,11 @@ export const strategyPlannerNode = async (state) => {
       throw new Error("No visual analysis available for strategy planning");
     }
 
-    // Scan existing components to know what's available
-    console.log("📂 Scanning existing components...");
-    const { scanExistingComponents } = await import("../../utils/scan-components.js");
-    const libraryContext = await scanExistingComponents(outputPath);
+    // Scan existing components to know what's available (using AI for accuracy)
+    console.log("📂 Scanning existing components with AI...");
+    const { scanComponentsWithAI } = await import("../../utils/ai-component-scanner.js");
+    const scanResult = await scanComponentsWithAI(outputPath);
+    const libraryContext = scanResult.libraryContext;
     console.log(`  Found: ${libraryContext.elements.length} elements, ${libraryContext.components.length} components`);
 
     // Initialize AI model with tools (no structured output during tool use)
