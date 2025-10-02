@@ -6,26 +6,112 @@
  * Following Anthropic prompt engineering best practices
  */
 
-export const buildComponentGenerationPrompt = (componentSpec, generationContext = {}) => {
-  // Add library context if available
-  const libraryInfo = generationContext.availableImports ? `
+export const buildComponentGenerationPrompt = (componentSpec, libraryContext = {}, refinementFeedback = []) => {
+  // Build library awareness sections
+  const iconsList = libraryContext.icons && libraryContext.icons.length > 0
+    ? libraryContext.icons
+    : [];
 
-**AVAILABLE COMPONENTS TO IMPORT:**
-${generationContext.availableImports}
+  const elementsList = libraryContext.elements && libraryContext.elements.length > 0
+    ? libraryContext.elements
+    : [];
 
-IMPORTANT: If this is a molecule, it should import and use available atoms.` : '';
+  const componentsList = libraryContext.components && libraryContext.components.length > 0
+    ? libraryContext.components
+    : [];
 
-  return `You are an expert Next.js React TypeScript developer specializing in creating pixel-perfect, accessible UI components from design analysis for Next.js 14+ applications.
+  // Icons section
+  const iconsSection = iconsList.length > 0 ? `
+
+**🎨 AVAILABLE ICONS IN YOUR LIBRARY:**
+${iconsList.map(name => `  - import { ${name} } from '@/ui/icons/${name}';`).join('\n')}
+
+⚠️ **CRITICAL**:
+- Use these icons instead of emojis (❌ ▶️ ✕ ❤️) or inline SVG
+- Import from individual files as shown above (e.g., '@/ui/icons/PlayIcon')
+- NEVER use barrel imports like '@/ui/icons' - they don't exist` : '';
+
+  // Elements section
+  const elementsSection = elementsList.length > 0 ? `
+
+**🧩 AVAILABLE ELEMENTS IN YOUR LIBRARY:**
+${elementsList.map(name => `  - import { ${name} } from '@/ui/elements/${name}';`).join('\n')}
+
+⚠️ **CRITICAL**: If building a molecule, compose using these elements. Don't recreate them.` : '';
+
+  // Components section
+  const componentsSection = componentsList.length > 0 ? `
+
+**📦 AVAILABLE COMPONENTS IN YOUR LIBRARY:**
+${componentsList.map(name => `  - import { ${name} } from '@/ui/components/${name}';`).join('\n')}
+
+⚠️ **CRITICAL**: Reuse these components if building an organism. Don't duplicate functionality.` : '';
+
+  // Refinement section
+  const refinementSection = refinementFeedback.length > 0 ? `
+
+**📝 PREVIOUS ITERATION FEEDBACK:**
+This is a REVISION - you are FIXING SPECIFIC ISSUES, not rewriting from scratch.
+
+${refinementFeedback.join('\n\n---\n\n')}
+
+**🎯 YOUR TASK - BE SURGICAL:**
+
+1. **Read the feedback carefully** - It lists SPECIFIC problems with EXACT fixes
+2. **Make ONLY the changes requested** - Don't refactor working code
+3. **Preserve everything else** - If feedback doesn't mention it, keep it as-is
+4. **Apply exact fixes** - Use the before→after examples provided
+
+**❌ DO NOT:**
+- Rewrite the entire component from scratch
+- Change code that wasn't flagged as problematic
+- Add new features not mentioned in feedback
+- Modify working variant logic, className handling, or structure
+- Change import styles unless specifically requested
+
+**✅ DO:**
+- Fix the exact issues listed (props, imports, Tailwind, TypeScript, accessibility)
+- Apply the specific code changes shown in the feedback
+- Keep everything else identical to the previous iteration` : '';
+
+  return `You are an expert Next.js React TypeScript developer creating pixel-perfect, accessible components.
 
 **COMPONENT SPECIFICATION:**
 ${JSON.stringify(componentSpec, null, 2)}
-
-**GENERATION CONTEXT:**
-${JSON.stringify(generationContext, null, 2)}
-${libraryInfo}
+${iconsSection}
+${elementsSection}
+${componentsSection}
+${refinementSection}
 
 **YOUR TASK:**
 Generate a complete, production-ready TypeScript React component for a Next.js application that exactly matches the specifications above.
+
+**🚫 CRITICAL ANTI-PATTERNS TO AVOID:**
+
+1. **NEVER create props for CSS pseudo-states**:
+   - ❌ BAD: \`state?: 'default' | 'hover' | 'active' | 'focus' | 'disabled'\`
+   - ❌ BAD: \`isHovered?: boolean\` or \`isDisabled?: boolean\` (for styling)
+   - ✅ GOOD: Use CSS pseudo-classes: \`hover:bg-gray-700\`, \`focus:ring-2\`, \`disabled:opacity-50\`
+   - ✅ GOOD: Use native HTML attributes: \`disabled\` attribute for buttons/inputs (already in HTMLAttributes)
+   - **WHY**: Hover/focus/active are **browser states**, not component props. CSS handles them automatically.
+   - **EXCEPTION**: \`disabled\` is a valid HTML attribute (not a styling prop), already included via \`{...props}\`
+
+2. **NEVER use 'label' or 'text' props for content**:
+   - ❌ BAD: \`<Button label="Click me" />\` or \`<Button text="Click me" />\`
+   - ✅ GOOD: \`<Button>Click me</Button>\` (uses \`children\` prop)
+   - **WHY**: React convention is to use \`children\` for composable content
+
+3. **NEVER use emoji or inline SVG for icons**:
+   - ❌ BAD: \`<span>▶️</span>\` or \`<span>❤️</span>\`
+   - ✅ GOOD: Import from library: \`import { PlayIcon } from '@/ui/icons/PlayIcon'\`
+   - **WHY**: Icons from the library are designed to match the design system
+
+**UNDERSTANDING COMPONENT SPECS:**
+The componentSpec includes a \`states\` array (e.g., \`["default", "hover", "inactive"]\`). These are **visual states observed in the design**, NOT props to create. Handle them as follows:
+- **default**: Base styling (no special handling needed)
+- **hover/focus/active**: Use Tailwind pseudo-classes (\`hover:\`, \`focus:\`, \`active:\`)
+- **disabled/inactive**: Use native \`disabled\` attribute + \`disabled:\` pseudo-class for styling
+- **pressed/loading**: ONLY create props for these if they require **state management** (e.g., \`isLoading\`)
 
 **NEXT.JS BEST PRACTICES (CRITICAL):**
 
@@ -122,6 +208,53 @@ export const Button = ({ variant = "default", size = "md", children, className, 
     </button>
   );
 };
+</example>
+
+<example name="tailwind-syntax-rules">
+**🚨 CRITICAL TAILWIND CSS SYNTAX RULES:**
+
+1. **Arbitrary Values MUST Use Square Brackets**:
+   - ✅ CORRECT: \`bg-[#ebc060]\`, \`text-[#000000]\`, \`border-[#9747ff]\`
+   - ❌ WRONG: \`bg-#ebc060\`, \`text-#000000\` (missing square brackets - WILL NOT WORK)
+   - ✅ CORRECT: \`text-[14px]\`, \`w-[200px]\`, \`h-[48px]\`
+   - ❌ WRONG: \`text-14px\`, \`w-200px\` (missing square brackets - WILL NOT WORK)
+   - **WHY**: Tailwind requires square brackets for arbitrary hex colors and pixel values
+
+2. **Convert Design Pixel Values to Tailwind Scale Units** (divide by 4):
+   - Design shows "16px 48px" spacing in designTokens
+   - ✅ CORRECT: \`px-4 py-12\` (16÷4=4, 48÷4=12)
+   - ❌ WRONG: \`px-16 py-48\` (using pixels as Tailwind units directly)
+   - **WHY**: Tailwind's spacing scale: 1 unit = 0.25rem = 4px
+   - Common conversions:
+     - 8px → 2, 12px → 3, 16px → 4, 20px → 5, 24px → 6
+     - 32px → 8, 40px → 10, 48px → 12, 64px → 16
+
+3. **Use Reasonable Spacing Values for Component Type**:
+   - Buttons: typically \`px-4 py-2\` to \`px-8 py-4\`
+   - ❌ WRONG: \`py-48\` (192px vertical padding is absurdly large for a button!)
+   - ❌ WRONG: \`px-96\` (384px horizontal padding is unreasonable)
+   - Inputs: typically \`px-3 py-2\` to \`px-4 py-3\`
+   - Cards: typically \`p-4\` to \`p-8\`
+   - **WHY**: Extreme values indicate a conversion error
+
+4. **Interactive State Classes** (use pseudo-classes, not props):
+   - ✅ CORRECT: \`hover:bg-blue-700 focus:ring-2 active:scale-95 disabled:opacity-50\`
+   - ❌ WRONG: Creating props for hover/focus/active/disabled states
+   - **WHY**: CSS handles these states automatically via pseudo-classes
+
+5. **Prefer Tailwind Scale Over Arbitrary Values When Possible**:
+   - ✅ PREFERRED: \`text-sm\` (14px), \`text-base\` (16px), \`text-lg\` (18px)
+   - ✅ ACCEPTABLE: \`text-[14px]\` (if exact pixel match needed)
+   - ✅ PREFERRED: \`bg-blue-600\`, \`text-gray-900\`
+   - ✅ ACCEPTABLE: \`bg-[#ebc060]\` (for custom brand colors)
+
+**TAILWIND VERIFICATION CHECKLIST:**
+- [ ] All hex colors use square brackets: \`bg-[#hex]\`, \`text-[#hex]\`, \`border-[#hex]\`
+- [ ] All custom pixel values use square brackets: \`text-[14px]\`, \`w-[200px]\`
+- [ ] Spacing values converted to Tailwind scale (divide pixels by 4)
+- [ ] No absurd spacing values (py-48 for buttons, px-96, etc.)
+- [ ] Interactive states use pseudo-classes (hover:, focus:, active:, disabled:)
+- [ ] Smooth transitions included: \`transition-colors\`, \`transition-all\`
 </example>
 
 <example name="nextjs-specific-patterns">
@@ -268,20 +401,42 @@ Keep imports minimal and purposeful. Don't import what you don't use.
 - Export both the component and its props interface
 
 **IMMEDIATE TASK:**
-Generate a complete, production-ready TypeScript React component that matches the component_analysis specifications above. Return the component following the ComponentGenerationSchema structure.
+Generate a complete, production-ready TypeScript React component that matches the component_analysis specifications above.
+
+**CRITICAL CODE QUALITY RULES:**
+
+1. **No Unused Code**:
+   - ❌ NEVER include unused const declarations (designTokens, atomicMetrics, etc.)
+   - ❌ NEVER import icons/components that aren't used in the JSX
+   - ❌ NEVER define variables that aren't referenced
+   - ✅ ONLY import what you actually use in the component
+
+2. **Import Specificity**:
+   - ❌ BAD: \`import { Icon1, Icon2, Icon3, Icon4, Icon5 } from '@/ui/icons'\` (barrel import - FORBIDDEN)
+   - ❌ BAD: \`import { PlayIcon } from '@/ui/icons'\` (barrel import - FORBIDDEN)
+   - ✅ GOOD: \`import { Icon1 } from '@/ui/icons/Icon1'\` (individual file import)
+   - ✅ GOOD: \`import { PlayIcon } from '@/ui/icons/PlayIcon'\` (individual file import)
+   - **CRITICAL**: NEVER use '@/ui/icons' without the specific icon filename
+   - Each icon MUST be imported from its own file: \`import { IconName } from '@/ui/icons/IconName'\`
+
+3. **Clean Production Code**:
+   - Only include: imports, interface, component, and optionally brief usage example
+   - No metadata comments, no unused consts, no extra declarations
+   - Every import must be used, every const must be referenced
 
 **OUTPUT FORMAT:**
-Return structured JSON matching this schema:
-{
-  componentName: string (PascalCase),
-  componentType: string (e.g., "atom", "molecule"),
-  sourceCode: string (complete component code),
-  interface: string (TypeScript interface definition),
-  dependencies: string[] (required imports),
-  usage: string (example usage),
-  designTokens: { colors: string[], spacing: string[], typography: string[] },
-  atomicMetrics: { reusabilityScore: number, complexityScore: number, compositionLevel: string }
-}`;
+Return ONLY the clean component source code. Do NOT include:
+- Design tokens as const declarations
+- Atomic metrics as const declarations
+- Unused imports
+- Metadata objects
+- Comments about the analysis
+
+Include ONLY:
+- Necessary imports (cn, icons/elements actually used, React types if needed)
+- TypeScript interface
+- Component function
+- Brief usage example (optional, as comment)`;
 };
 
 export default {
