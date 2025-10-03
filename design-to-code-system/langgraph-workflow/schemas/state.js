@@ -70,11 +70,6 @@ export const StateAnnotation = Annotation.Root({
     description: "User input or Figma URL"
   }),
 
-  figmaScreenshot: Annotation({
-    default: () => null,
-    description: "Screenshot url from Figma"
-  }),
-
   figmaData: Annotation({
     default: () => null,
     description: "Raw Figma API data"
@@ -160,12 +155,6 @@ export const StateAnnotation = Annotation.Root({
       costEstimate: 0
     }),
     description: "Workflow execution metadata"
-  }),
-
-  // Storybook lifecycle tracking
-  storybookPort: Annotation({
-    default: () => null,
-    description: "Port number where Storybook is running (null if not started)"
   })
 });
 
@@ -203,10 +192,9 @@ export const validateValidationResult = (result) => {
 };
 
 // State utilities
-export const createInitialState = (input = "", figmaScreenshot = null) => {
+export const createInitialState = (input = "") => {
   return {
     input,
-    figmaScreenshot,
     figmaData: null,
     visualAnalysis: null,
     routingDecision: null,
