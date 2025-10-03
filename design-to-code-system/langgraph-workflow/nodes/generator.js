@@ -367,8 +367,7 @@ export const generatorNode = async (state) => {
         const result = await componentRefinementSubgraph.invoke({
           componentSpec,
           libraryContext: updatedLibraryContext,  // ✅ Use updated context with icons
-          figmaScreenshot: figmaData?.screenshotUrl || null,  // ✅ Get from figmaData
-          outputPath: state.outputPath || outputPath
+          outputPath: outputPath  // ✅ Use from destructuring (already has state.outputPath)
         });
 
         // Check if component was approved
@@ -405,7 +404,6 @@ export const generatorNode = async (state) => {
           timestamp: new Date().toISOString(),
           atomicLevel: componentSpec.atomicLevel,
           qualityScore: result.codeReviewResult?.averageScore || null,
-          visualScore: result.visualInspectionResult?.confidenceScore || null,
           iterations: result.iterationCount || 0,
           confidence: componentSpec.confidence || 0.8,
         });
@@ -413,9 +411,6 @@ export const generatorNode = async (state) => {
         console.log(`  ✅ Success!`);
         if (result.codeReviewResult) {
           console.log(`     Quality: ${result.codeReviewResult.averageScore.toFixed(1)}/10`);
-        }
-        if (result.visualInspectionResult) {
-          console.log(`     Visual: ${Math.round(result.visualInspectionResult.confidenceScore * 100)}%`);
         }
         console.log(`     Iterations: ${result.iterationCount}`);
       } catch (error) {

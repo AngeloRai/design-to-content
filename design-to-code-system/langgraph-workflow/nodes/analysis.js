@@ -160,7 +160,7 @@ export const analyzeFigmaVisualComponents = async (state) => {
     // Conditional deep dive for icon extraction
     const needsIconExtraction =
       result.components.some(comp =>
-        comp.inferredProps?.some(p => p.name && p.name.toLowerCase().includes('icon')) ||
+        comp.props?.some(p => p?.name && p?.name?.toLowerCase()?.includes('icon')) ||
         comp.description?.toLowerCase().includes('icon') ||
         comp.designTokens?.hasIcon === true
       ) ||

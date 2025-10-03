@@ -152,6 +152,7 @@ export const strategyPlannerNode = async (state) => {
 
     return {
       componentStrategy: strategy,
+      libraryContext: libraryContext,  // ✅ Pass scanned library context to generator
       currentPhase: "strategy",
       metadata: {
         ...state.metadata,
