@@ -5,6 +5,7 @@
   "type": "module",
   "main": "langgraph-workflow/index.js",
   "scripts": {
+    "postinstall": "npx playwright install chromium",
     "test": "npm run test:workflow",
     "test:workflow": "node --test langgraph-workflow/test/*.test.js",
     "test:basic": "node langgraph-workflow/test/workflow.test.js",
