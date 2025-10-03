@@ -2,8 +2,8 @@
 
 /**
  * COMPONENT REFINEMENT SUBGRAPH
- * Iterative quality-driven component generation with code review and visual inspection
- * NO iteration limits - continues until quality gates met (score ≥8, visual ≥90%)
+ * Iterative quality-driven component generation with code review only
+ * Continues until quality gates met (score ≥8)
  */
 
 import { StateGraph, START, END, Annotation } from "@langchain/langgraph";
@@ -11,7 +11,6 @@ import { ChatOpenAI } from "@langchain/openai";
 import { buildComponentGenerationPrompt } from "../prompts/generation/component-generation-prompt.js";
 import { buildComponentRefinementPrompt } from "../prompts/generation/component-refinement-prompt.js";
 import { buildUnifiedCodeReviewPrompt } from "../prompts/review/unified-code-review-prompt.js";
-import { runVisualInspection } from "./visual-inspector-agent.js";
 import {
   CodeReviewSchema,
   GeneratedCodeSchema,
@@ -23,9 +22,7 @@ const ComponentRefinementState = Annotation.Root({
   libraryContext: Annotation({
     default: () => ({ icons: [], elements: [], components: [], modules: [] }),
   }),
-  figmaScreenshot: Annotation({ default: () => null }),
   outputPath: Annotation({ default: () => "nextjs-app/ui" }),
-  storybookPort: Annotation({ default: () => null }),  // Track Storybook port across iterations
 
   // Generation tracking
   currentCode: Annotation({ default: () => "" }),
@@ -40,7 +37,6 @@ const ComponentRefinementState = Annotation.Root({
 
   // Review results
   codeReviewResult: Annotation({ default: () => null }),
-  visualInspectionResult: Annotation({ default: () => null }),
 
   // Final status
   approved: Annotation({ default: () => false }),
@@ -96,7 +92,7 @@ const generateComponentNode = async (state) => {
       [] // No feedback on first iteration
     );
     userMessage =
-      "Generate the complete component from the specification. Return only the code in the 'code' field.";
+    "Generate the complete component from the specification. Return only the code in the 'code' field.";
   }
 
   try {
@@ -207,16 +203,15 @@ const decideNextAfterCodeReview = (state) => {
     console.log(
       `  ✓ Code review passed (${score.toFixed(1)}/10)`
     );
-    console.log(`  → Proceeding to visual inspection...`);
-    return "visual_inspection";  // ALWAYS run visual inspection!
+    return "approve_component";
   }
 
-  // Max iterations before forcing visual inspection
+  // Max iterations - approve anyway
   if (iteration >= maxIterations) {
     console.log(
-      `  ⚠️  Max code iterations reached (${maxIterations}), forcing visual inspection`
+      `  ⚠️  Max code iterations reached (${maxIterations}), approving with current quality`
     );
-    return "visual_inspection";  // Still check visually even if code isn't perfect
+    return "approve_component";
   }
 
   console.log(
@@ -225,88 +220,6 @@ const decideNextAfterCodeReview = (state) => {
     )}/10), revising... (iteration ${iteration}/${maxIterations})`
   );
   return "prepare_feedback";
-};
-
-const visualInspectionNode = async (state) => {
-  console.log(`  → Running visual inspection with autonomous agent...`);
-
-  try {
-    // Pass existing Storybook port if available (from parent state via passthrough)
-    const storybookPort = state.storybookPort || null;
-    if (storybookPort) {
-      console.log(`    Using existing Storybook on port ${storybookPort}`);
-    }
-
-    const result = await runVisualInspection(
-      state.currentCode,
-      state.componentSpec,
-      state.figmaScreenshot,
-      state.outputPath,
-      storybookPort
-    );
-
-    const visualPercent = Math.round(result.confidenceScore * 100);
-    console.log(`    Visual match: ${visualPercent}% (threshold: 90%)`);
-    console.log(`    Pixel perfect: ${result.pixelPerfect ? "✅" : "❌"}`);
-
-    if (result.visualDifferences && result.visualDifferences.length > 0) {
-      console.log(
-        `    Differences found (${result.visualDifferences.length}):`
-      );
-      result.visualDifferences.slice(0, 3).forEach((diff, i) => {
-        console.log(
-          `      ${i + 1}. ${diff.aspect}: Figma=${diff.figma}, Rendered=${
-            diff.rendered
-          } [${diff.severity}]`
-        );
-      });
-      if (result.visualDifferences.length > 3) {
-        console.log(
-          `      ... and ${result.visualDifferences.length - 3} more`
-        );
-      }
-    }
-
-    // Store the port in parent state for next iteration
-    if (result.storybookPort) {
-      console.log(`    Storybook running on port ${result.storybookPort}`);
-    }
-
-    return {
-      visualInspectionResult: result,
-      storybookPort: result.storybookPort  // Update parent state with port
-    };
-  } catch (error) {
-    console.error(`    ⚠️  Visual inspection failed: ${error.message}`);
-    // Fallback: approve without visual validation
-    return {
-      visualInspectionResult: {
-        pixelPerfect: false,
-        confidenceScore: 0.85,
-        visualDifferences: [],
-        feedback: `Visual inspection unavailable: ${error.message}`,
-        tailwindFixes: [],
-      },
-    };
-  }
-};
-
-const decideNextAfterVisual = (state) => {
-  const visualScore = state.visualInspectionResult.confidenceScore;
-  const visualPercent = Math.round(visualScore * 100);
-
-  // Quality gate: visual match >= 90%
-  if (state.visualInspectionResult.pixelPerfect || visualScore >= 0.9) {
-    console.log(`  ✅ Visual inspection passed (${visualPercent}%)!`);
-    return "approve_component";
-  }
-
-  // NO ITERATION LIMIT - keep going until visual quality achieved
-  console.log(
-    `  ↻ Visual quality gate not met (${visualPercent}%), revising...`
-  );
-
-  return "generate_component";
 };
 
 const approveComponent = (state) => {
@@ -325,21 +238,15 @@ const buildSubgraph = () => {
     .addNode("generate_component", generateComponentNode)
     .addNode("review_code", reviewCodeNode)
     .addNode("prepare_feedback", prepareFeedbackNode)
-    .addNode("visual_inspection", visualInspectionNode)
     .addNode("approve_component", approveComponent)
 
     .addEdge(START, "generate_component")
     .addEdge("generate_component", "review_code")
     .addConditionalEdges("review_code", decideNextAfterCodeReview, {
-      visual_inspection: "visual_inspection",  // Code passes → visual inspection
-      prepare_feedback: "prepare_feedback",    // Code fails → refine
-      // NO direct path to approve_component! Visual inspection is MANDATORY
+      approve_component: "approve_component",   // Code passes → approve
+      prepare_feedback: "prepare_feedback",     // Code fails → refine
     })
     .addEdge("prepare_feedback", "generate_component")
-    .addConditionalEdges("visual_inspection", decideNextAfterVisual, {
-      approve_component: "approve_component",   // Visual passes → approve
-      generate_component: "generate_component", // Visual fails → regenerate
-    })
     .addEdge("approve_component", END);
 
   return graph.compile();
