@@ -5,11 +5,34 @@
  *
  * Generates Storybook stories from component inventory
  * Creates .stories.tsx files for each component with CSF3 format
+ * Uses AI to generate meaningful, context-aware story args
  */
 
 import fs from 'fs/promises';
 import fsSync from 'fs';
 import path from 'path';
+import { ChatOpenAI } from "@langchain/openai";
+import { z } from "zod";
+
+// AI model for generating story args
+const storyGenModel = new ChatOpenAI({
+  model: "gpt-4o-mini",  // Fast and cheap for this task
+  temperature: 0.3,
+  openAIApiKey: process.env.OPENAI_API_KEY,
+});
+
+// Schema for AI-generated story args
+// OpenAI doesn't support z.record() - use array of key-value objects instead
+const StoryArgsSchema = z.object({
+  args: z.array(z.object({
+    key: z.string().describe("Property name (e.g., 'variant', 'children', 'className')"),
+    value: z.union([
+      z.string(),
+      z.number(),
+      z.boolean()
+    ]).describe("Property value")
+  })).describe("Array of property key-value pairs for story args")
+});
 
 /**
  * Clean up old story files before generating new ones
@@ -72,7 +95,7 @@ export const generateStories = async (inventoryPath, storiesDir, uiBasePath = nu
       const categoryDir = path.join(storiesDir, category);
       await fs.mkdir(categoryDir, { recursive: true });
 
-      // Generate story for each component
+      // Generate story for each component (sequentially for AI calls)
       for (const component of components) {
         // Skip invalid component names
         if (!/^[A-Z][a-zA-Z0-9]*$/.test(component.name)) {
@@ -80,7 +103,8 @@ export const generateStories = async (inventoryPath, storiesDir, uiBasePath = nu
         }
 
         try {
-          const storyContent = buildStoryFile(component, category, uiBasePath);
+          console.log(`  → Generating story for ${component.name}...`);
+          const storyContent = await buildStoryFile(component, category, uiBasePath);
 
           // Skip if buildStoryFile returned null (component file doesn't exist)
           if (storyContent === null) {
@@ -126,10 +150,10 @@ export const generateStories = async (inventoryPath, storiesDir, uiBasePath = nu
 };
 
 /**
- * Build a complete story file for a component
+ * Build a complete story file for a component (AI-powered)
  */
-const buildStoryFile = (component, category, uiBasePath) => {
-  const { name, exportType, props, variants, capabilities } = component;
+const buildStoryFile = async (component, category, uiBasePath) => {
+  const { name, exportType, props } = component;
 
   // Validate component file exists before creating story
   const componentFilePath = path.join(uiBasePath, category, `${name}.tsx`);
@@ -147,8 +171,8 @@ const buildStoryFile = (component, category, uiBasePath) => {
   // Build argTypes for interactive controls
   const argTypes = buildArgTypes(props);
 
-  // Generate stories based on variants
-  const stories = generateStoryExamples(component);
+  // Generate stories using AI
+  const stories = await generateStoryExamples(component);
 
   return `import type { Meta, StoryObj } from '@storybook/react';
 ${importStatement}
@@ -236,9 +260,9 @@ const extractVariantsFromProps = (props) => {
 };
 
 /**
- * Generate story examples for a component
+ * Generate story examples for a component (AI-powered)
  */
-const generateStoryExamples = (component) => {
+const generateStoryExamples = async (component) => {
   const { name, props, variants, capabilities } = component;
   const stories = [];
 
@@ -248,21 +272,19 @@ const generateStoryExamples = (component) => {
 
   // If has variants, create a story for each variant
   if (variantsToUse.length > 0) {
-    // Deduplicate variants to prevent duplicate story exports
     const uniqueVariants = [...new Set(variantsToUse)];
     const usedStoryNames = new Set();
 
-    uniqueVariants.forEach(variant => {
+    for (const variant of uniqueVariants) {
       const storyName = toValidIdentifier(variant);
 
-      // Skip if story name already used (handles case-insensitive duplicates)
       if (usedStoryNames.has(storyName)) {
-        console.warn(`⚠️  Skipping duplicate story name: ${storyName} for component ${name}`);
-        return;
+        continue;
       }
       usedStoryNames.add(storyName);
 
-      const args = generateArgsForVariant(props, variant);
+      // Use AI to generate args
+      const args = await generateArgsForVariantWithAI(component, variant, capabilities);
 
       stories.push(`
 /**
@@ -271,59 +293,73 @@ const generateStoryExamples = (component) => {
 export const ${storyName}: Story = {
   args: ${JSON.stringify(args, null, 4)},
 };`);
-    });
+    }
   } else {
-    // Generate a default story with required props
-    const defaultArgs = generateDefaultArgs(props, capabilities);
+    // Use AI for default story too
+    const args = await generateArgsForVariantWithAI(component, 'default', capabilities);
 
     stories.push(`
 /**
  * Default ${name} example
  */
 export const Default: Story = {
-  args: ${JSON.stringify(defaultArgs, null, 4)},
+  args: ${JSON.stringify(args, null, 4)},
 };`);
-
-    // Add example with custom styling if supports className
-    if (capabilities?.hasClassName) {
-      const styledArgs = {
-        ...defaultArgs,
-        className: 'shadow-lg border-2'
-      };
-
-      stories.push(`
-/**
- * With custom styling
- */
-export const WithStyling: Story = {
-  args: ${JSON.stringify(styledArgs, null, 4)},
-};`);
-    }
-
-    // Add example with children if supports them
-    if (capabilities?.hasChildren && !defaultArgs.children) {
-      const withChildrenArgs = {
-        ...defaultArgs,
-        children: 'Custom content'
-      };
-
-      stories.push(`
-/**
- * With custom content
- */
-export const WithContent: Story = {
-  args: ${JSON.stringify(withChildrenArgs, null, 4)},
-};`);
-    }
   }
 
   return stories.join('\n');
 };
 
 /**
- * Generate args for a specific variant
+ * Use AI to generate meaningful story args for a variant
+ * Falls back to rule-based generation if AI fails
  */
-const generateArgsForVariant = (props, variant) => {
+const generateArgsForVariantWithAI = async (component, variant, capabilities) => {
+  const { name, props } = component;
+
+  try {
+    const prompt = `You are a Storybook expert. Generate realistic, presentable args for a component story.
+
+Component: ${name}
+Variant: ${variant}
+Props: ${JSON.stringify(props, null, 2)}
+Capabilities: ${JSON.stringify(capabilities, null, 2)}
+
+Requirements:
+1. Set the variant/type prop to "${variant}"
+2. Provide all required props
+3. ${capabilities?.hasChildren ? 'IMPORTANT: Include meaningful children content (e.g., button text, card content)' : 'No children needed'}
+4. ${capabilities?.hasClassName ? 'You can add className if helpful, but leave empty string if not needed' : ''}
+5. Make the content realistic and testable (real-world example data)
+6. Keep it simple and focused on showcasing the variant
+
+Return an array of key-value pairs. Example:
+[
+  {"key": "variant", "value": "${variant}"},
+  {"key": "children", "value": "Primary Button"}
+]`;
+
+    const modelWithSchema = storyGenModel.withStructuredOutput(StoryArgsSchema, { name: "story_args" });
+    const result = await modelWithSchema.invoke(prompt);
+
+    // Convert array of key-value pairs to object
+    const argsObject = {};
+    result.args.forEach(({ key, value }) => {
+      argsObject[key] = value;
+    });
+
+    return argsObject;
+  } catch (error) {
+    console.warn(`⚠️  AI args generation failed for ${name}/${variant}, using fallback: ${error.message}`);
+    // Fallback to rule-based generation
+    return generateArgsForVariantFallback(props, variant, capabilities);
+  }
+};
+
+/**
+ * Fallback: Generate args for a specific variant (rule-based)
+ */
+const generateArgsForVariantFallback = (props, variant, capabilities) => {
   const args = {};
 
   if (!props) return args;
@@ -335,60 +371,42 @@ const generateArgsForVariant = (props, variant) => {
     }
     // Set required props
     else if (prop.required) {
-      args[prop.name] = generatePropValue(prop);
+      args[prop.name] = generatePropValue(prop, variant);
     }
   });
 
-  return args;
-};
-
-/**
- * Generate default args for a component
- */
-const generateDefaultArgs = (props, capabilities) => {
-  const args = {};
-
-  if (!props) return args;
-
-  props.forEach(prop => {
-    if (prop.required) {
-      args[prop.name] = generatePropValue(prop);
-    }
-  });
-
-  // Add default children if component supports them
+  // Add children if component supports them
   if (capabilities?.hasChildren && !args.children) {
-    args.children = 'Example';
+    // Format variant name nicely (capitalize words)
+    const formatted = variant
+      .split(/[-_\s]+/)
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+
+    // Use formatted variant name as-is
+    args.children = formatted;
   }
 
   return args;
 };
 
 /**
- * Generate a sample value for a prop based on its type
+ * Simple fallback for generating prop values
+ * Used only when AI fails
  */
 const generatePropValue = (prop) => {
   const { type, name } = prop;
 
-  // Handle union types (e.g., 'numeric' | 'status')
   if (type.includes('|')) {
-    const options = type.split('|').map(t => t.trim().replace(/'/g, ''));
-    return options[0]; // Return first option
+    return type.split('|')[0].trim().replace(/'/g, '');
   }
 
-  // Handle specific prop names
   if (name === 'className') return '';
-  if (name === 'children') return 'Example content';
-  if (name.toLowerCase().includes('label')) return 'Label';
-  if (name.toLowerCase().includes('title')) return 'Title';
-  if (name.toLowerCase().includes('text')) return 'Text';
-
-  // Handle common types
+  if (name === 'children') return 'Button';
   if (type.includes('string')) return 'Example';
   if (type.includes('number')) return 0;
   if (type.includes('boolean')) return true;
 
-  // Default
   return undefined;
 };
 
@@ -415,6 +433,61 @@ const toValidIdentifier = (str) => {
     .join('');
 };
 
+/**
+ * Build story file content for a single component (AI-powered)
+ * Exported for use in other contexts
+ * @param skipFileCheck - Set to true to skip component file existence validation
+ */
+export const buildStoryFileContent = async (component, category, uiBasePath = null, skipFileCheck = false) => {
+  const { name, exportType, props } = component;
+
+  // Validate component file exists (unless explicitly skipped)
+  if (!skipFileCheck && uiBasePath) {
+    const componentFilePath = path.join(uiBasePath, category, `${name}.tsx`);
+    if (!fsSync.existsSync(componentFilePath)) {
+      console.warn(`⚠️  Skipping story for ${name}: component file not found at ${componentFilePath}`);
+      return null;
+    }
+  }
+
+  // Build import statement
+  const importPath = `@/ui/${category}/${name}`;
+  const importStatement = exportType === 'named'
+    ? `import { ${name} } from '${importPath}';`
+    : `import ${name} from '${importPath}';`;
+
+  // Build argTypes for interactive controls
+  const argTypes = buildArgTypes(props);
+
+  // Generate stories using AI
+  const stories = await generateStoryExamples(component);
+
+  return `import type { Meta, StoryObj } from '@storybook/react';
+${importStatement}
+
+/**
+ * ${name} component
+ *
+ * Auto-generated from component inventory
+ * Category: ${category}
+ */
+const meta = {
+  title: '${capitalizeFirst(category)}/${name}',
+  component: ${name},
+  parameters: {
+    layout: 'centered',
+  },
+  tags: ['autodocs'],${argTypes ? `\n  argTypes: ${argTypes},` : ''}
+} satisfies Meta<typeof ${name}>;
+
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+${stories}
+`;
+};
+
 export default {
-  generateStories
+  generateStories,
+  buildStoryFileContent
 };
