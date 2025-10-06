@@ -65,10 +65,11 @@ Apply each fix precisely:
 
 2. **Import Issues:**
    - Remove unused imports (check what's actually used in JSX)
-   - Import only the specific icons/elements needed
-   - ❌ NEVER use barrel imports: \`import { Icon } from '@/ui/icons'\` (FORBIDDEN)
-   - ✅ ALWAYS use individual file imports: \`import { Icon } from '@/ui/icons/Icon'\`
-   - Each icon MUST be imported from its own file
+   - Import only the specific components needed that exist in library context
+   - ❌ NEVER use barrel imports: \`import { Component } from '@/ui/icons'\` (FORBIDDEN)
+   - ✅ ALWAYS use individual file imports: \`import { ComponentName } from '@/ui/icons/ComponentName'\`
+   - **CRITICAL**: Only import components that exist in the available library (check library context)
+   - Each component MUST be imported from its own file
    - **Keep**: All other imports (cn, React types if needed)
 
 3. **TypeScript Issues:**

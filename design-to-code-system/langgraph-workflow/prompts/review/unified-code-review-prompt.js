@@ -74,20 +74,18 @@ ${code}
 
 ✅ **Correct patterns:**
 - **ONLY imports what is actually used in JSX**
-- Imports icons individually: \`import { PlayIcon } from '@/ui/icons/PlayIcon';\`
-- Imports elements from library: \`import { Button } from '@/ui/elements/Button';\`
+- Imports components individually from their own files
 - Uses \`cn\` utility: \`import { cn } from '@/lib/utils';\`
 - NO unnecessary React import (modern JSX transform handles it)
-- Only imports what exists in libraryContext
+- **CRITICAL**: Only imports components that exist in libraryContext
 - For molecules: composes using available elements from library
 
 ❌ **CRITICAL ANTI-PATTERNS** (instant score ≤5):
-- **Importing multiple icons but only using one**
-  - ❌ BAD: \`import { Icon1, Icon2, Icon3 } from '@/ui/icons'\` when JSX only uses \`<Icon1 />\`
-  - ✅ GOOD: \`import { Icon1 } from '@/ui/icons/Icon1'\` (only what's used)
-- **Using emojis instead of library icons**: \`▶️\` instead of \`<PlayIcon />\`
-- **Creating inline SVG instead of importing icon**
-- **Importing non-existent components** (not in libraryContext)
+- **Importing multiple components but only using one**
+  - ❌ BAD: \`import { Component1, Component2 } from '@/ui/icons'\` when JSX only uses \`<Component1 />\`
+  - ✅ GOOD: \`import { Component1 } from '@/ui/icons/Component1'\` (only what's used)
+- **Importing components that don't exist in libraryContext**
+- **Using emojis as icon placeholders**: \`▶️\` (should use library icon or inline SVG)
 - **Duplicating functionality** that exists in library
 - **Not reusing available elements** when building molecules
 
@@ -249,9 +247,12 @@ ${code}
   - WHY: [rule violated]
 
   **Import Issues:**
-  - ISSUE: Line 3 imports 10 icons but only uses PlayIcon
-  - FIX: Replace \`import { Icon1, Icon2, ... } from '@/ui/icons'\` with \`import { PlayIcon } from '@/ui/icons/PlayIcon'\`
+  - ISSUE: Line X imports multiple components but only uses ComponentName
+  - FIX: Replace barrel import with individual import: \`import { ComponentName } from '@/ui/path/ComponentName'\`
   - WHY: Unused imports bloat bundle size
+  - ISSUE: Line Y imports component that doesn't exist in libraryContext
+  - FIX: Remove the import and use inline implementation or check library for alternatives
+  - WHY: Importing non-existent components causes build errors
 
   **Tailwind Issues:**
   - ISSUE: [exact problem]

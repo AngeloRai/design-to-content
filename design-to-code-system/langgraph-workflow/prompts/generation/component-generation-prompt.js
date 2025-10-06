@@ -179,10 +179,11 @@ const variantStyles = {
    - ✅ GOOD: \`<Button>Click me</Button>\` (uses \`children\` prop)
    - **WHY**: React convention is to use \`children\` for composable content
 
-3. **NEVER use emoji or inline SVG for icons**:
-   - ❌ BAD: \`<span>▶️</span>\` or \`<span>❤️</span>\`
-   - ✅ GOOD: Import from library: \`import { PlayIcon } from '@/ui/icons/PlayIcon'\`
-   - **WHY**: Icons from the library are designed to match the design system
+3. **Icon handling**:
+   - ❌ BAD: \`<span>▶️</span>\` (emoji placeholders)
+   - ✅ GOOD: Import from library if available: \`import { IconName } from '@/ui/icons/IconName'\`
+   - ✅ ACCEPTABLE: Use inline SVG if no matching icon exists in library context
+   - **CRITICAL**: Only import icons that are listed in the library context above
 
 **UNDERSTANDING COMPONENT SPECS:**
 The componentSpec includes a \`states\` array (e.g., \`["default", "hover", "inactive"]\`). These are **visual states observed in the design**, NOT props to create. Handle them as follows:
@@ -490,12 +491,11 @@ Generate a complete, production-ready TypeScript React component that matches th
    - ✅ ONLY import what you actually use in the component
 
 2. **Import Specificity**:
-   - ❌ BAD: \`import { Icon1, Icon2, Icon3, Icon4, Icon5 } from '@/ui/icons'\` (barrel import - FORBIDDEN)
-   - ❌ BAD: \`import { PlayIcon } from '@/ui/icons'\` (barrel import - FORBIDDEN)
-   - ✅ GOOD: \`import { Icon1 } from '@/ui/icons/Icon1'\` (individual file import)
-   - ✅ GOOD: \`import { PlayIcon } from '@/ui/icons/PlayIcon'\` (individual file import)
-   - **CRITICAL**: NEVER use '@/ui/icons' without the specific icon filename
-   - Each icon MUST be imported from its own file: \`import { IconName } from '@/ui/icons/IconName'\`
+   - ❌ BAD: \`import { Component1, Component2 } from '@/ui/icons'\` (barrel import - FORBIDDEN)
+   - ✅ GOOD: \`import { ComponentName } from '@/ui/icons/ComponentName'\` (individual file import)
+   - **CRITICAL**: ONLY import components that exist in the library context provided above
+   - **CRITICAL**: Check library context first - if a component doesn't exist, use inline HTML/SVG instead
+   - Each component MUST be imported from its own file path
 
 3. **Clean Production Code**:
    - Only include: imports, interface, component, and optionally brief usage example
