@@ -78,6 +78,12 @@ tmp/
 # Generated reports
 reports/
 
+# Debug artifacts (screenshots, analysis reports)
+debug/screenshots/
+debug/analysis-reports/
+debug/visual-properties/
+debug/token-comparison/
+
 # Package manager logs
 pnpm-debug.log*
 *storybook.log
