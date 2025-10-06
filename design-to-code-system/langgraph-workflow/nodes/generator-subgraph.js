@@ -151,6 +151,25 @@ const reviewCodeNode = async (state) => {
     console.log(`    └─ Accessibility: ${review.scores.accessibility}/10`);
     console.log(`    Passed: ${review.passed ? "✅" : "❌"}`);
 
+    // Deterministic import validation
+    const { validateImportsAgainstLibrary } = await import("../utils/validate-imports-in-memory.js");
+    const importValidation = validateImportsAgainstLibrary(
+      state.currentCode,
+      state.libraryContext
+    );
+
+    if (!importValidation.valid) {
+      console.log(`    Import validation: ❌ ${importValidation.totalImports} invalid import(s)`);
+      const importIssues = importValidation.issues.map(issue => `[Import] ${issue}`);
+      review.criticalIssues = [...(review.criticalIssues || []), ...importIssues];
+      review.scores.importsAndLibrary = Math.min(review.scores.importsAndLibrary || 10, 3);
+      const scoreValues = Object.values(review.scores);
+      review.averageScore = scoreValues.reduce((a, b) => a + b, 0) / scoreValues.length;
+      review.passed = review.averageScore >= 8.0;
+    } else {
+      console.log(`    Import validation: ✅`);
+    }
+
     // Add reusability validation
     const { validateReusability } = await import("../utils/validate-component-reusability.js");
     const reusabilityCheck = await validateReusability(state.currentCode, state.libraryContext);
