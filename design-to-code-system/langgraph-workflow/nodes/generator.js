@@ -362,15 +362,14 @@ export const generatorNode = async (state) => {
         }
 
         // Invoke refinement subgraph (iterates until quality gates met)
-        // Passes library context for imports awareness (includes generated icons)
         console.log(`  → Starting iterative refinement workflow...`);
         const result = await componentRefinementSubgraph.invoke({
           componentSpec,
-          libraryContext: updatedLibraryContext,  // ✅ Use updated context with icons
-          outputPath: outputPath  // ✅ Use from destructuring (already has state.outputPath)
+          screenshotUrl: figmaData?.screenshotUrl,
+          libraryContext: updatedLibraryContext,
+          outputPath: outputPath
         });
 
-        // Check if component was approved
         if (!result.approved) {
           console.log(`  ❌ Component generation did not meet quality gates`);
           if (result.failureReason) {

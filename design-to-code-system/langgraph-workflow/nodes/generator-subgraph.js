@@ -19,6 +19,7 @@ import {
 // Subgraph state
 const ComponentRefinementState = Annotation.Root({
   componentSpec: Annotation({ default: () => null }),
+  screenshotUrl: Annotation({ default: () => null }),  // Screenshot for visual verification
   libraryContext: Annotation({
     default: () => ({ icons: [], elements: [], components: [], modules: [] }),
   }),
@@ -89,7 +90,8 @@ const generateComponentNode = async (state) => {
     prompt = buildComponentGenerationPrompt(
       state.componentSpec,
       state.libraryContext,
-      [] // No feedback on first iteration
+      [],
+      state.screenshotUrl
     );
     userMessage =
     "Generate the complete component from the specification. Return only the code in the 'code' field.";

@@ -6,7 +6,7 @@
  * Following Anthropic prompt engineering best practices
  */
 
-export const buildComponentGenerationPrompt = (componentSpec, libraryContext = {}, refinementFeedback = []) => {
+export const buildComponentGenerationPrompt = (componentSpec, libraryContext = {}, refinementFeedback = [], screenshotUrl = null) => {
   // Build library awareness sections
   const iconsList = libraryContext.icons && libraryContext.icons.length > 0
     ? libraryContext.icons
@@ -74,10 +74,43 @@ ${refinementFeedback.join('\n\n---\n\n')}
 - Apply the specific code changes shown in the feedback
 - Keep everything else identical to the previous iteration` : '';
 
+  // Screenshot verification section
+  const screenshotSection = screenshotUrl ? `
+
+**🔍 VISUAL REFERENCE AVAILABLE FOR VERIFICATION:**
+Design Screenshot: ${screenshotUrl}
+
+⚠️ **CRITICAL: Double-Check Colors Against Visual Design**
+
+The componentSpec provides analyzed color data, but analysis can sometimes contain errors.
+
+**Verification Process:**
+1. Review the colors in componentSpec (backgroundColor, textColor, borderColor)
+2. VIEW THE SCREENSHOT to verify these colors match the actual visual design
+3. If you notice ANY discrepancy between componentSpec colors and screenshot:
+   → TRUST THE SCREENSHOT (it's the source of truth)
+   → MEASURE or estimate the actual colors from the visual design
+   → USE the correct colors in your implementation
+
+**Common Analysis Errors to Watch For:**
+- Framework default colors appearing in componentSpec (e.g., common blue/red/gray defaults)
+- Mismatch between number of variants listed vs. visual properties provided
+- Missing variants that are visible in the screenshot
+
+**Variant Completeness:**
+- componentSpec lists: ${componentSpec.styleVariants?.length || 0} styleVariants
+- variantVisualMap provides: ${componentSpec.variantVisualMap?.length || 0} visual mappings
+- If these don't match: VIEW SCREENSHOT to identify missing variants and their properties
+
+**Goal**: Your generated component should match the VISUAL DESIGN in the screenshot.
+Use componentSpec as a guide, but verify critical properties (especially colors) against the screenshot.
+` : '';
+
   return `You are an expert Next.js React TypeScript developer creating pixel-perfect, accessible components.
 
 **COMPONENT SPECIFICATION:**
 ${JSON.stringify(componentSpec, null, 2)}
+${screenshotSection}
 ${iconsSection}
 ${elementsSection}
 ${componentsSection}
@@ -85,6 +118,51 @@ ${refinementSection}
 
 **YOUR TASK:**
 Generate a complete, production-ready TypeScript React component for a Next.js application that exactly matches the specifications above.
+
+${componentSpec.variantVisualMap && componentSpec.variantVisualMap.length > 0 ? `
+**🎨 VARIANT VISUAL PROPERTIES (USE THESE FOR PIXEL-PERFECT STYLING):**
+
+The component spec includes \`variantVisualMap\` with EXACT visual properties for each variant.
+This is your source of truth for styling - DO NOT guess colors or spacing!
+
+${componentSpec.variantVisualMap.map(v => `
+**Variant: ${v.variantName}**
+- Background: ${v.visualProperties.backgroundColor}
+- Text Color: ${v.visualProperties.textColor}
+- Border: ${v.visualProperties.borderWidth} ${v.visualProperties.borderStyle || 'solid'} ${v.visualProperties.borderColor}
+- Border Radius: ${v.visualProperties.borderRadius}
+- Padding: ${v.visualProperties.padding}
+- Font: ${v.visualProperties.fontSize} / weight ${v.visualProperties.fontWeight}
+- Shadow: ${v.visualProperties.shadow || 'none'}
+${v.visualProperties.hoverEffects ? `- Hover: bg ${v.visualProperties.hoverEffects.backgroundColor || 'no change'}${v.visualProperties.hoverEffects.transform ? `, transform: ${v.visualProperties.hoverEffects.transform}` : ''}` : ''}
+${v.visualProperties.disabledEffects ? `- Disabled: opacity ${v.visualProperties.disabledEffects.opacity || '0.5'}` : ''}
+`).join('\n')}
+
+**HOW TO USE VARIANT VISUAL MAP:**
+1. Create a \`variant\` prop that switches between these styles
+2. Map visual properties to Tailwind classes:
+   - backgroundColor: Use \`bg-[color]\` or custom color classes
+   - textColor: Use \`text-[color]\`
+   - borderWidth + borderColor: Use \`border border-[color]\` or \`border-0\` for none
+   - borderRadius: Use \`rounded-[size]\` (e.g., \`rounded\` for 4px, \`rounded-lg\` for 8px)
+   - padding: Use \`px-[x] py-[y]\` (e.g., "12px 24px" → \`px-6 py-3\`)
+   - fontSize: Use \`text-[size]\` (e.g., "14px" → \`text-sm\`, "16px" → \`text-base\`)
+   - fontWeight: Use \`font-[weight]\` (e.g., "500" → \`font-medium\`, "600" → \`font-semibold\`)
+   - hoverEffects: Use \`hover:bg-[color]\`, \`hover:scale-[value]\`, etc.
+
+**EXAMPLE IMPLEMENTATION:**
+\`\`\`typescript
+const variantStyles = {
+  "${componentSpec.styleVariants && componentSpec.styleVariants[0] || 'default'}": "bg-black text-white border-0 rounded px-6 py-3 text-sm font-medium hover:bg-gray-800",
+  // ... map each variant from variantVisualMap
+};
+\`\`\`
+
+**CRITICAL: DO NOT INVENT COLORS!**
+- Use ONLY the hex values provided in variantVisualMap
+- If a color isn't in standard Tailwind, use arbitrary values: \`bg-[#ebc060]\`
+- Match spacing/sizing EXACTLY to the values provided
+` : ''}
 
 **🚫 CRITICAL ANTI-PATTERNS TO AVOID:**
 
