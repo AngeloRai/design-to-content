@@ -1,51 +1,70 @@
 #!/usr/bin/env node
 
 /**
- * USER PROMPT FOR VISUAL ANALYSIS
+ * VISUAL ANALYSIS USER PROMPT - Color-Override Approach
  *
- * This prompt is sent to the AI with the screenshot and metadata
- * Instructs the AI on how to analyze the design and identify components
+ * Strategy:
+ * - Let Vision AI analyze component structure and variants
+ * - Inject EXACT colors from Figma API to override Vision hallucinations
+ * - Minimal metadata noise, maximum color accuracy
  */
 
+import { formatColorPaletteForPrompt } from '../../utils/extract-colors-from-metadata.js';
+
 export function buildVisualAnalysisUserPrompt(componentMetadata) {
+  const colorInfo = componentMetadata ? formatColorPaletteForPrompt(componentMetadata) : '';
+
   return `Analyze this design screenshot and identify reusable React components.
 
-IMPORTANT INSTRUCTIONS:
-1. PRIMARY SOURCE: Your visual analysis of the screenshot is the MAIN and MOST RELIABLE source
-2. SECONDARY CONTEXT: The metadata below is supplementary context ONLY - use it for hints about exact values, NOT as the definitive list of components
-3. IDENTIFY COMPONENTS VISUALLY FIRST: Look at the image and identify distinct, reusable UI patterns
-4. USE METADATA FOR DETAILS: After identifying a component visually, reference metadata for exact spacing/colors/variant names
+${colorInfo}
 
-METADATA (supplementary context only):
-${JSON.stringify(componentMetadata, null, 2)}
+ANALYSIS APPROACH:
+1. Visually identify distinct component types (buttons, inputs, cards, etc.)
+2. For each component type, identify ALL visible variants
+3. For colors: Use the EXACT colors from the Figma API list above
+4. For other properties (spacing, sizing, borders): Measure from the visual
 
-What the metadata provides:
-- Exact spacing values (padding, gap) - use these for accuracy
-- Exact color hex codes - use these for precision
-- Variant property names (e.g., "State=Active") - use these as prop name hints
-- Text content and colors - use these to understand text styling
-- Layout direction - use this to understand flex direction
+COMPONENT GROUPING RULE:
+Group similar components by FUNCTION, not appearance.
+- Example: 10 different button styles = ONE Button component with 10 styleVariants
+- NOT: PrimaryButton, SecondaryButton, IconButton as separate components
 
-CRITICAL RULES:
-- DO NOT treat each metadata entry as a separate component
-- If metadata shows "Button Variants", "Button Sizes", "Button States" - these are examples of ONE Button component with different variants
-- Group related visual patterns into a single component with variants
-- Only include components you can clearly SEE and identify in the screenshot
-- Ignore metadata entries that seem like structural containers or unclear labels
+WHAT TO INCLUDE:
+✓ Atomic UI components (buttons, inputs, badges, avatars, separators)
+✓ Components with clear reuse potential
+✓ Interactive elements with distinct visual boundaries
+✓ Components showing multiple variants/states/sizes
 
-EXCLUDE THE FOLLOWING (these are NOT reusable components):
-- Page navigation/tabs at the top (Foundations, Atoms, Molecules, etc.) - this is UI chrome
-- Headers, footers, or page layout elements
-- Section titles or documentation text
-- The page background or container frames
+WHAT TO EXCLUDE:
+✗ Page chrome (headers, footers, navigation tabs)
+✗ Section titles or documentation labels
+✗ Layout containers or page backgrounds
+✗ One-off decorative elements
 
-ONLY INCLUDE:
-- Atomic UI components (buttons, inputs, badges, avatars, etc.)
-- Components that would be reused across multiple pages
-- Interactive elements with clear visual boundaries
-- Components shown with multiple variants/states/sizes
+COLOR FIDELITY RULES (ABSOLUTELY CRITICAL):
 
-Focus on identifying atomic, reusable components suitable for a React component library.`;
+The Figma API provides the EXACT colors used in this design (listed above).
+
+REQUIRED:
+✓ Use ONLY colors from the Figma API list above
+✓ Match visual colors to Figma hex values precisely
+✓ For non-colored elements, use "transparent", "none", or null
+
+FORBIDDEN:
+✗ NEVER invent, guess, or hallucinate hex colors
+✗ NEVER use colors not in the Figma API list
+✗ NEVER use framework/library default colors
+✗ NEVER approximate - use exact Figma hex values
+
+PROCESS:
+1. Identify component color visually (e.g., "this button looks red")
+2. Find matching color in Figma API list above (e.g., #ef4444)
+3. Use that EXACT hex value in your response
+4. If color seems missing from list, use closest match from Figma API
+
+Remember: Figma API = source of truth. Your vision = confirmation only.
+
+Focus on atomic, reusable components for a React component library.`;
 }
 
 export default buildVisualAnalysisUserPrompt;
