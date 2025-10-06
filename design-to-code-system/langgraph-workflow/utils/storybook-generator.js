@@ -13,6 +13,7 @@ import fsSync from 'fs';
 import path from 'path';
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
+import { getComponentPlaceholderImage } from './placeholder-images.js';
 
 // AI model for generating story args
 const storyGenModel = new ChatOpenAI({
@@ -317,6 +318,20 @@ export const Default: Story = {
 const generateArgsForVariantWithAI = async (component, variant, capabilities) => {
   const { name, props } = component;
 
+  // Generate placeholder image URLs for image-type props
+  const imagePlaceholders = {};
+  if (props) {
+    props.forEach(prop => {
+      const propLower = prop.name.toLowerCase();
+      // Detect image-related props
+      if (propLower.includes('src') || propLower.includes('image') ||
+          propLower.includes('url') || propLower.includes('avatar') ||
+          propLower.includes('photo') || propLower.includes('background')) {
+        imagePlaceholders[prop.name] = getComponentPlaceholderImage(name, prop.name);
+      }
+    });
+  }
+
   try {
     const prompt = `You are a Storybook expert. Generate realistic, presentable args for a component story.
 
@@ -325,18 +340,25 @@ Variant: ${variant}
 Props: ${JSON.stringify(props, null, 2)}
 Capabilities: ${JSON.stringify(capabilities, null, 2)}
 
+${Object.keys(imagePlaceholders).length > 0 ? `
+IMAGE PROP PLACEHOLDERS (use these exact URLs):
+${Object.entries(imagePlaceholders).map(([key, url]) => `- ${key}: "${url}"`).join('\n')}
+` : ''}
+
 Requirements:
 1. Set the variant/type prop to "${variant}"
 2. Provide all required props
 3. ${capabilities?.hasChildren ? 'IMPORTANT: Include meaningful children content (e.g., button text, card content)' : 'No children needed'}
 4. ${capabilities?.hasClassName ? 'You can add className if helpful, but leave empty string if not needed' : ''}
-5. Make the content realistic and testable (real-world example data)
-6. Keep it simple and focused on showcasing the variant
+5. For image props (src, imageUrl, avatar, etc.), use the exact URLs provided above
+6. Make the content realistic and testable (real-world example data)
+7. Keep it simple and focused on showcasing the variant
 
 Return an array of key-value pairs. Example:
 [
   {"key": "variant", "value": "${variant}"},
-  {"key": "children", "value": "Primary Button"}
+  {"key": "children", "value": "Primary Button"},
+  {"key": "src", "value": "https://ui-avatars.com/api/..."}
 ]`;
 
     const modelWithSchema = storyGenModel.withStructuredOutput(StoryArgsSchema, { name: "story_args" });
@@ -352,14 +374,14 @@ Return an array of key-value pairs. Example:
   } catch (error) {
     console.warn(`⚠️  AI args generation failed for ${name}/${variant}, using fallback: ${error.message}`);
     // Fallback to rule-based generation
-    return generateArgsForVariantFallback(props, variant, capabilities);
+    return generateArgsForVariantFallback(props, variant, capabilities, name);
   }
 };
 
 /**
  * Fallback: Generate args for a specific variant (rule-based)
  */
-const generateArgsForVariantFallback = (props, variant, capabilities) => {
+const generateArgsForVariantFallback = (props, variant, capabilities, componentName) => {
   const args = {};
 
   if (!props) return args;
@@ -371,7 +393,7 @@ const generateArgsForVariantFallback = (props, variant, capabilities) => {
     }
     // Set required props
     else if (prop.required) {
-      args[prop.name] = generatePropValue(prop, variant);
+      args[prop.name] = generatePropValue(prop, variant, componentName);
     }
   });
 
@@ -394,8 +416,18 @@ const generateArgsForVariantFallback = (props, variant, capabilities) => {
  * Simple fallback for generating prop values
  * Used only when AI fails
  */
-const generatePropValue = (prop) => {
+const generatePropValue = (prop, variant, componentName) => {
   const { type, name } = prop;
+
+  // Check if this is an image-related prop
+  const nameLower = name.toLowerCase();
+  const isImageProp = nameLower.includes('src') || nameLower.includes('image') ||
+                      nameLower.includes('url') || nameLower.includes('avatar') ||
+                      nameLower.includes('photo') || nameLower.includes('background');
+
+  if (isImageProp) {
+    return getComponentPlaceholderImage(componentName, name);
+  }
 
   if (type.includes('|')) {
     return type.split('|')[0].trim().replace(/'/g, '');
