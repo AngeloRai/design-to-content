@@ -12,27 +12,14 @@ import fs from 'fs/promises';
 import fsSync from 'fs';
 import path from 'path';
 import { ChatOpenAI } from "@langchain/openai";
-import { z } from "zod";
 import { getComponentPlaceholderImage } from './placeholder-images.js';
+import { StoryArgsSchema } from '../schemas/component-schemas.js';
 
 // AI model for generating story args
 const storyGenModel = new ChatOpenAI({
   model: "gpt-4o-mini",  // Fast and cheap for this task
   temperature: 0.3,
   openAIApiKey: process.env.OPENAI_API_KEY,
-});
-
-// Schema for AI-generated story args
-// OpenAI doesn't support z.record() - use array of key-value objects instead
-const StoryArgsSchema = z.object({
-  args: z.array(z.object({
-    key: z.string().describe("Property name (e.g., 'variant', 'children', 'className')"),
-    value: z.union([
-      z.string(),
-      z.number(),
-      z.boolean()
-    ]).describe("Property value")
-  })).describe("Array of property key-value pairs for story args")
 });
 
 /**

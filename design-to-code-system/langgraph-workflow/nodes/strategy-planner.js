@@ -12,29 +12,8 @@
  */
 
 import { ChatOpenAI } from "@langchain/openai";
-import { z } from "zod";
 import { allTools, toolExecutor } from "../tools/index.js";
-
-// Zod schema for strategy decisions (OpenAI strict mode compatible)
-const StrategyDecisionSchema = z.object({
-  strategies: z.array(z.object({
-    component: z.object({
-      name: z.string(),
-      type: z.string(),
-      props: z.array(z.string()).nullable().describe("Component props"),
-      variants: z.array(z.string()).nullable().describe("Component variants")
-    }),
-    action: z.enum(["create_new", "update_existing", "skip"]),
-    targetPath: z.string().nullable(),
-    reason: z.string(),
-    confidence: z.number().min(0).max(1),
-    safetyChecks: z.object({
-      usageCount: z.number(),
-      riskLevel: z.enum(["low", "medium", "high"]),
-      breakingChanges: z.boolean()
-    })
-  }))
-});
+import { StrategyDecisionSchema } from "../schemas/component-schemas.js";
 
 export const strategyPlannerNode = async (state) => {
   console.log("🎯 Starting strategy planning...");

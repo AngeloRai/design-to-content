@@ -8,58 +8,16 @@ import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { ChatOpenAI } from "@langchain/openai";
-import { z } from "zod";
 import fs from "fs-extra";
 import { buildVisualAnalysisPrompt } from "../prompts/analysis/visual-analysis-prompt.js";
 import { buildVisualAnalysisUserPrompt } from "../prompts/analysis/visual-analysis-user-prompt.js";
 import { isDevelopment } from "../utils/config.js";
+import { AnalysisSchema } from "../schemas/component-schemas.js";
 
 // Load .env from project root (works regardless of where script is run from)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 dotenv.config({ path: join(__dirname, "..", "..", ".env") });
-
-// Component schema - focus on what's essential for code generation
-const ComponentSchema = z.object({
-  name: z.string().min(1).describe("Component name"),
-  atomicLevel: z.enum(["atom", "molecule", "organism"]),
-  description: z.string().min(1),
-
-  // Variants - enforce non-empty arrays
-  styleVariants: z.array(z.string().min(1)).min(1).describe("Style variants observed (min 1)"),
-  sizeVariants: z.array(z.string().min(1)),
-  otherVariants: z.array(z.string().min(1)),
-
-  states: z.array(z.string().min(1)).min(1).describe("Interactive states (min 1: 'default')"),
-
-  props: z.array(z.object({
-    name: z.string().min(1),
-    type: z.string().min(1),
-    required: z.boolean(),
-  }).strict()),
-
-  // CORE: Visual properties for each variant - this is what matters for code generation
-  variantVisualMap: z.array(z.object({
-    variantName: z.string().min(1),
-    visualProperties: z.object({
-      backgroundColor: z.string().min(1),
-      textColor: z.string().nullable(),
-      borderColor: z.string().nullable(),
-      borderWidth: z.string().nullable(),
-      borderRadius: z.string().nullable(),
-      padding: z.string().nullable(),
-      fontSize: z.string().nullable(),
-      fontWeight: z.string().nullable(),
-      shadow: z.string().nullable(),
-    }).strict()
-  }).strict()).min(1).describe("Visual properties for each variant (MUST match styleVariants length)"),
-}).strict();
-
-const AnalysisSchema = z.object({
-  summary: z.string().min(1),
-  componentCount: z.number().int().min(1),
-  components: z.array(ComponentSchema).min(1),
-}).strict();
 
 export const analyzeFigmaVisualComponents = async (state) => {
   console.log("🔍 Starting analysis...");

@@ -14,35 +14,10 @@
  */
 
 import { ChatOpenAI } from "@langchain/openai";
-import { z } from "zod";
 import { buildComponentGenerationPrompt } from "../prompts/generation/component-generation-prompt.js";
 import { writeComponent } from "../tools/component-tools.js";
+import { GeneratedComponentSchema } from "../schemas/component-schemas.js";
 import path from "path";
-
-// Zod schema for structured component generation
-const GeneratedComponentSchema = z.object({
-  code: z
-    .string()
-    .describe(
-      "Complete TypeScript React component code - this is the actual source code that will be written to a .tsx file"
-    ),
-  componentName: z.string().describe("Component name (PascalCase)"),
-  imports: z
-    .array(z.string())
-    .describe("List of imports used in the component"),
-  exports: z.array(z.string()).describe("Exported names from component"),
-  props: z
-    .array(
-      z.object({
-        name: z.string(),
-        type: z.string(),
-        required: z.boolean(),
-        description: z.string().nullable(),
-      })
-    )
-    .describe("Component props interface definition"),
-  confidence: z.number().min(0).max(1).describe("Generation confidence score"),
-});
 
 /**
  * Handle component updates (add variants, props, etc.)
