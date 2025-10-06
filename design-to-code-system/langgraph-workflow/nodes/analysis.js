@@ -9,86 +9,57 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
+import fs from "fs-extra";
 import { buildVisualAnalysisPrompt } from "../prompts/analysis/visual-analysis-prompt.js";
 import { buildVisualAnalysisUserPrompt } from "../prompts/analysis/visual-analysis-user-prompt.js";
+import { isDevelopment } from "../utils/config.js";
 
 // Load .env from project root (works regardless of where script is run from)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 dotenv.config({ path: join(__dirname, "..", "..", ".env") });
 
-// Simplified component schema (using nullable for OpenAI compatibility)
+// Component schema - focus on what's essential for code generation
 const ComponentSchema = z.object({
-  name: z.string().describe("Component name (e.g., 'Button', 'TextInput')"),
-  atomicLevel: z
-    .enum(["atom", "molecule", "organism"])
-    .describe("Atomic design level"),
-  description: z.string().describe("Brief purpose/usage"),
+  name: z.string().min(1).describe("Component name"),
+  atomicLevel: z.enum(["atom", "molecule", "organism"]),
+  description: z.string().min(1),
 
-  // Separate variant types for clarity
-  styleVariants: z
-    .array(z.string())
-    .describe(
-      "EVERY distinct style/color variant observed in the design. Use descriptive names based on visual appearance (e.g., ['solid-black', 'solid-gold', 'outline-black', 'ghost', 'solid-white']). List ALL visible variants, not just generic categories."
-    ),
-  sizeVariants: z
-    .array(z.string())
-    .describe("EVERY distinct size variant observed (e.g., ['compact', 'default', 'large']). List ALL visible sizes."),
-  otherVariants: z
-    .array(z.string())
-    .nullable()
-    .describe("Other variants like shape, density, icon position, etc. List ALL observed variations."),
+  // Variants - enforce non-empty arrays
+  styleVariants: z.array(z.string().min(1)).min(1).describe("Style variants observed (min 1)"),
+  sizeVariants: z.array(z.string().min(1)),
+  otherVariants: z.array(z.string().min(1)),
 
-  states: z
-    .array(z.string())
-    .describe(
-      "Interactive states (e.g., ['default', 'hover', 'disabled', 'focus'])"
-    ),
+  states: z.array(z.string().min(1)).min(1).describe("Interactive states (min 1: 'default')"),
 
-  props: z
-    .array(
-      z.object({
-        name: z.string(),
-        type: z.string(),
-        required: z.boolean(),
-      })
-    )
-    .nullable()
-    .describe("Inferred component props"),
-  designTokens: z
-    .object({
-      colors: z.array(z.string()).nullable(),
-      spacing: z.array(z.string()).nullable(),
-      typography: z.array(z.string()).nullable(),
-    })
-    .nullable()
-    .describe("Design tokens used"),
-  dependencies: z
-    .array(z.string())
-    .nullable()
-    .describe("Other components this depends on"),
-  reusabilityScore: z.number().min(1).max(10),
-  complexityScore: z.number().min(1).max(10),
-  confidence: z
-    .number()
-    .min(0)
-    .max(1)
-    .describe("Analysis confidence for this component"),
-});
+  props: z.array(z.object({
+    name: z.string().min(1),
+    type: z.string().min(1),
+    required: z.boolean(),
+  }).strict()),
+
+  // CORE: Visual properties for each variant - this is what matters for code generation
+  variantVisualMap: z.array(z.object({
+    variantName: z.string().min(1),
+    visualProperties: z.object({
+      backgroundColor: z.string().min(1),
+      textColor: z.string().nullable(),
+      borderColor: z.string().nullable(),
+      borderWidth: z.string().nullable(),
+      borderRadius: z.string().nullable(),
+      padding: z.string().nullable(),
+      fontSize: z.string().nullable(),
+      fontWeight: z.string().nullable(),
+      shadow: z.string().nullable(),
+    }).strict()
+  }).strict()).min(1).describe("Visual properties for each variant (MUST match styleVariants length)"),
+}).strict();
 
 const AnalysisSchema = z.object({
-  summary: z.string().describe("Overall analysis summary"),
-  componentCount: z.number(),
-  components: z.array(ComponentSchema),
-  globalTokens: z
-    .object({
-      colors: z.array(z.string()).nullable(),
-      spacing: z.array(z.string()).nullable(),
-      typography: z.array(z.string()).nullable(),
-    })
-    .nullable()
-    .describe("Global design tokens across all components"),
-});
+  summary: z.string().min(1),
+  componentCount: z.number().int().min(1),
+  components: z.array(ComponentSchema).min(1),
+}).strict();
 
 export const analyzeFigmaVisualComponents = async (state) => {
   console.log("🔍 Starting analysis...");
@@ -96,14 +67,14 @@ export const analyzeFigmaVisualComponents = async (state) => {
   try {
     // Get Figma screenshot URL and node data
     console.log("📸 Getting Figma screenshot URL and node data...");
-    const { parseFigmaUrl, fetchNodeData, extractComponentMetadata } = await import(
+    const { parseFigmaUrl, fetchNodeData, extractComponentMetadata, extractDesignTokens } = await import(
       "../../utils/figma-integration.js"
     );
     const { fileKey, nodeId } = parseFigmaUrl(state.input);
 
     // Call Figma API to get image URL and node data in parallel
     const FIGMA_TOKEN = process.env.FIGMA_ACCESS_TOKEN;
-    const DEPTH = 5; // How deep to recurse in node data
+    const DEPTH = 8; // How deep to recurse in node data (increased to reach deeply nested colors)
     const [imageResponse, nodeDataResult] = await Promise.all([
       fetch(
         `https://api.figma.com/v1/images/${fileKey}?ids=${nodeId}&format=png&scale=1`,
@@ -119,33 +90,68 @@ export const analyzeFigmaVisualComponents = async (state) => {
       throw new Error("Failed to get screenshot URL from Figma");
     }
 
-    // Extract component metadata from node data
+    // Extract component metadata AND design tokens from node data
     const componentMetadata = extractComponentMetadata(
       nodeDataResult.metadata.rawDocument
     );
 
-    console.log("✅ Got screenshot URL and node data from Figma");
+    // Extract design tokens (colors, spacing, typography) from ALL nodes
+    const designTokens = extractDesignTokens(
+      nodeDataResult.metadata.rawDocument
+    );
+
+    console.log(`✅ Got screenshot URL and node data from Figma`);
+    console.log(`   Components found: ${componentMetadata.totalInstances}`);
+    console.log(`   Colors extracted: ${designTokens.colors.length}`);
+
+    if (isDevelopment()) {
+      console.log('\n📊 Figma Color Palette:');
+      designTokens.colors.forEach((color) => {
+        const usedIn = color.contexts.slice(0, 2).map(c => c.nodeName).join(', ');
+        console.log(`   ${color.hex} (${color.type}) - ${usedIn}`);
+      });
+      console.log('');
+    }
+
+    // DEBUG: Save screenshot for visual inspection
+    if (isDevelopment()) {
+      const debugDir = join(process.cwd(), 'debug', 'screenshots');
+      await fs.ensureDir(debugDir);
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const screenshotPath = join(debugDir, `figma-${timestamp}.png`);
+
+      try {
+        // Download and save screenshot
+        const imageBuffer = await fetch(screenshotUrl).then(r => r.arrayBuffer());
+        await fs.writeFile(screenshotPath, Buffer.from(imageBuffer));
+
+        console.log(`🔍 DEBUG: Screenshot saved to ${screenshotPath}`);
+        console.log(`🔍 DEBUG: Screenshot URL: ${screenshotUrl}`);
+      } catch (error) {
+        console.warn(`⚠️  DEBUG: Failed to save screenshot: ${error.message}`);
+      }
+    }
 
     // Analyze with OpenAI using detailed prompt (pass URL directly)
     console.log("🤖 Analyzing with OpenAI (detailed prompt)...");
     const model = new ChatOpenAI({
       model: "gpt-4o",
       temperature: 0.1,
-      maxTokens: 3000,
+      maxTokens: 16000,
       openAIApiKey: process.env.OPENAI_API_KEY,
     }).withStructuredOutput(AnalysisSchema);
 
-    // Use the detailed prompt builder
     const systemPrompt = buildVisualAnalysisPrompt();
 
-    const result = await model.invoke([
+    let result = await model.invoke([
       { role: "system", content: systemPrompt },
       {
         role: "user",
         content: [
           {
             type: "text",
-            text: buildVisualAnalysisUserPrompt(componentMetadata)
+            text: buildVisualAnalysisUserPrompt(designTokens)
           },
           { type: "image_url", image_url: { url: screenshotUrl } }
         ]
@@ -156,6 +162,142 @@ export const analyzeFigmaVisualComponents = async (state) => {
       throw new Error("AI analysis failed or returned no components");
     }
     console.log(`✅ Found ${result.components.length} components`);
+
+    // Validate and refine if incomplete (max 2 attempts)
+    const { validateVariantCompleteness, validateColorFidelity, refineIncompleteAnalysis } = await import("../utils/validate-and-refine.js");
+
+    let validation = validateVariantCompleteness(result);
+
+    // Validate color fidelity
+    const colorValidation = validateColorFidelity(result, designTokens);
+    if (!colorValidation.isValid) {
+      console.warn(`\n⚠️  Color validation failed - ${colorValidation.issues.length} invalid color(s):`);
+      colorValidation.issues.forEach(issue => {
+        console.warn(`   ${issue.component}/${issue.variant || 'tokens'}: ${issue.invalidColor}`);
+      });
+      console.warn(`   Valid Figma colors: ${colorValidation.figmaColorCount}`);
+      console.warn(`   Expected: ${colorValidation.figmaColors.slice(0, 5).join(', ')}...`);
+    }
+
+    let refinementAttempts = 0;
+    const maxRefinementAttempts = 2;
+
+    while (!validation.isValid && refinementAttempts < maxRefinementAttempts) {
+      console.log(`\n⚠️  Validation failed - attempting refinement (${refinementAttempts + 1}/${maxRefinementAttempts})`);
+
+      try {
+        result = await refineIncompleteAnalysis(
+          model,
+          result,
+          validation.issues,
+          screenshotUrl,
+          AnalysisSchema,
+          designTokens 
+        );
+
+        // Re-validate
+        validation = validateVariantCompleteness(result);
+        refinementAttempts++;
+
+        if (validation.isValid) {
+          console.log(`✅ Refinement successful after ${refinementAttempts} attempt(s)`);
+        }
+      } catch (error) {
+        console.error(`❌ Refinement attempt ${refinementAttempts + 1} failed:`, error.message);
+        refinementAttempts++;
+        break;
+      }
+    }
+
+    // If still invalid after refinement attempts, log warning
+    if (!validation.isValid) {
+      console.warn(`\n⚠️  Analysis still incomplete after ${refinementAttempts} refinement attempt(s)`);
+      console.warn(`   Issues:`, validation.issues);
+      console.warn(`   Proceeding with incomplete data - generated code may be imperfect`);
+    }
+
+    // DEBUG: Save full analysis report
+    if (isDevelopment()) {
+      const debugDir = join(process.cwd(), 'debug', 'analysis-reports');
+      await fs.ensureDir(debugDir);
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const reportPath = join(debugDir, `analysis-${timestamp}.json`);
+
+      const fullReport = {
+        timestamp: new Date().toISOString(),
+        screenshotUrl,
+        componentMetadata,
+        aiAnalysis: result,
+        extractedTokens: result.components.map(c => ({
+          name: c.name,
+          designTokens: c.designTokens,
+          styleVariants: c.styleVariants,
+          sizeVariants: c.sizeVariants,
+          states: c.states,
+          variantVisualMap: c.variantVisualMap
+        }))
+      };
+
+      await fs.writeFile(reportPath, JSON.stringify(fullReport, null, 2));
+      console.log(`🔍 DEBUG: Full analysis saved to ${reportPath}`);
+
+      // Log summary to console
+      console.log(`🔍 DEBUG: AI extracted ${result.components.length} components:`);
+      result.components.forEach(comp => {
+        console.log(`  - ${comp.name} (${comp.atomicLevel}):`);
+        console.log(`    Style Variants: ${comp.styleVariants?.join(', ') || 'none'}`);
+        console.log(`    Size Variants: ${comp.sizeVariants?.join(', ') || 'none'}`);
+        console.log(`    States: ${comp.states?.join(', ') || 'none'}`);
+
+        if (comp.designTokens?.colors && Array.isArray(comp.designTokens.colors)) {
+          console.log(`    Colors (${comp.designTokens.colors.length}):`);
+          comp.designTokens.colors.slice(0, 3).forEach(c => {
+            if (typeof c === 'object' && c.hex) {
+              console.log(`      ${c.hex} - ${c.role}${c.variant ? ` (${c.variant})` : ''}`);
+            } else {
+              console.log(`      ${c}`); 
+            }
+          });
+          if (comp.designTokens.colors.length > 3) {
+            console.log(`      ... and ${comp.designTokens.colors.length - 3} more`);
+          }
+        }
+
+        if (comp.variantVisualMap && comp.variantVisualMap.length > 0) {
+          console.log(`    Variant Visual Map (${comp.variantVisualMap.length} variants):`);
+          comp.variantVisualMap.slice(0, 2).forEach(v => {
+            console.log(`      ${v.variantName}: bg=${v.visualProperties.backgroundColor}, text=${v.visualProperties.textColor}`);
+          });
+          if (comp.variantVisualMap.length > 2) {
+            console.log(`      ... and ${comp.variantVisualMap.length - 2} more`);
+          }
+        }
+      });
+    }
+
+    // Quality check: Log potential analysis issues (non-blocking)
+    if (isDevelopment()) {
+      console.log("🔍 Analysis quality check...");
+      let potentialIssues = false;
+
+      result.components.forEach((comp) => {
+        // Check variant completeness
+        const styleVariantCount = comp.styleVariants?.length || 0;
+        const variantMapCount = comp.variantVisualMap?.length || 0;
+
+        if (styleVariantCount > 0 && variantMapCount > 0 && variantMapCount < styleVariantCount) {
+          console.log(`  ℹ️  ${comp.name}: ${styleVariantCount} variants listed, ${variantMapCount} visual mappings provided`);
+          potentialIssues = true;
+        }
+      });
+
+      if (!potentialIssues) {
+        console.log("  ✅ All components have complete variant data");
+      } else {
+        console.log("  ℹ️  Generation will verify against screenshot for missing data");
+      }
+    }
 
     // Conditional deep dive for icon extraction
     const needsIconExtraction =
