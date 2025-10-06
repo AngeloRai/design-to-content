@@ -48,8 +48,21 @@ export const ComponentSchema = z.object({
       fontSize: z.string().nullable(),
       fontWeight: z.string().nullable(),
       shadow: z.string().nullable(),
+    }).strict(),
+    // Composition: What's inside this variant
+    composition: z.object({
+      containsComponents: z.array(z.string()).describe("Child component names observed (e.g., ['Button', 'Input'])"),
+      layoutPattern: z.string().nullable().describe("Content arrangement pattern (e.g., 'form-vertical', 'grid-2-col')"),
+      contentElements: z.array(z.string()).describe("Specific elements visible (e.g., ['submit-button', 'email-input'])")
     }).strict()
   }).strict()).min(1).describe("Visual properties for each variant (MUST match styleVariants length)"),
+
+  // Interactive behaviors observed in the design
+  interactiveBehaviors: z.array(z.object({
+    trigger: z.string().describe("User action that triggers behavior (e.g., 'click', 'hover', 'click-page-number')"),
+    effect: z.string().describe("Expected behavior/outcome (e.g., 'navigate-to-page', 'toggle-visibility')"),
+    stateIndicators: z.array(z.string()).describe("Visual feedback observed (e.g., ['active-highlighted', 'disabled-grayed'])")
+  }).strict()).describe("Interactive patterns visible in the design")
 }).strict();
 
 /**
@@ -137,3 +150,23 @@ export const StoryArgsSchema = z.object({
     ]).describe("Property value")
   })).describe("Array of property key-value pairs for story args")
 });
+
+// ============================================================================
+// VALIDATION SCHEMAS
+// ============================================================================
+
+/**
+ * Reusability analysis schema for component validation
+ */
+export const ReusabilityAnalysisSchema = z.object({
+  isReusable: z.boolean().describe("True if component properly reuses library primitives"),
+  reusabilityScore: z.number().min(0).max(1).describe("Score from 0-1 indicating reusability quality"),
+  issues: z.array(z.object({
+    severity: z.enum(["low", "medium", "high"]).describe("Issue severity"),
+    htmlElement: z.string().describe("HTML element being used inline (e.g., 'button', 'input')"),
+    libraryComponent: z.string().nullable().describe("Suggested library component to use instead"),
+    suggestion: z.string().describe("Human-readable improvement suggestion"),
+    importPath: z.string().nullable().describe("Import path for suggested component")
+  })).describe("List of reusability improvement opportunities"),
+  summary: z.string().describe("Brief summary of reusability analysis")
+}).strict();

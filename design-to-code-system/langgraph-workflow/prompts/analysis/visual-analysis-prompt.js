@@ -46,50 +46,102 @@ Return JSON with this STREAMLINED structure (focus on essentials):
 
       "variantVisualMap": [
         {
-          "variantName": "primary",
+          "variantName": "[variant-name]",
           "visualProperties": {
-            "backgroundColor": "#000000",
-            "textColor": "#ffffff",
-            "borderColor": "transparent",
-            "borderWidth": "0",
-            "borderRadius": "4px",
-            "padding": "12px 24px",
-            "fontSize": "14px",
-            "fontWeight": "500",
-            "shadow": null
-          }
-        },
-        {
-          "variantName": "secondary",
-          "visualProperties": {
-            "backgroundColor": "#f0f0f0",
-            "textColor": "#000000",
-            "borderColor": "transparent",
-            "borderWidth": "0",
-            "borderRadius": "4px",
-            "padding": "12px 24px",
-            "fontSize": "14px",
-            "fontWeight": "500",
-            "shadow": null
+            "backgroundColor": "#[hex-from-figma]",
+            "textColor": "#[hex-from-figma]",
+            "borderColor": "[color-or-transparent]",
+            "borderWidth": "[number]",
+            "borderRadius": "[number]px",
+            "padding": "[vertical]px [horizontal]px",
+            "fontSize": "[number]px",
+            "fontWeight": "[number]",
+            "shadow": "[value-or-null]"
+          },
+          "composition": {
+            "containsComponents": ["[ComponentName-if-any]"],
+            "layoutPattern": "[pattern-or-null]",
+            "contentElements": ["[element-description]"]
           }
         }
         // ... COMPLETE ALL VARIANTS - one entry per styleVariant
+      ],
+
+      "interactiveBehaviors": [
+        {
+          "trigger": "[user-action]",
+          "effect": "[expected-behavior]",
+          "stateIndicators": ["[visual-feedback]"]
+        }
       ]
     }
   ]
 }
+
+VARIANT COMPOSITION ANALYSIS:
+
+For each variant, analyze both the CONTAINER and CONTENTS:
+
+1. Container: Visual properties (colors, borders, spacing) - in visualProperties
+2. Contents: What's inside the variant - in composition object
+
+composition fields:
+- containsComponents: Child components used (e.g., ["Button", "Input"] for a form modal)
+- layoutPattern: How content is arranged (e.g., "form-vertical", "image-hero", "grid-2-col")
+- contentElements: Specific elements visible (e.g., ["name-input", "email-input", "submit-button"])
+
+Example Modal Analysis:
+{
+  variantName: "form",
+  visualProperties: { /* container styles */ },
+  composition: {
+    containsComponents: ["Input", "Button"],
+    layoutPattern: "form-vertical",
+    contentElements: ["name-input", "email-input", "message-textarea", "submit-button"]
+  }
+}
+
+INTERACTIVE BEHAVIOR ANALYSIS:
+
+Look for signs of interactivity in the design:
+- Clickable elements (buttons, page numbers, tabs, links)
+- State indicators (active page highlighted, disabled button grayed)
+- Multi-step flows (pagination showing numbers, wizards with steps)
+- Toggle/expandable sections
+
+For each interactive pattern found, document:
+- trigger: User action (e.g., "click-page-number", "click-next", "hover")
+- effect: Expected behavior (e.g., "navigate-to-page", "increment-page", "show-tooltip")
+- stateIndicators: Visual feedback (e.g., ["active-page-highlighted", "disabled-prev-button", "hover-darkens"])
+
+Example Pagination:
+interactiveBehaviors: [
+  {
+    trigger: "click-page-number",
+    effect: "navigate-to-page",
+    stateIndicators: ["active-page-has-dark-background", "inactive-pages-are-white"]
+  },
+  {
+    trigger: "click-next",
+    effect: "increment-current-page",
+    stateIndicators: ["disabled-when-last-page", "hover-underline"]
+  }
+]
 
 CRITICAL COMPLETENESS RULE:
 - variantVisualMap MUST have the SAME number of entries as styleVariants
 - If you identify 7 styleVariants, you MUST provide 7 variantVisualMap entries
 - NEVER leave variants incomplete
 - backgroundColor is REQUIRED for every variant (use "transparent" if no fill)
-- Other properties can be null if not applicable
+- composition is REQUIRED for each variant (use empty arrays/null if simple)
+- interactiveBehaviors is REQUIRED if component shows interactive patterns
 
 VALIDATION CHECKLIST (verify before returning):
 1. styleVariants.length === variantVisualMap.length for each component
 2. Every variantVisualMap entry has backgroundColor (required)
-3. No Bootstrap colors unless actually visible in screenshot`;
+3. Every variantVisualMap entry has composition object (required)
+4. Interactive components have interactiveBehaviors array
+5. No Bootstrap colors unless actually visible in screenshot`;
 }
 
 export default buildVisualAnalysisPrompt;

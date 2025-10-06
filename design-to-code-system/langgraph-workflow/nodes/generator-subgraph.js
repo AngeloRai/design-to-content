@@ -151,6 +151,28 @@ const reviewCodeNode = async (state) => {
     console.log(`    └─ Accessibility: ${review.scores.accessibility}/10`);
     console.log(`    Passed: ${review.passed ? "✅" : "❌"}`);
 
+    // Add reusability validation
+    const { validateReusability } = await import("../utils/validate-component-reusability.js");
+    const reusabilityCheck = await validateReusability(state.currentCode, state.libraryContext);
+
+    console.log(`    Reusability: ${(reusabilityCheck.score * 100).toFixed(0)}% (${reusabilityCheck.totalIssues} issue${reusabilityCheck.totalIssues !== 1 ? 's' : ''})`);
+
+    // Merge reusability issues into review
+    if (!reusabilityCheck.isValid && reusabilityCheck.issues.length > 0) {
+      const reusabilityIssues = reusabilityCheck.issues.map(i =>
+        `[Reusability] ${i.suggestion}`
+      );
+      review.criticalIssues = [...(review.criticalIssues || []), ...reusabilityIssues];
+
+      // Lower score if reusability is poor
+      if (reusabilityCheck.score < 0.7) {
+        review.scores.importsAndLibrary = Math.min(review.scores.importsAndLibrary || 10, 6);
+        const scoreValues = Object.values(review.scores);
+        review.averageScore = scoreValues.reduce((a, b) => a + b, 0) / scoreValues.length;
+        review.passed = review.averageScore >= 8.0;
+      }
+    }
+
     if (review.criticalIssues && review.criticalIssues.length > 0) {
       console.log(`    Critical issues (${review.criticalIssues.length}):`);
       review.criticalIssues.slice(0, 3).forEach((issue, i) => {

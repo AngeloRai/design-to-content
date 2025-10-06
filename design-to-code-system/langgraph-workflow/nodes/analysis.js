@@ -98,7 +98,11 @@ export const analyzeFigmaVisualComponents = async (state) => {
       temperature: 0.1,
       maxTokens: 16000,
       openAIApiKey: process.env.OPENAI_API_KEY,
-    }).withStructuredOutput(AnalysisSchema);
+    }).withStructuredOutput(AnalysisSchema, {
+      method: "json_schema",
+      name: "analyze_figma_components",
+      strict: true
+    });
 
     const systemPrompt = buildVisualAnalysisPrompt();
 
