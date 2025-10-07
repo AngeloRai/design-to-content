@@ -52,6 +52,30 @@ Group similar components by FUNCTION, not appearance.
 - Example: 10 different button styles = ONE Button component with 10 styleVariants
 - NOT: PrimaryButton, SecondaryButton, IconButton as separate components
 
+COMPONENT NAMING RULES (CRITICAL):
+
+1. USE SINGULAR, DESCRIPTIVE NAMES:
+   ✅ CORRECT: "Button", "Input", "Image", "Avatar", "SearchBar"
+   ❌ WRONG: "Buttons", "Inputs", "Images & Avatars", "Search and Filter"
+
+2. SECTION HEADERS ≠ COMPONENT NAMES:
+   - Section: "Images & Avatars" → Analyze as TWO components: "Image" + "Avatar"
+   - Section: "Form Inputs" → Component: "Input" (singular, clean name)
+   - Section header is for organization, NOT the component name
+
+3. NO SPECIAL CHARACTERS OR SPACES:
+   ✅ CORRECT: "SearchBar", "TextInput", "CardHeader", "IconButton"
+   ❌ WRONG: "Search & Filter", "Text-Input", "Card/Header", "Icon Button"
+
+4. EACH VISUAL PATTERN = SEPARATE COMPONENT:
+   - If a section shows Image instances AND Avatar instances → TWO components
+   - Don't combine: "ImageAvatar" or "Image & Avatar"
+   - Analyze each pattern independently
+
+5. PASCAL CASE REQUIRED:
+   ✅ CORRECT: "ResponsiveImage", "UserAvatar", "PrimaryButton"
+   ❌ WRONG: "responsive image", "user-avatar", "Primary Button"
+
 WHAT TO INCLUDE:
 ✓ Text/Typography components showing hierarchy (H1, H2, body, caption)
 ✓ Image components with responsive or layout patterns

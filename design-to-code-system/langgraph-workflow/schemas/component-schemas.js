@@ -18,7 +18,10 @@ import { z } from "zod";
  * Focus on what's essential for code generation
  */
 export const ComponentSchema = z.object({
-  name: z.string().min(1).describe("Component name"),
+  name: z.string()
+    .min(1)
+    .regex(/^[A-Z][a-zA-Z0-9]*$/, "Component name must be PascalCase with no spaces or special characters (e.g., 'Button', 'SearchBar')")
+    .describe("Component name in PascalCase - no spaces, no special characters, singular form"),
   atomicLevel: z.enum(["atom", "molecule", "organism"]),
   description: z.string().min(1),
 
