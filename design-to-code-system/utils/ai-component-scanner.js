@@ -12,7 +12,7 @@ import { dirname, join } from 'path';
 import dotenv from 'dotenv';
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
-import { buildComponentAnalysisPrompt } from "../design-to-code-system/langgraph-workflow/prompts/scanning/component-analysis-prompt.js";
+import { buildComponentAnalysisPrompt } from "../langgraph-workflow/prompts/scanning/component-analysis-prompt.js";
 
 // Load .env from project root
 const __filename = fileURLToPath(import.meta.url);
