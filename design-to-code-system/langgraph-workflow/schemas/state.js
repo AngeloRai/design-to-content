@@ -103,6 +103,11 @@ export const StateAnnotation = Annotation.Root({
     description: "Existing component library context (scanned from file system)"
   }),
 
+  importMap: Annotation({
+    default: () => ({}),
+    description: "Map of component export names to their import paths (e.g., ResponsiveImage -> @/ui/elements/Image)"
+  }),
+
   // Generation phase
   generatedComponents: Annotation({
     default: () => [],

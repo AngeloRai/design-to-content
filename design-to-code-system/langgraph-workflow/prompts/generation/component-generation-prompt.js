@@ -6,7 +6,7 @@
  * Following Anthropic prompt engineering best practices
  */
 
-export const buildComponentGenerationPrompt = (componentSpec, libraryContext = {}, refinementFeedback = [], screenshotUrl = null) => {
+export const buildComponentGenerationPrompt = (componentSpec, libraryContext = {}, refinementFeedback = [], screenshotUrl = null, importMap = {}) => {
   // Build library awareness sections
   const iconsList = libraryContext.icons && libraryContext.icons.length > 0
     ? libraryContext.icons
@@ -24,28 +24,52 @@ export const buildComponentGenerationPrompt = (componentSpec, libraryContext = {
   const iconsSection = iconsList.length > 0 ? `
 
 **🎨 AVAILABLE ICONS IN YOUR LIBRARY:**
-${iconsList.map(name => `  - import { ${name} } from '@/ui/icons/${name}';`).join('\n')}
+${iconsList.map(item => {
+  const name = typeof item === 'string' ? item : item.name;
+  const importPath = importMap[name] || `@/ui/icons/${name}`;
+  return `  - import { ${name} } from '${importPath}';`;
+}).join('\n')}
 
 ⚠️ **CRITICAL**:
 - Use these icons instead of emojis (❌ ▶️ ✕ ❤️) or inline SVG
-- Import from individual files as shown above (e.g., '@/ui/icons/PlayIcon')
-- NEVER use barrel imports like '@/ui/icons' - they don't exist` : '';
+- Import from individual files as shown above
+- NEVER use barrel imports like '@/ui/icons' - they don't exist
+- Use EXACTLY the import paths shown above (they map to the correct file locations)` : '';
 
   // Elements section
   const elementsSection = elementsList.length > 0 ? `
 
 **🧩 AVAILABLE ELEMENTS IN YOUR LIBRARY:**
-${elementsList.map(name => `  - import { ${name} } from '@/ui/elements/${name}';`).join('\n')}
+${elementsList.map(item => {
+  const name = typeof item === 'string' ? item : item.name;
+  const requiredProps = typeof item === 'object' && item.requiredProps ? item.requiredProps : [];
+  const importPath = importMap[name] || `@/ui/elements/${name}`;
+  const propsInfo = requiredProps.length > 0 ? ` // Required props: ${requiredProps.join(', ')}` : '';
+  return `  - import { ${name} } from '${importPath}';${propsInfo}`;
+}).join('\n')}
 
-⚠️ **CRITICAL**: If building a molecule, compose using these elements. Don't recreate them.` : '';
+⚠️ **CRITICAL**:
+- If building a molecule, compose using these elements. Don't recreate them.
+- Use EXACTLY the import paths shown above (they map to the correct file locations)
+- When using imported components, provide ALL their required props listed above
+- For example, ResponsiveImage may be imported from '@/ui/elements/Image', not '@/ui/elements/ResponsiveImage'` : '';
 
   // Components section
   const componentsSection = componentsList.length > 0 ? `
 
 **📦 AVAILABLE COMPONENTS IN YOUR LIBRARY:**
-${componentsList.map(name => `  - import { ${name} } from '@/ui/components/${name}';`).join('\n')}
+${componentsList.map(item => {
+  const name = typeof item === 'string' ? item : item.name;
+  const requiredProps = typeof item === 'object' && item.requiredProps ? item.requiredProps : [];
+  const importPath = importMap[name] || `@/ui/components/${name}`;
+  const propsInfo = requiredProps.length > 0 ? ` // Required props: ${requiredProps.join(', ')}` : '';
+  return `  - import { ${name} } from '${importPath}';${propsInfo}`;
+}).join('\n')}
 
-⚠️ **CRITICAL**: Reuse these components if building an organism. Don't duplicate functionality.` : '';
+⚠️ **CRITICAL**:
+- Reuse these components if building an organism. Don't duplicate functionality.
+- Use EXACTLY the import paths shown above (they map to the correct file locations)
+- When using imported components, provide ALL their required props listed above` : '';
 
   // Refinement section
   const refinementSection = refinementFeedback.length > 0 ? `
@@ -106,11 +130,109 @@ The componentSpec provides analyzed color data, but analysis can sometimes conta
 Use componentSpec as a guide, but verify critical properties (especially colors) against the screenshot.
 ` : '';
 
+  // Build reusability emphasis section
+  const availableComponents = [
+    ...(iconsList || []),
+    ...(elementsList || []),
+    ...(componentsList || [])
+  ].map(item => typeof item === 'string' ? item : item.name);
+
+  const reusabilitySection = availableComponents.length > 0 ? `
+
+**🔄 COMPONENT REUSABILITY (CRITICAL - HIGHEST PRIORITY):**
+
+Available library components: ${availableComponents.join(', ')}
+
+**REQUIRED - YOU MUST:**
+✓ Import and use existing library components instead of creating inline elements
+✓ Use Button component instead of <button> element
+✓ Use Input component instead of <input> element
+✓ Use Image component instead of <img> element
+✓ Use library icons instead of inline SVG or emojis
+✓ Import from: @/ui/elements/, @/ui/components/, @/ui/icons/
+
+**FORBIDDEN - YOU MUST NOT:**
+✗ Create inline <button>, <input>, <img>, <textarea>, <select> elements
+✗ Duplicate functionality that exists in library
+✗ Use emoji placeholders for icons (❌ ▶️ ✕ ❤️)
+✗ Create inline SVG when library icons exist
+
+**VALIDATION:**
+Your component will be automatically validated for reusability. Poor reusability will result in rejection and refinement requests. Always prefer composition over recreation.` : '';
+
+  // Build composition rendering section
+  const compositionSection = componentSpec.variantVisualMap &&
+    componentSpec.variantVisualMap.some(v => v.composition && v.composition.containsComponents?.length > 0) ? `
+
+**🏗️ COMPOSITION & VARIANT CONTENT (CRITICAL):**
+
+Some variants have different internal structures. You MUST implement conditional rendering for these:
+
+${componentSpec.variantVisualMap
+  .filter(v => v.composition && v.composition.containsComponents?.length > 0)
+  .map(v => `
+**Variant: "${v.variantName}"**
+- Contains: ${v.composition.containsComponents.join(', ')}
+- Layout: ${v.composition.layoutPattern || 'default'}
+- Content Elements: ${v.composition.contentElements?.join(', ') || 'standard content'}
+
+You MUST:
+1. Import the required components: ${v.composition.containsComponents.map(c => `import { ${c} } from '@/ui/...'`).join(', ')}
+2. Conditionally render this structure when variant === "${v.variantName}"
+3. Follow the layout pattern: ${v.composition.layoutPattern || 'flex/grid as appropriate'}
+`).join('\n')}
+
+**IMPLEMENTATION PATTERN:**
+\`\`\`typescript
+export const ${componentSpec.name} = ({ variant = "default", ...props }) => {
+  if (variant === "with-form") {
+    return (
+      <div>
+        {/* Import and use Button, Input components */}
+        <Input {...} />
+        <Button {...} />
+      </div>
+    );
+  }
+
+  // Default variant
+  return <div>...</div>;
+};
+\`\`\`
+` : '';
+
+  // Build interactive behaviors section
+  const interactiveSection = componentSpec.interactiveBehaviors && componentSpec.interactiveBehaviors.length > 0 ? `
+
+**⚡ INTERACTIVE BEHAVIORS TO IMPLEMENT:**
+
+This component has interactive functionality that you MUST implement:
+
+${componentSpec.interactiveBehaviors.map(behavior => `
+**Behavior: ${behavior.trigger} → ${behavior.effect}**
+- Visual feedback: ${behavior.stateIndicators?.join(', ') || 'none specified'}
+- Implementation required:
+  1. Add proper state management (useState, useCallback if needed)
+  2. Handle ${behavior.trigger} events
+  3. Implement ${behavior.effect} logic with actual functionality
+  4. Add visual state indicators as specified
+`).join('\n')}
+
+**CRITICAL RULES:**
+- Do NOT use placeholder console.log - implement actual functionality
+- Add 'use client' directive if state/events are needed
+- Use proper TypeScript types for state and event handlers
+- Implement complete behavior, not stubs
+` : '';
+
   return `You are an expert Next.js React TypeScript developer creating pixel-perfect, accessible components.
 
 **COMPONENT SPECIFICATION:**
 ${JSON.stringify(componentSpec, null, 2)}
 ${screenshotSection}
+${reusabilitySection}
+${compositionSection}
+${interactiveSection}
 ${iconsSection}
 ${elementsSection}
 ${componentsSection}

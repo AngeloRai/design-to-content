@@ -23,6 +23,7 @@ const ComponentRefinementState = Annotation.Root({
   libraryContext: Annotation({
     default: () => ({ icons: [], elements: [], components: [], modules: [] }),
   }),
+  importMap: Annotation({ default: () => ({}) }),  // Map of export names to import paths
   outputPath: Annotation({ default: () => "nextjs-app/ui" }),
 
   // Generation tracking
@@ -91,7 +92,8 @@ const generateComponentNode = async (state) => {
       state.componentSpec,
       state.libraryContext,
       [],
-      state.screenshotUrl
+      state.screenshotUrl,
+      state.importMap  // Pass the import map for correct imports
     );
     userMessage =
     "Generate the complete component from the specification. Return only the code in the 'code' field.";
@@ -133,7 +135,7 @@ const reviewCodeNode = async (state) => {
   );
 
   try {
-    const review = await reviewModel.invoke([
+    let review = await reviewModel.invoke([
       { role: "system", content: prompt },
       {
         role: "user",

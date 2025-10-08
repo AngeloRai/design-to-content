@@ -88,11 +88,15 @@ ${code}
 - **Using emojis as icon placeholders**: \`▶️\` (should use library icon or inline SVG)
 - **Duplicating functionality** that exists in library
 - **Not reusing available elements** when building molecules
+- **Using imported components without their required props**
+  - Each imported component should be used with ALL its required props
+  - Check component interfaces/documentation for required props
 
 **VERIFICATION CHECKLIST:**
 - [ ] Check each import - is it used in the JSX?
 - [ ] Are there emojis that should be icon imports?
 - [ ] For molecules - are library elements being reused?
+- [ ] Are imported components used with proper props?
 
 **SCORING GUIDE:**
 - 10/10: All imports used, uses library icons, no emojis, proper composition

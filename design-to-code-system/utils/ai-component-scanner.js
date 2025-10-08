@@ -167,18 +167,26 @@ export const buildLibraryContext = (scannedComponents) => {
   };
 
   scannedComponents.forEach(comp => {
+    // Extract minimal required props info for better generation
+    const requiredProps = comp.props?.filter(p => p.required).map(p => p.name) || [];
+
+    // Create component entry with name and required props (if any)
+    const entry = requiredProps.length > 0
+      ? { name: comp.name, requiredProps }
+      : comp.name;  // Keep backward compatibility - just name if no required props
+
     switch (comp.type) {
       case 'icon':
-        context.icons.push(comp.name);
+        context.icons.push(entry);
         break;
       case 'element':
-        context.elements.push(comp.name);
+        context.elements.push(entry);
         break;
       case 'component':
-        context.components.push(comp.name);
+        context.components.push(entry);
         break;
       case 'module':
-        context.modules.push(comp.name);
+        context.modules.push(entry);
         break;
     }
   });
@@ -205,13 +213,16 @@ export const scanComponentsWithAI = async (uiPath) => {
     byName[comp.name.toLowerCase()] = comp;
   });
 
-  // Build import map (for compatibility with old scanner)
+  // Build import map (map export name to actual file path)
   const importMap = {};
   scannedComponents.forEach(comp => {
     const categoryPath = comp.type === 'element' ? 'elements' :
                          comp.type === 'component' ? 'components' :
                          comp.type === 'module' ? 'modules' : 'icons';
-    importMap[comp.name] = `@/ui/${categoryPath}/${comp.name}`;
+    // Extract filename without extension from full path
+    const fileName = path.basename(comp.path, path.extname(comp.path));
+    // Map the export name to the correct import path using the file name
+    importMap[comp.name] = `@/ui/${categoryPath}/${fileName}`;
   });
 
   console.log(`✅ Scanned ${scannedComponents.length} components`);

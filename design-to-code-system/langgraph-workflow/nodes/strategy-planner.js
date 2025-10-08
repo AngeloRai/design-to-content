@@ -30,6 +30,7 @@ export const strategyPlannerNode = async (state) => {
     const { scanComponentsWithAI } = await import("../../utils/ai-component-scanner.js");
     const scanResult = await scanComponentsWithAI(outputPath);
     const libraryContext = scanResult.libraryContext;
+    const importMap = scanResult.importMap;  // Get the import map for correct paths
     console.log(`  Found: ${libraryContext.elements.length} elements, ${libraryContext.components.length} components`);
 
     // Initialize AI model with tools (no structured output during tool use)
@@ -132,6 +133,7 @@ export const strategyPlannerNode = async (state) => {
     return {
       componentStrategy: strategy,
       libraryContext: libraryContext,  // ✅ Pass scanned library context to generator
+      importMap: importMap,  // ✅ Pass import map for correct import paths
       currentPhase: "strategy",
       metadata: {
         ...state.metadata,

@@ -37,7 +37,7 @@ COMPONENT DETECTION RULES:
    - These ARE the design system, not documentation about it
 
 3. SINGLE INSTANCES WITH DESCRIPTIVE LABELS = Reusable Components
-   - "Responsive Image" with one example = Image component
+   - "Image" or "Images" section with examples = Image component
    - "Default Search" with one example = SearchBar component
    - Labels indicate reusable patterns, not one-off content
 
@@ -73,7 +73,7 @@ COMPONENT NAMING RULES (CRITICAL):
    - Analyze each pattern independently
 
 5. PASCAL CASE REQUIRED:
-   ✅ CORRECT: "ResponsiveImage", "UserAvatar", "PrimaryButton"
+   ✅ CORRECT: "Image", "Avatar", "Button", "SearchBar"
    ❌ WRONG: "responsive image", "user-avatar", "Primary Button"
 
 WHAT TO INCLUDE:

@@ -78,37 +78,27 @@ export const figmaTools = [
 
 /**
  * Fetch Figma screenshot URL
+ * This is now a thin wrapper that calls the utils implementation
  */
 export async function fetchFigmaScreenshot(fileKey, nodeId, scale = 1) {
   try {
-    const FIGMA_TOKEN = process.env.FIGMA_ACCESS_TOKEN;
-
-    if (!FIGMA_TOKEN) {
-      throw new Error("FIGMA_ACCESS_TOKEN not found in environment");
-    }
-
-    const response = await fetch(
-      `https://api.figma.com/v1/images/${fileKey}?ids=${nodeId}&format=png&scale=${scale}`,
-      { headers: { "X-Figma-Token": FIGMA_TOKEN } }
+    // Import the utils function dynamically to avoid circular dependencies
+    const { fetchFigmaScreenshot: utilsFetchScreenshot } = await import(
+      "../../utils/figma-integration.js"
     );
 
-    const data = await response.json();
+    // Call utils function with appropriate options
+    const result = await utilsFetchScreenshot(fileKey, nodeId, {
+      format: 'png',
+      scale: scale.toString()
+    });
 
-    if (!response.ok || data.err) {
-      throw new Error(data.err || `Figma API error: ${response.status}`);
-    }
-
-    const screenshotUrl = data.images[nodeId];
-
-    if (!screenshotUrl) {
-      throw new Error("No screenshot URL returned from Figma");
-    }
-
+    // Convert utils response format to tool response format
     return {
       success: true,
       fileKey,
       nodeId,
-      screenshotUrl,
+      screenshotUrl: result.url,
       scale
     };
   } catch (error) {
@@ -121,43 +111,26 @@ export async function fetchFigmaScreenshot(fileKey, nodeId, scale = 1) {
 
 /**
  * Fetch Figma node data
+ * This is now a thin wrapper that calls the utils implementation
  */
 export async function fetchFigmaNodeData(fileKey, nodeId, depth = 5) {
   try {
-    const FIGMA_TOKEN = process.env.FIGMA_ACCESS_TOKEN;
-
-    if (!FIGMA_TOKEN) {
-      throw new Error("FIGMA_ACCESS_TOKEN not found in environment");
-    }
-
-    const response = await fetch(
-      `https://api.figma.com/v1/files/${fileKey}/nodes?ids=${nodeId}&depth=${depth}`,
-      { headers: { "X-Figma-Token": FIGMA_TOKEN } }
+    // Import the utils function dynamically to avoid circular dependencies
+    const { fetchNodeData: utilsFetchNodeData } = await import(
+      "../../utils/figma-integration.js"
     );
 
-    const data = await response.json();
+    // Call utils function
+    const result = await utilsFetchNodeData(fileKey, nodeId, depth);
 
-    if (!response.ok || data.err) {
-      throw new Error(data.err || `Figma API error: ${response.status}`);
-    }
-
-    const nodeData = data.nodes[nodeId];
-
-    if (!nodeData) {
-      throw new Error("No node data returned from Figma");
-    }
-
+    // Convert utils response format to tool response format
     return {
       success: true,
       fileKey,
       nodeId,
       depth,
-      nodeData: nodeData.document,
-      metadata: {
-        name: nodeData.document.name,
-        type: nodeData.document.type,
-        childCount: nodeData.document.children?.length || 0
-      }
+      nodeData: result.nodeData.rawDocument,
+      metadata: result.metadata
     };
   } catch (error) {
     return {

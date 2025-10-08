@@ -254,7 +254,7 @@ export const generatorNode = async (state) => {
   console.log("⚙️  Starting component generation...");
 
   try {
-    const { componentStrategy, visualAnalysis, outputPath, figmaData } = state;
+    const { componentStrategy, visualAnalysis, outputPath, figmaData, importMap } = state;
 
     // Generate icons first if they exist
     let generatedIcons = [];
@@ -342,6 +342,7 @@ export const generatorNode = async (state) => {
           componentSpec,
           screenshotUrl: figmaData?.screenshotUrl,
           libraryContext: updatedLibraryContext,
+          importMap: importMap || {},  // Pass the import map for correct imports
           outputPath: outputPath
         });
 
