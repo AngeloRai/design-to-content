@@ -9,6 +9,10 @@
 
 import { ChatOpenAI } from "@langchain/openai";
 import { ReusabilityAnalysisSchema } from "../schemas/component-schemas.js";
+import {
+  buildReusabilityValidationPrompt,
+  buildReusabilityRefinementPrompt
+} from "../prompts/validation/reusability-validation-prompt.js";
 
 /**
  * Validates component reusability using AI analysis
@@ -29,51 +33,19 @@ export async function validateReusability(generatedCode, libraryContext) {
       strict: true
     });
 
+    // Extract component names from library context (handle both string and object formats)
+    const extractNames = (items) => items.map(item =>
+      typeof item === 'string' ? item : item.name
+    );
+
     const availableComponents = [
-      ...(libraryContext.elements || []),
-      ...(libraryContext.components || []),
-      ...(libraryContext.icons || [])
+      ...extractNames(libraryContext.elements || []),
+      ...extractNames(libraryContext.components || []),
+      ...extractNames(libraryContext.icons || [])
     ];
 
-    const prompt = `Analyze this React component code for reusability issues.
-
-COMPONENT CODE:
-\`\`\`tsx
-${generatedCode}
-\`\`\`
-
-AVAILABLE LIBRARY COMPONENTS:
-${availableComponents.length > 0 ? availableComponents.join(', ') : 'None available'}
-
-ANALYSIS TASK:
-Identify opportunities where the code uses inline HTML elements (like <button>, <input>, <img>, etc.)
-when equivalent library components are available.
-
-REUSABILITY PRINCIPLES:
-1. Prefer library components over inline HTML elements
-2. Use Button instead of <button>
-3. Use Input instead of <input>
-4. Use Image instead of <img>
-5. Match HTML elements to semantically similar library components
-
-SCORING GUIDELINES:
-- 1.0: Perfect reusability - uses library components throughout
-- 0.7-0.9: Good reusability - minor inline elements that could use library
-- 0.4-0.6: Moderate reusability - several inline elements with library equivalents
-- 0.0-0.3: Poor reusability - extensive use of inline HTML instead of library
-
-For each issue found:
-- Identify the HTML element (button, input, etc.)
-- Suggest the best matching library component
-- Provide the import path (@/ui/elements/ComponentName)
-- Rate severity based on impact
-
-Consider:
-- How many occurrences of the inline element exist
-- Whether a library component truly matches the use case
-- The semantic meaning of the element
-
-Return structured analysis with issues and score.`;
+    // Use the extracted prompt builder
+    const prompt = buildReusabilityValidationPrompt(generatedCode, availableComponents);
 
     const result = await model.invoke(prompt);
 
@@ -101,54 +73,8 @@ Return structured analysis with issues and score.`;
   }
 }
 
-/**
- * Builds refinement prompt from AI-identified reusability issues
- * @param {array} issues - Reusability issues found by AI
- * @returns {string} Refinement instructions for code generation
- */
-export function buildReusabilityRefinementPrompt(issues) {
-  if (!issues || issues.length === 0) return '';
-
-  let prompt = '\n\nCOMPONENT REUSABILITY IMPROVEMENTS REQUIRED:\n\n';
-
-  const highSeverity = issues.filter(i => i.severity === 'high');
-  const mediumSeverity = issues.filter(i => i.severity === 'medium');
-  const lowSeverity = issues.filter(i => i.severity === 'low');
-
-  if (highSeverity.length > 0) {
-    prompt += 'HIGH PRIORITY:\n';
-    highSeverity.forEach((issue, idx) => {
-      prompt += `${idx + 1}. ${issue.suggestion}\n`;
-      if (issue.importPath && issue.libraryComponent) {
-        prompt += `   Add: import { ${issue.libraryComponent} } from '${issue.importPath}';\n`;
-      }
-      prompt += `   Replace: <${issue.htmlElement}> → <${issue.libraryComponent || 'LibraryComponent'}>\n\n`;
-    });
-  }
-
-  if (mediumSeverity.length > 0) {
-    prompt += 'MEDIUM PRIORITY:\n';
-    mediumSeverity.forEach((issue, idx) => {
-      prompt += `${idx + 1}. ${issue.suggestion}\n`;
-      if (issue.importPath && issue.libraryComponent) {
-        prompt += `   Add: import { ${issue.libraryComponent} } from '${issue.importPath}';\n\n`;
-      }
-    });
-  }
-
-  if (lowSeverity.length > 0) {
-    prompt += 'IMPROVEMENTS:\n';
-    lowSeverity.forEach((issue, idx) => {
-      prompt += `${idx + 1}. ${issue.suggestion}\n`;
-    });
-    prompt += '\n';
-  }
-
-  prompt += 'CRITICAL: Import and reuse existing library components instead of creating inline HTML elements.\n';
-  prompt += 'This ensures consistency, maintainability, and adherence to the design system.\n';
-
-  return prompt;
-}
+// Re-export the refinement prompt builder from the extracted prompt module
+export { buildReusabilityRefinementPrompt };
 
 export default {
   validateReusability,

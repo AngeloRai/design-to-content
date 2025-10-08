@@ -12,6 +12,7 @@ import { dirname, join } from 'path';
 import dotenv from 'dotenv';
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
+import { buildComponentAnalysisPrompt } from "../design-to-code-system/langgraph-workflow/prompts/scanning/component-analysis-prompt.js";
 
 // Load .env from project root
 const __filename = fileURLToPath(import.meta.url);
@@ -74,25 +75,8 @@ export const analyzeComponentWithAI = async (filePath, content) => {
   else if (fileDir.includes('/modules')) componentType = "module";
   else if (fileDir.includes('/elements')) componentType = "element";
 
-  const prompt = `Analyze this React TypeScript component file and extract structured information.
-
-**File**: ${fileName}
-**Path**: ${filePath}
-**Type**: ${componentType} (determined from file location - use this value)
-
-**CRITICAL INSTRUCTIONS**:
-1. **Type**: Use the type provided above (${componentType}) - it's determined from file path
-2. **Variants**: Extract ONLY object key names from variant objects (e.g., \`const buttonVariants = { solid: '...', outline: '...' }\` → \`['solid', 'outline']\`)
-3. **DO NOT extract CSS pseudo-classes**: \`hover:\`, \`focus:\`, \`active:\`, \`disabled:\` are NOT variants!
-4. **Props**: Extract from TypeScript interface/type definition, not from destructuring
-5. **Dependencies**: List all imports, marking which are local (@/ui/) vs external
-
-**CODE**:
-\`\`\`typescript
-${content}
-\`\`\`
-
-Analyze the code above and return structured component metadata.`;
+  // Use the extracted prompt builder with GPT-4.1 best practices
+  const prompt = buildComponentAnalysisPrompt(fileName, filePath, componentType, content);
 
   try {
     const result = await model.invoke([
