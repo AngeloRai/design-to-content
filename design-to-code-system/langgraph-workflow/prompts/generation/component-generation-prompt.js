@@ -377,6 +377,20 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children: React.ReactNode;
   className?: string;
 }
+
+// For Input components: DON'T redefine HTML attributes as required
+// BAD - causes type conflicts:
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  value: string; // ❌ Already in InputHTMLAttributes
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; // ❌ Already defined
+}
+
+// GOOD - only add new props, let HTML attributes be optional:
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  variant?: 'default' | 'with-icon';
+  size?: 'small' | 'default' | 'large';
+  // value and onChange are already included from InputHTMLAttributes
+}
 </example>
 
 <example name="variant-pattern">

@@ -314,13 +314,29 @@ export const generatorNode = async (state) => {
 
     console.log(`📝 Generating ${toGenerate.length} component(s) with quality control...`);
 
+    // Sort components by atomic level to ensure proper dependency order
+    // Atoms first, then molecules, then organisms
+    const atomicOrder = { 'atom': 0, 'molecule': 1, 'organism': 2 };
+    const sortedToGenerate = [...toGenerate].sort((a, b) => {
+      // Find the full specs to get atomic levels
+      const aSpec = visualAnalysis.components.find(c => c.name === a.component.name);
+      const bSpec = visualAnalysis.components.find(c => c.name === b.component.name);
+
+      const aLevel = atomicOrder[aSpec?.atomicLevel] ?? 2;
+      const bLevel = atomicOrder[bSpec?.atomicLevel] ?? 2;
+
+      return aLevel - bLevel;
+    });
+
+    console.log(`  📊 Generation order: ${sortedToGenerate.map(s => `${s.component.name}(${visualAnalysis.components.find(c => c.name === s.component.name)?.atomicLevel})`).join(' → ')}`);
+
     // Import the refinement subgraph
     const { componentRefinementSubgraph } = await import("./generator-subgraph.js");
 
     // Generate each component (start with icons already generated)
     const generatedComponents = [...generatedIcons];
 
-    for (const strategyItem of toGenerate) {
+    for (const strategyItem of sortedToGenerate) {
       try {
         console.log(`\n🔧 Generating ${strategyItem.component.name}...`);
 
@@ -382,6 +398,43 @@ export const generatorNode = async (state) => {
           iterations: result.iterationCount || 0,
           confidence: componentSpec.confidence || 0.8,
         });
+
+        // Update library context with the newly generated component
+        // This ensures subsequent components can import it correctly
+        const categoryMap = {
+          'atom': 'elements',
+          'molecule': 'components',
+          'organism': 'modules'
+        };
+        const category = categoryMap[componentSpec.atomicLevel] || 'components';
+
+        // Add to the appropriate category in library context
+        if (!updatedLibraryContext[category]) {
+          updatedLibraryContext[category] = [];
+        }
+
+        // Add component info (handle both string and object format)
+        const componentEntry = {
+          name: componentSpec.name,
+          requiredProps: componentSpec.props?.filter(p => p.required).map(p => p.name) || []
+        };
+
+        // Check if already exists (avoid duplicates)
+        const exists = updatedLibraryContext[category].some(item =>
+          (typeof item === 'string' && item === componentSpec.name) ||
+          (typeof item === 'object' && item.name === componentSpec.name)
+        );
+
+        if (!exists) {
+          updatedLibraryContext[category].push(componentEntry);
+
+          // Also update the import map for correct import paths
+          if (!importMap[componentSpec.name]) {
+            importMap[componentSpec.name] = `@/ui/${category}/${componentSpec.name}`;
+          }
+
+          console.log(`  📚 Added ${componentSpec.name} to library context.${category}`);
+        }
 
         console.log(`  ✅ Success!`);
         if (result.codeReviewResult) {
