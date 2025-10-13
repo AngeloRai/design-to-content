@@ -24,17 +24,34 @@ export const createVectorSearch = async (components) => {
       modelName: "text-embedding-3-small" // Cost-effective model
     });
 
-    // Create searchable text from each component
-    const texts = components.map(comp =>
-      `${comp.name}: ${comp.type} component located in ${comp.type} folder`
-    );
+    // Create rich searchable text from each component
+    const texts = components.map(comp => {
+      const parts = [
+        comp.name,
+        comp.type,
+        comp.description || '',
+        comp.purpose || '',
+        comp.props?.join(', ') || '',
+        comp.hasVariants ? 'has variants' : '',
+        comp.isInteractive ? 'interactive' : '',
+        comp.dependencies?.join(', ') || ''
+      ].filter(Boolean);
 
-    // Store metadata for retrieval
+      return parts.join(' ');
+    });
+
+    // Store enriched metadata for retrieval
     const metadatas = components.map(comp => ({
       name: comp.name,
       type: comp.type,
       path: comp.path || '',
-      relativePath: comp.relativePath || ''
+      relativePath: comp.relativePath || '',
+      description: comp.description || '',
+      props: comp.props || [],
+      hasVariants: comp.hasVariants || false,
+      isInteractive: comp.isInteractive || false,
+      dependencies: comp.dependencies || [],
+      purpose: comp.purpose || ''
     }));
 
     // Create vector store
@@ -67,14 +84,33 @@ export const createVectorSearch = async (components) => {
        */
       addComponent: async (component) => {
         try {
-          const text = `${component.name}: ${component.type} component located in ${component.type} folder`;
+          // Build rich text for new component
+          const parts = [
+            component.name,
+            component.type,
+            component.description || '',
+            component.purpose || '',
+            component.props?.join(', ') || '',
+            component.hasVariants ? 'has variants' : '',
+            component.isInteractive ? 'interactive' : '',
+            component.dependencies?.join(', ') || ''
+          ].filter(Boolean);
+
+          const text = parts.join(' ');
+
           await vectorStore.addDocuments([{
             pageContent: text,
             metadata: {
               name: component.name,
               type: component.type,
               path: component.path || '',
-              relativePath: component.relativePath || ''
+              relativePath: component.relativePath || '',
+              description: component.description || '',
+              props: component.props || [],
+              hasVariants: component.hasVariants || false,
+              isInteractive: component.isInteractive || false,
+              dependencies: component.dependencies || [],
+              purpose: component.purpose || ''
             }
           }]);
         } catch (error) {

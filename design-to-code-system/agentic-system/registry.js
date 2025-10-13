@@ -8,9 +8,25 @@
 import fs from 'fs-extra';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { ChatOpenAI } from "@langchain/openai";
+import { z } from "zod";
+import dotenv from 'dotenv';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Load environment variables
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
+
+// Schema for component metadata extraction
+const ComponentMetadataSchema = z.object({
+  description: z.string().describe("Brief description of what this component does"),
+  props: z.array(z.string()).describe("List of prop names accepted by this component"),
+  hasVariants: z.boolean().describe("Whether component has multiple visual variants"),
+  isInteractive: z.boolean().describe("Whether component handles user interactions (onClick, onChange, etc)"),
+  dependencies: z.array(z.string()).describe("Names of other components imported"),
+  purpose: z.string().describe("Primary purpose: button, input, container, icon, navigation, display, form, etc")
+});
 
 /**
  * Create empty registry structure
@@ -94,9 +110,51 @@ export const getImportPath = (registry, componentName) => {
 };
 
 /**
- * Scan directory for component files
+ * Extract component metadata using AI with structured output
  */
-export const scanDirectory = async (directory) => {
+export const extractComponentMetadata = async (filePath) => {
+  try {
+    const code = await fs.readFile(filePath, 'utf-8');
+
+    const model = new ChatOpenAI({
+      modelName: "gpt-4o-mini",
+      temperature: 0
+    }).withStructuredOutput(ComponentMetadataSchema);
+
+    const prompt = `Analyze this React component and extract metadata.
+
+Component code:
+\`\`\`typescript
+${code}
+\`\`\`
+
+Extract:
+- description: what the component does
+- props: list of prop names from the interface
+- hasVariants: does it have visual variants (primary/secondary/etc)?
+- isInteractive: does it handle user interactions (onClick, onChange)?
+- dependencies: imported component names (not libraries)
+- purpose: button, input, container, icon, navigation, display, form, etc`;
+
+    const metadata = await model.invoke(prompt);
+    return metadata;
+  } catch (error) {
+    console.error(`Error extracting metadata from ${filePath}:`, error.message);
+    return {
+      description: '',
+      props: [],
+      hasVariants: false,
+      isInteractive: false,
+      dependencies: [],
+      purpose: 'unknown'
+    };
+  }
+};
+
+/**
+ * Scan directory for component files with AI-enriched metadata
+ */
+export const scanDirectory = async (directory, useAI = true) => {
   const components = [];
 
   try {
@@ -111,11 +169,26 @@ export const scanDirectory = async (directory) => {
             const name = file.replace(/\.(tsx|jsx)$/, '');
             const filePath = path.join(typePath, file);
 
+            let metadata = {
+              description: '',
+              props: [],
+              hasVariants: false,
+              isInteractive: false,
+              dependencies: [],
+              purpose: type
+            };
+
+            if (useAI) {
+              console.log(`  Analyzing ${type}/${file}...`);
+              metadata = await extractComponentMetadata(filePath);
+            }
+
             components.push({
               name,
               type,
               path: filePath,
-              relativePath: path.relative(process.cwd(), filePath)
+              relativePath: path.relative(process.cwd(), filePath),
+              ...metadata
             });
           }
         }
@@ -132,11 +205,12 @@ export const scanDirectory = async (directory) => {
  * Build fresh registry from filesystem
  * Called on every workflow run to stay in sync
  */
-export const buildRegistry = async (generatedDir = 'nextjs-app/ui') => {
+export const buildRegistry = async (generatedDir = null) => {
   let registry = createEmptyRegistry();
 
-  const fullPath = path.join(process.cwd(), generatedDir);
-  const components = await scanDirectory(fullPath);
+  // Default path: from project root
+  const defaultPath = generatedDir || path.join(__dirname, '..', '..', 'nextjs-app', 'ui');
+  const components = await scanDirectory(defaultPath);
 
   for (const comp of components) {
     registry = addComponent(registry, comp.type, comp);
