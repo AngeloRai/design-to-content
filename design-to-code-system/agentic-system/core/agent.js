@@ -84,7 +84,7 @@ const TOOLS = [
           },
           type: {
             type: 'string',
-            description: 'Component type: elements, components, modules, or icons',
+            description: 'Folder type: elements (for atoms), components (for molecules), modules (for organisms), or icons',
             enum: ['elements', 'components', 'modules', 'icons']
           },
           code: {
@@ -241,7 +241,7 @@ const createToolExecutor = (vectorSearch, registry, outputDir) => {
 /**
  * Run autonomous agent
  */
-export const runAgent = async (designSpec, outputDir = '../nextjs-app/ui') => {
+export const runAgent = async (structuredAnalysis, outputDir = '../nextjs-app/ui') => {
   console.log('🤖 Starting autonomous agent...\n');
 
   // 1. Initialize resources
@@ -254,8 +254,14 @@ export const runAgent = async (designSpec, outputDir = '../nextjs-app/ui') => {
   // 2. Setup agent tools
   const toolExecutor = createToolExecutor(vectorSearch, registry, outputDir);
 
-  // 3. Setup conversation
+  // 3. Setup conversation with structured component data
   const systemPrompt = await AGENT_SYSTEM_PROMPT();
+
+  // Format component list for agent
+  const componentSummary = structuredAnalysis.components.map((comp, i) =>
+    `${i + 1}. ${comp.name} (${comp.atomicLevel} - ${comp.type}): ${comp.description}`
+  ).join('\n');
+
   const messages = [
     {
       role: 'system',
@@ -263,13 +269,55 @@ export const runAgent = async (designSpec, outputDir = '../nextjs-app/ui') => {
     },
     {
       role: 'user',
-      content: `Generate a React component based on this design specification:\n\n${designSpec}`
+      content: `Generate React components following the ATOMIC DESIGN pattern based on this structured analysis from Figma:
+
+📊 ANALYSIS SUMMARY:
+- Total Components Identified: ${structuredAnalysis.analysis.totalComponents}
+- Sections: ${structuredAnalysis.analysis.sections.map(s => `${s.name} (${s.componentCount} components)`).join(', ')}
+
+🔬 COMPONENT LIST (from Figma analysis):
+${componentSummary}
+
+⚠️ CRITICAL INSTRUCTIONS:
+
+1. **Component Consolidation**:
+   - Review the list above and group related components intelligently
+   - If components differ only in styling/size/color → consolidate into ONE file with variant props
+   - Example: "PrimaryButton", "SecondaryButton", "OutlineButton" → Button.tsx with variant prop
+   - If components have different behavior/structure → separate files
+   - Example: TextInput vs SelectDropdown → separate files
+
+2. **File Organization (CRITICAL - use correct type parameter)**:
+   - **Atoms** → type='elements' (Button.tsx, Input.tsx, Heading.tsx)
+   - **Molecules** → type='components' (SearchBar.tsx, FormField.tsx)
+   - **Organisms** → type='modules' (Navigation.tsx, Header.tsx)
+   - Use PascalCase for file names
+   - One component per file (but multiple variants per component via props)
+
+3. **Component Quality**:
+   - Each component must be standalone and reusable
+   - Include ALL variants, states, and visual properties from specs
+   - Follow reference patterns (use find_similar_components)
+   - Use TypeScript properly
+   - Use Tailwind for all styling
+
+4. **Process**:
+   - Start by analyzing which components to consolidate
+   - For each component/group, find similar reference patterns
+   - Generate the component with all variants
+   - Validate TypeScript
+   - Move to next component
+
+FULL COMPONENT SPECIFICATIONS:
+${JSON.stringify(structuredAnalysis.components, null, 2)}
+
+Begin by planning which components to consolidate, then generate them systematically.`
     }
   ];
 
   let continueLoop = true;
   let iterationCount = 0;
-  const maxIterations = 15; // Safety limit
+  const maxIterations = 50; // Safety limit - increased for multi-component generation
 
   console.log('💭 Agent thinking...\n');
 
@@ -306,6 +354,29 @@ export const runAgent = async (designSpec, outputDir = '../nextjs-app/ui') => {
         // Execute tool
         const result = await toolExecutor.execute(functionName, functionArgs);
         console.log(`   Result: ${JSON.stringify(result, null, 2).slice(0, 200)}${JSON.stringify(result).length > 200 ? '...' : ''}\n`);
+
+        // CRITICAL: If write_component was called, auto-validate immediately
+        if (functionName === 'write_component' && result.success) {
+          console.log('   🔍 Auto-validating component...');
+          const filePath = path.relative(path.resolve(outputDir, '..'), result.path);
+          const validation = await toolExecutor.execute('validate_typescript', { file_path: filePath });
+
+          if (validation.valid) {
+            console.log('   ✅ Validation passed - component is complete\n');
+            // Add validation result to the tool response
+            result.validated = true;
+            result.validation = 'passed';
+          } else {
+            console.log('   ❌ Validation failed - fix required before proceeding\n');
+            console.log(`   Errors: ${validation.errors?.split('\n').slice(0, 3).join('\n   ')}\n`);
+
+            // Embed validation failure in the result
+            result.validated = false;
+            result.validation = 'failed';
+            result.validationErrors = validation.errors;
+            result.message = `⚠️ VALIDATION FAILED - TypeScript errors must be fixed before proceeding:\n\n${validation.errors}\n\nUse write_component again with corrected code.`;
+          }
+        }
 
         // Add tool result to conversation
         messages.push({
@@ -344,10 +415,14 @@ export const runAgent = async (designSpec, outputDir = '../nextjs-app/ui') => {
   });
   console.log('\n' + '='.repeat(60) + '\n');
 
+  // Count actual generated components
+  const finalRegistry = await buildRegistry(outputDir);
+
   return {
     success: true,
     iterations: iterationCount,
-    messages
+    messages,
+    componentsGenerated: finalRegistry.components.length
   };
 };
 

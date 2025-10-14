@@ -5,6 +5,44 @@
  */
 
 import { ChatOpenAI } from '@langchain/openai';
+import { z } from 'zod';
+
+/**
+ * Zod schemas for structured Figma analysis
+ */
+const ComponentSpecSchema = z.object({
+  name: z.string().describe('Component name (e.g., PrimaryButton, TextInput)'),
+  atomicLevel: z.enum(['atom', 'molecule', 'organism']).describe('Atomic design classification'),
+  type: z.string().describe('Component type (button, input, typography, icon, etc.)'),
+  description: z.string().describe('Clear description of this specific component'),
+  textContent: z.array(z.string()).describe('All text visible in this component'),
+  visualProperties: z.object({
+    colors: z.string().describe('Color properties (background, text, border)'),
+    typography: z.string().describe('Font, size, weight, line-height'),
+    spacing: z.string().describe('Padding, margin, gap values'),
+    borders: z.string().describe('Border radius, width, style'),
+    shadows: z.string().nullable().describe('Shadow properties or null if none')
+  }).describe('Visual properties of the component'),
+  states: z.array(z.string()).describe('Interaction states (default, hover, disabled, etc.)'),
+  variants: z.array(z.string()).nullable().describe('Variants if multiple exist, or null'),
+  propsRequired: z.array(z.string()).describe('Required props'),
+  propsOptional: z.array(z.string()).describe('Optional props'),
+  behavior: z.string().describe('Interaction behavior description')
+});
+
+const FigmaAnalysisSchema = z.object({
+  analysis: z.object({
+    totalComponents: z.number().describe('Total number of individual components identified'),
+    sections: z.array(z.object({
+      name: z.string().describe('Section name (e.g., Buttons, Typography, Form Inputs)'),
+      componentCount: z.number().describe('Number of components in this section'),
+      description: z.string().describe('What this section contains')
+    })).describe('Sections/categories if present'),
+    needsDeeperFetch: z.boolean().describe('True if visual shows more detail than node data captured'),
+    missingElements: z.string().nullable().describe('Description of any elements visible but not in node data, or null')
+  }).describe('Overall analysis of the design'),
+  components: z.array(ComponentSpecSchema).describe('Array of all individual components')
+});
 
 /**
  * Parse Figma URL to extract file key and node ID
@@ -128,83 +166,57 @@ export const extractFigmaDesign = async (figmaUrl) => {
       fetchFigmaNodeData(fileKey, nodeId)
     ]);
 
-    // Use GPT-4o Vision to analyze the design
-    console.log('   🔍 Analyzing design with GPT-4o Vision...\n');
+    // Use GPT-4o Vision to analyze the design with structured output
+    console.log('   🔍 Analyzing design with GPT-4o Vision (structured output)...\n');
 
     const model = new ChatOpenAI({
       modelName: 'gpt-4o',
       temperature: 0
+    }).withStructuredOutput(FigmaAnalysisSchema, {
+      name: 'figma_component_analysis'
     });
 
-    const analysisPrompt = `Analyze this Figma design screenshot AND the detailed node data below. Create a COMPREHENSIVE component specification that captures ALL elements visible in the design.
+    const analysisPrompt = `You are analyzing a Figma design to extract React components following ATOMIC DESIGN PRINCIPLES.
 
-IMPORTANT:
-- Examine the screenshot carefully for ALL text content, UI elements, and visual details
-- Cross-reference with the node data structure to identify all children and nested elements
-- Do NOT miss any headings, body text, buttons, or other elements
-- List EVERY piece of text content you see
-- Identify ALL interactive elements (buttons, links, inputs)
+🔬 ATOMIC DESIGN METHODOLOGY:
+- **Atoms**: Basic UI building blocks (Button, Input, Icon, Typography, etc.)
+- **Molecules**: Simple combinations of atoms (SearchBar = Input + Button)
+- **Organisms**: Complex components (Header, Card, Form)
 
-Node Data Structure (examine children array carefully):
+YOUR TASK: Extract ALL individual components from this design as separate, reusable elements.
+
+CRITICAL ANALYSIS STEPS:
+
+1. VISUAL INVENTORY
+   - Examine the screenshot carefully
+   - Identify EVERY distinct UI element
+   - Note if elements are grouped in sections (e.g., "Buttons section" with multiple button variants)
+   - Do NOT create one monolithic component - extract each element individually
+
+2. NODE DATA CROSS-REFERENCE
+   - Examine the node data structure below (especially children arrays)
+   - Match visual elements to node data
+   - If visual shows more elements than node data captured, set needsDeeperFetch=true
+
+3. COMPONENT EXTRACTION
+   - For EACH individual component, extract complete specifications
+   - Example: If you see 7 button variations, create 7 separate component specs
+   - Example: If you see typography showcase, create specs for each heading/text level
+   - Example: If you see form inputs, create separate specs for TextInput, TextArea, Checkbox, Toggle, Select, Radio
+
+Node Data (depth=5):
 ${JSON.stringify(nodeDataResult.node, null, 2)}
 
-Provide a comprehensive design specification including:
+REQUIREMENTS:
+- Extract EVERY component visible in the screenshot
+- Provide complete visual properties for each
+- List all text content found in each component
+- Identify interaction states and variants
+- Be thorough - missing components is unacceptable
 
-1. **Component Overview**
-   - Component name and primary type (button, card, input, icon, typography section, layout, etc.)
-   - Purpose and use case
+Return structured data following the schema.`;
 
-2. **ALL Text Content** (CRITICAL - list every text element you see)
-   - Headings (with sizes: h1, h2, h3, etc.)
-   - Body text / paragraphs
-   - Labels
-   - Button text
-   - Any other text visible
-
-3. **Visual Properties**
-   - Colors (backgrounds, text, borders)
-   - Typography (fonts, sizes, weights, line heights)
-   - Spacing (padding, margins, gaps)
-   - Borders and shadows
-   - Border radius
-
-4. **Layout Structure**
-   - Container layout (flex, grid, stack)
-   - Dimensions and sizing
-   - Alignment and positioning
-   - Responsive considerations
-
-5. **ALL Interactive Elements**
-   - Buttons (list all you see with their text/labels)
-   - Links
-   - Inputs
-   - Any clickable areas
-
-6. **Interactive States**
-   - Hover effects
-   - Active/pressed states
-   - Disabled states
-   - Focus states
-
-7. **Variants** (if applicable)
-   - Different size options
-   - Different style options
-   - Different color schemes
-
-8. **Props Needed**
-   - What should be configurable
-   - Required vs optional props
-   - Default values
-
-9. **Behavior**
-   - Click handlers
-   - Navigation
-   - Form submission
-   - Any other interactions
-
-Format as a clear, detailed markdown specification with ALL elements accounted for.`;
-
-    const response = await model.invoke([
+    const structuredAnalysis = await model.invoke([
       {
         type: 'human',
         content: [
@@ -222,14 +234,22 @@ Format as a clear, detailed markdown specification with ALL elements accounted f
       }
     ]);
 
-    const designSpec = response.content;
-
     console.log('   ✅ Design analysis complete\n');
+    console.log(`   📊 Extracted ${structuredAnalysis.components.length} components:`);
+    structuredAnalysis.components.forEach((comp, i) => {
+      console.log(`      ${i + 1}. ${comp.name} (${comp.atomicLevel})`);
+    });
+    console.log();
+
+    if (structuredAnalysis.analysis.needsDeeperFetch) {
+      console.log('   ⚠️  Analysis indicates visual has more detail than node data captured');
+      console.log('   💡 Consider fetching individual child nodes for more detail\n');
+    }
 
     return {
       componentName: nodeDataResult.node.name,
       componentType: 'components',
-      designSpec,
+      structuredAnalysis,
       figmaData: {
         fileKey,
         nodeId,

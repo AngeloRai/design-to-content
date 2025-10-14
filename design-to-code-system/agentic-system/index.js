@@ -53,17 +53,21 @@ Options:
   console.log('='.repeat(60) + '\n');
 
   try {
-    // Step 1: Extract design from Figma
-    const { designSpec } = await extractFigmaDesign(figmaUrl);
+    // Step 1: Extract design from Figma with structured analysis
+    const extractionResult = await extractFigmaDesign(figmaUrl);
+    const { structuredAnalysis } = extractionResult;
 
-    // Step 2: Run autonomous agent
-    const result = await runAgent(designSpec, outputDir);
+    // Step 2: Run autonomous agent with structured component data
+    const result = await runAgent(structuredAnalysis, outputDir);
 
     // Step 3: Report success
     console.log('\n' + '='.repeat(60));
     console.log('✅ Component generation complete!');
     console.log('='.repeat(60));
+    console.log(`Components identified in Figma: ${structuredAnalysis.components.length}`);
+    console.log(`Components actually generated: ${result.componentsGenerated || 'unknown'}`);
     console.log(`Iterations: ${result.iterations}`);
+    console.log(`Success: ${result.success ? 'Yes' : 'No (validation errors)'}`);
     console.log(`Output directory: ${outputDir}`);
     console.log('='.repeat(60) + '\n');
 
