@@ -6,11 +6,15 @@
 import OpenAI from 'openai';
 import fs from 'fs/promises';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 import { scanReferenceComponents } from '../tools/reference-scanner.js';
 import { createVectorSearch } from '../tools/vector-search.js';
 import { buildRegistry } from '../tools/registry.js';
 import { AGENT_SYSTEM_PROMPT } from './prompts.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Lazy-load OpenAI client to ensure env vars are loaded first
 let client = null;
@@ -188,16 +192,24 @@ const createToolExecutor = (vectorSearch, registry, outputDir) => {
 
     async validate_typescript({ file_path }) {
       try {
-        // Run TypeScript compiler check
-        const output = execSync(`npx tsc --noEmit ${file_path} 2>&1`, {
-          encoding: 'utf-8',
-          cwd: path.dirname(outputDir)
-        });
+        // Run tsc from design-to-code-system where TypeScript is installed
+        // Must explicitly pass --jsx and --esModuleInterop flags for React/JSX support
+        const designToCodeDir = path.resolve(__dirname, '..', '..');
+        const projectRoot = path.resolve(outputDir, '..');
+
+        // Run TypeScript compiler with explicit flags
+        const output = execSync(
+          `cd ${projectRoot} && npx --prefix ${designToCodeDir} tsc --noEmit --jsx react-jsx --esModuleInterop ${file_path} 2>&1`,
+          {
+            encoding: 'utf-8',
+            shell: '/bin/bash'
+          }
+        );
 
         return {
           path: file_path,
           valid: true,
-          output: output || 'No errors'
+          output: output || 'No TypeScript errors'
         };
       } catch (error) {
         return {
