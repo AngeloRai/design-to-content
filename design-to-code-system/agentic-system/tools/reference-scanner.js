@@ -4,7 +4,6 @@
  * These are HIGH-QUALITY human-written components we want AI to follow
  */
 
-import 'dotenv/config';
 import fs from 'fs/promises';
 import path from 'path';
 import { ChatOpenAI } from "@langchain/openai";

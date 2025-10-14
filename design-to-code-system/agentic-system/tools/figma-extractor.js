@@ -4,7 +4,6 @@
  * Self-contained within agentic-system directory
  */
 
-import 'dotenv/config';
 import { ChatOpenAI } from '@langchain/openai';
 
 /**
@@ -28,17 +27,17 @@ export const parseFigmaUrl = (figmaUrl) => {
  * Fetch Figma screenshot using Figma API
  */
 export const fetchFigmaScreenshot = async (fileKey, nodeId, scale = 2) => {
-  const FIGMA_TOKEN = process.env.FIGMA_TOKEN;
+  const FIGMA_ACCESS_TOKEN = process.env.FIGMA_ACCESS_TOKEN;
 
-  if (!FIGMA_TOKEN) {
-    throw new Error('FIGMA_TOKEN environment variable is required');
+  if (!FIGMA_ACCESS_TOKEN) {
+    throw new Error('FIGMA_ACCESS_TOKEN environment variable is required');
   }
 
   const url = `https://api.figma.com/v1/images/${fileKey}?ids=${nodeId}&scale=${scale}&format=png`;
 
   const response = await fetch(url, {
     headers: {
-      'X-Figma-Token': FIGMA_TOKEN
+      'X-Figma-Token': FIGMA_ACCESS_TOKEN
     }
   });
 
@@ -70,17 +69,17 @@ export const fetchFigmaScreenshot = async (fileKey, nodeId, scale = 2) => {
  * Fetch Figma node data using Figma API
  */
 export const fetchFigmaNodeData = async (fileKey, nodeId) => {
-  const FIGMA_TOKEN = process.env.FIGMA_TOKEN;
+  const FIGMA_ACCESS_TOKEN = process.env.FIGMA_ACCESS_TOKEN;
 
-  if (!FIGMA_TOKEN) {
-    throw new Error('FIGMA_TOKEN environment variable is required');
+  if (!FIGMA_ACCESS_TOKEN) {
+    throw new Error('FIGMA_ACCESS_TOKEN environment variable is required');
   }
 
   const url = `https://api.figma.com/v1/files/${fileKey}/nodes?ids=${nodeId}&depth=5`;
 
   const response = await fetch(url, {
     headers: {
-      'X-Figma-Token': FIGMA_TOKEN
+      'X-Figma-Token': FIGMA_ACCESS_TOKEN
     }
   });
 

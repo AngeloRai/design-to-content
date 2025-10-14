@@ -4,7 +4,7 @@
  * Orchestrates Figma-to-React component generation using autonomous agent
  */
 
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import { runAgent } from './core/agent.js';
 import { extractFigmaDesign } from './tools/figma-extractor.js';
 import path from 'path';
@@ -12,6 +12,9 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Load .env from design-to-code-system directory
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 /**
  * Main workflow

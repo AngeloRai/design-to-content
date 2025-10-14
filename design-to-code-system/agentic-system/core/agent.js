@@ -3,7 +3,6 @@
  * Single agent that decides how to generate components using available tools
  */
 
-import 'dotenv/config';
 import OpenAI from 'openai';
 import fs from 'fs/promises';
 import path from 'path';
@@ -13,9 +12,16 @@ import { createVectorSearch } from '../tools/vector-search.js';
 import { buildRegistry } from '../tools/registry.js';
 import { AGENT_SYSTEM_PROMPT } from './prompts.js';
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Lazy-load OpenAI client to ensure env vars are loaded first
+let client = null;
+const getClient = () => {
+  if (!client) {
+    client = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+  }
+  return client;
+};
 
 /**
  * Tool definitions for OpenAI function calling
@@ -261,7 +267,7 @@ export const runAgent = async (designSpec, outputDir = '../nextjs-app/ui') => {
 
     console.log(`\n📨 Iteration ${iterationCount} - Sending ${messages.length} messages to GPT-4o...\n`);
 
-    const response = await client.chat.completions.create({
+    const response = await getClient().chat.completions.create({
       model: 'gpt-4o',
       messages,
       tools: TOOLS,
