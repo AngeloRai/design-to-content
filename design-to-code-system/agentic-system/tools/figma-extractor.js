@@ -136,22 +136,73 @@ export const extractFigmaDesign = async (figmaUrl) => {
       temperature: 0
     });
 
-    const analysisPrompt = `Analyze this Figma design and create a detailed component specification.
+    const analysisPrompt = `Analyze this Figma design screenshot AND the detailed node data below. Create a COMPREHENSIVE component specification that captures ALL elements visible in the design.
 
-Node Data:
+IMPORTANT:
+- Examine the screenshot carefully for ALL text content, UI elements, and visual details
+- Cross-reference with the node data structure to identify all children and nested elements
+- Do NOT miss any headings, body text, buttons, or other elements
+- List EVERY piece of text content you see
+- Identify ALL interactive elements (buttons, links, inputs)
+
+Node Data Structure (examine children array carefully):
 ${JSON.stringify(nodeDataResult.node, null, 2)}
 
 Provide a comprehensive design specification including:
-1. Component name and type (button, card, input, icon, layout, etc.)
-2. Visual properties (colors, typography, spacing, borders, shadows)
-3. Layout structure (flex, grid, dimensions)
-4. Interactive states (hover, active, disabled, focus)
-5. Variants (if multiple styles exist)
-6. Props needed (what should be configurable)
-7. Content (text, images, icons)
-8. Behavior (click handlers, navigation, form submission, etc.)
 
-Format as a clear markdown specification.`;
+1. **Component Overview**
+   - Component name and primary type (button, card, input, icon, typography section, layout, etc.)
+   - Purpose and use case
+
+2. **ALL Text Content** (CRITICAL - list every text element you see)
+   - Headings (with sizes: h1, h2, h3, etc.)
+   - Body text / paragraphs
+   - Labels
+   - Button text
+   - Any other text visible
+
+3. **Visual Properties**
+   - Colors (backgrounds, text, borders)
+   - Typography (fonts, sizes, weights, line heights)
+   - Spacing (padding, margins, gaps)
+   - Borders and shadows
+   - Border radius
+
+4. **Layout Structure**
+   - Container layout (flex, grid, stack)
+   - Dimensions and sizing
+   - Alignment and positioning
+   - Responsive considerations
+
+5. **ALL Interactive Elements**
+   - Buttons (list all you see with their text/labels)
+   - Links
+   - Inputs
+   - Any clickable areas
+
+6. **Interactive States**
+   - Hover effects
+   - Active/pressed states
+   - Disabled states
+   - Focus states
+
+7. **Variants** (if applicable)
+   - Different size options
+   - Different style options
+   - Different color schemes
+
+8. **Props Needed**
+   - What should be configurable
+   - Required vs optional props
+   - Default values
+
+9. **Behavior**
+   - Click handlers
+   - Navigation
+   - Form submission
+   - Any other interactions
+
+Format as a clear, detailed markdown specification with ALL elements accounted for.`;
 
     const response = await model.invoke([
       {
