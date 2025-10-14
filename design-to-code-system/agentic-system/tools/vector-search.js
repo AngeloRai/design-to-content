@@ -128,7 +128,7 @@ export const createVectorSearch = async (components) => {
  * Create empty vector search (fallback)
  */
 const createEmptyVectorSearch = () => ({
-  search: async (query, k = 3) => {
+  search: async (query, _k = 3) => {
     console.log(`⚠️  Vector search not available, returning empty results for: "${query}"`);
     return [];
   },

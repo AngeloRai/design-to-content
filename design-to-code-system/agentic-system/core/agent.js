@@ -8,9 +8,9 @@ import OpenAI from 'openai';
 import fs from 'fs/promises';
 import path from 'path';
 import { execSync } from 'child_process';
-import { scanReferenceComponents } from './reference-scanner.js';
-import { createVectorSearch } from './vector-search.js';
-import { buildRegistry } from './registry.js';
+import { scanReferenceComponents } from '../tools/reference-scanner.js';
+import { createVectorSearch } from '../tools/vector-search.js';
+import { buildRegistry } from '../tools/registry.js';
 import { AGENT_SYSTEM_PROMPT } from './prompts.js';
 
 const client = new OpenAI({

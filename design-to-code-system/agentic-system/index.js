@@ -5,48 +5,13 @@
  */
 
 import 'dotenv/config';
-import { runAgent } from './agent.js';
+import { runAgent } from './core/agent.js';
+import { extractFigmaDesign } from './tools/figma-extractor.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-/**
- * Extract design specification from Figma
- * For now, this is a placeholder - in production this would use Figma API
- */
-const extractFigmaDesign = async (figmaUrl) => {
-  console.log(`🎨 Extracting design from Figma: ${figmaUrl}\n`);
-
-  // TODO: Integrate with existing Figma extraction logic from langgraph-workflow
-  // For now, return a mock design spec
-
-  return {
-    componentName: 'ExtractedComponent',
-    componentType: 'components',
-    designSpec: `
-# Component Design Specification (Extracted from Figma)
-
-**Figma URL**: ${figmaUrl}
-
-**Component Type**: To be determined from Figma frame
-
-**Visual Properties**:
-- Layout, colors, typography from Figma
-- Spacing and sizing measurements
-- Visual states (hover, active, disabled)
-
-**Interactive Elements**:
-- Buttons, links, inputs identified from Figma
-
-**Content**:
-- Text content, images, icons from Figma layers
-
-NOTE: This is a placeholder. Real implementation will use Figma API extraction.
-`
-  };
-};
 
 /**
  * Main workflow
@@ -115,4 +80,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   main();
 }
 
-export { main, extractFigmaDesign };
+export { main };

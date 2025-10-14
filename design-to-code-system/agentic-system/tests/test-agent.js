@@ -2,7 +2,7 @@
  * Test the autonomous agent with a simple design specification
  */
 
-import { runAgent } from './agent.js';
+import { runAgent } from '../core/agent.js';
 
 const SIMPLE_DESIGN_SPEC = `
 # Component Design Specification

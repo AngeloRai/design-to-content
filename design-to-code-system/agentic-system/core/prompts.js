@@ -14,7 +14,7 @@ const __dirname = path.dirname(__filename);
  * Load reference patterns document
  */
 export const loadReferencePatterns = async () => {
-  const patternsPath = path.join(__dirname, 'REFERENCE_PATTERNS.md');
+  const patternsPath = path.join(__dirname, '../docs/REFERENCE_PATTERNS.md');
   return await fs.readFile(patternsPath, 'utf-8');
 };
 
