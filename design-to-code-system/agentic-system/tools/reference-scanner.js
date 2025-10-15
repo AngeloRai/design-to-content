@@ -17,7 +17,12 @@ const ComponentMetadataSchema = z.object({
   hasVariants: z.boolean().describe("Whether component has multiple visual variants"),
   isInteractive: z.boolean().describe("Whether component handles user interactions (clicks, hover, etc)"),
   dependencies: z.array(z.string()).describe("Names of other components this component imports"),
-  purpose: z.string().describe("Primary purpose: button, input, container, card, icon, navigation, form, layout, etc")
+  purpose: z.string().describe("Primary purpose: button, input, container, card, icon, navigation, form, layout, etc"),
+  variants: z.array(z.string()).describe("List of actual variant names from code (e.g., ['primary', 'secondary', 'outline', 'ghost']). Extract from variant objects or TypeScript types. Empty array if no variants."),
+  sizes: z.array(z.string()).describe("List of size options from code (e.g., ['small', 'medium', 'large', 'xs', 'xl']). Extract from size objects or className patterns. Empty array if no sizes."),
+  states: z.array(z.string()).describe("List of interactive states supported (e.g., ['hover', 'active', 'focus', 'disabled', 'loading']). Look for hover:, active:, disabled:, etc. in classNames. Empty array if none."),
+  features: z.array(z.string()).describe("Key features as keywords (e.g., ['icon-support', 'accessible', 'animated', 'responsive', 'external-link', 'conditional-rendering']). Empty array if basic component."),
+  patterns: z.array(z.string()).describe("Implementation patterns used (e.g., ['polymorphic', 'composition', 'forwardRef', 'compound-component', 'render-props']). Empty array if simple component.")
 });
 
 /**
@@ -32,20 +37,65 @@ const extractComponentMetadata = async (filePath) => {
       temperature: 0
     }).withStructuredOutput(ComponentMetadataSchema);
 
-    const prompt = `Analyze this React component and extract metadata.
+    const prompt = `Analyze this React component and extract detailed metadata for semantic search.
 
 Component code:
 \`\`\`tsx
 ${code}
 \`\`\`
 
-Extract:
-- description: What this component does (1-2 sentences)
-- props: List of prop names (just the names, not types)
-- hasVariants: Does it have visual variants? (true/false)
-- isInteractive: Does it handle user interactions? (true/false)
-- dependencies: What other components does it import?
-- purpose: Primary purpose (button, input, container, card, icon, navigation, form, layout, etc)`;
+Extract the following (be thorough and specific):
+
+1. **description**: What this component does (1-2 sentences)
+
+2. **props**: List of prop names (just the names, not types)
+
+3. **hasVariants**: Does it have visual variants? (true/false)
+
+4. **isInteractive**: Does it handle user interactions like clicks, hover, etc? (true/false)
+
+5. **dependencies**: What other components does it import? (component names only)
+
+6. **purpose**: Primary purpose (button, input, container, card, icon, navigation, form, layout, etc)
+
+7. **variants**: List ALL variant option names from the code
+   - Look for: variantClasses = { primary: ..., secondary: ... }
+   - Look for: variant prop with TypeScript enum/union types
+   - Examples: ['primary', 'secondary', 'outline', 'ghost', 'icon']
+   - Return empty array [] if no variants
+
+8. **sizes**: List ALL size option names from the code
+   - Look for: sizeClasses = { small: ..., medium: ... }
+   - Look for: size prop types
+   - Examples: ['xs', 'small', 'medium', 'large', 'xl']
+   - Return empty array [] if no sizes
+
+9. **states**: List interactive states this component supports
+   - Look for Tailwind state classes: hover:, active:, focus:, disabled:
+   - Look for: disabled prop, loading prop, etc.
+   - Examples: ['hover', 'active', 'focus', 'disabled', 'loading']
+   - Return empty array [] if no special states
+
+10. **features**: List key features as keywords
+    - icon-support (if has icon prop or imports icon components)
+    - accessible (if has aria-* attributes, role, etc.)
+    - animated (if has transition-, animate- classes)
+    - responsive (if has sm:, md:, lg: breakpoint classes)
+    - external-link (if handles external URLs)
+    - conditional-rendering (if has conditional logic)
+    - Examples: ['icon-support', 'accessible', 'animated', 'responsive']
+    - Return empty array [] if basic component
+
+11. **patterns**: List implementation patterns used
+    - polymorphic (can render as different elements: button, a, Link)
+    - composition (embeds/composes other components)
+    - forwardRef (uses React.forwardRef)
+    - compound-component (parent-child pattern)
+    - render-props (uses render functions)
+    - Examples: ['polymorphic', 'composition', 'responsive']
+    - Return empty array [] if simple component
+
+Be specific and extract ACTUAL VALUES from the code, not generic descriptions.`;
 
     const metadata = await model.invoke(prompt);
     return metadata;
@@ -57,7 +107,12 @@ Extract:
       hasVariants: false,
       isInteractive: false,
       dependencies: [],
-      purpose: ''
+      purpose: '',
+      variants: [],
+      sizes: [],
+      states: [],
+      features: [],
+      patterns: []
     };
   }
 };
@@ -103,12 +158,11 @@ const scanReferenceDirectory = async (dir) => {
 };
 
 /**
- * Scan and analyze all reference components
+ * Scan and analyze all reference components using AI
  * @param {string} referenceDir - Path to reference component directory
- * @param {boolean} useAI - Whether to use AI for metadata extraction (default: false)
- * @returns {Array} - Array of analyzed components
+ * @returns {Array} - Array of analyzed components with rich metadata
  */
-export const scanReferenceComponents = async (referenceDir = null, useAI = false) => {
+export const scanReferenceComponents = async (referenceDir = null) => {
   const defaultPath = referenceDir || path.join(process.cwd(), 'reference', 'reference-app', 'ui');
 
   console.log(`🔍 Scanning reference components from: ${defaultPath}\n`);
@@ -118,20 +172,6 @@ export const scanReferenceComponents = async (referenceDir = null, useAI = false
   if (components.length === 0) {
     console.log('⚠️  No reference components found');
     return [];
-  }
-
-  if (!useAI) {
-    // Simple mode: just return components with basic info
-    console.log(`✅ Found ${components.length} reference components (simple mode - no AI analysis)\n`);
-    return components.map(comp => ({
-      ...comp,
-      description: `Reference ${comp.type} component`,
-      props: [],
-      hasVariants: false,
-      isInteractive: comp.type === 'elements' || comp.name.toLowerCase().includes('button') || comp.name.toLowerCase().includes('cta'),
-      dependencies: [],
-      purpose: comp.type === 'icons' ? 'icon' : comp.type.slice(0, -1) // Remove 's' from type
-    }));
   }
 
   console.log(`Found ${components.length} reference components, analyzing with AI...\n`);
@@ -154,13 +194,12 @@ export const scanReferenceComponents = async (referenceDir = null, useAI = false
 };
 
 /**
- * CLI - Test reference scanner
+ * CLI - Test reference scanner with AI analysis
  */
 if (import.meta.url === `file://${process.argv[1]}`) {
-  console.log('🧪 Testing reference scanner (simple mode)...\n');
+  console.log('🧪 Testing reference scanner with AI analysis...\n');
 
-  // Test simple mode (no AI)
-  scanReferenceComponents(null, false).then(components => {
+  scanReferenceComponents(null).then(components => {
     console.log('📋 Reference components by type:\n');
 
     const byType = components.reduce((acc, comp) => {
@@ -171,16 +210,20 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
     Object.entries(byType).forEach(([type, comps]) => {
       console.log(`  ${type}: ${comps.length} components`);
-      comps.slice(0, 3).forEach(c => {
+      comps.slice(0, 2).forEach(c => {
         console.log(`    - ${c.name}`);
+        if (c.variants?.length) console.log(`      variants: ${c.variants.join(', ')}`);
+        if (c.sizes?.length) console.log(`      sizes: ${c.sizes.join(', ')}`);
+        if (c.states?.length) console.log(`      states: ${c.states.join(', ')}`);
+        if (c.features?.length) console.log(`      features: ${c.features.join(', ')}`);
       });
-      if (comps.length > 3) {
-        console.log(`    ... and ${comps.length - 3} more`);
+      if (comps.length > 2) {
+        console.log(`    ... and ${comps.length - 2} more`);
       }
       console.log('');
     });
 
-    console.log(`📊 Total: ${components.length} reference components scanned\n`);
+    console.log(`📊 Total: ${components.length} reference components analyzed\n`);
 
   }).catch(error => {
     console.error('❌ Test failed:', error);

@@ -34,7 +34,13 @@ export const createVectorSearch = async (components) => {
         comp.props?.join(', ') || '',
         comp.hasVariants ? 'has variants' : '',
         comp.isInteractive ? 'interactive' : '',
-        comp.dependencies?.join(', ') || ''
+        comp.dependencies?.join(', ') || '',
+        // New enriched fields for better semantic matching
+        comp.variants?.length ? `variants: ${comp.variants.join(' ')}` : '',
+        comp.sizes?.length ? `sizes: ${comp.sizes.join(' ')}` : '',
+        comp.states?.length ? `states: ${comp.states.join(' ')}` : '',
+        comp.features?.length ? `features: ${comp.features.join(' ')}` : '',
+        comp.patterns?.length ? `patterns: ${comp.patterns.join(' ')}` : ''
       ].filter(Boolean);
 
       return parts.join(' ');
@@ -51,7 +57,12 @@ export const createVectorSearch = async (components) => {
       hasVariants: comp.hasVariants || false,
       isInteractive: comp.isInteractive || false,
       dependencies: comp.dependencies || [],
-      purpose: comp.purpose || ''
+      purpose: comp.purpose || '',
+      variants: comp.variants || [],
+      sizes: comp.sizes || [],
+      states: comp.states || [],
+      features: comp.features || [],
+      patterns: comp.patterns || []
     }));
 
     // Create vector store
@@ -93,7 +104,13 @@ export const createVectorSearch = async (components) => {
             component.props?.join(', ') || '',
             component.hasVariants ? 'has variants' : '',
             component.isInteractive ? 'interactive' : '',
-            component.dependencies?.join(', ') || ''
+            component.dependencies?.join(', ') || '',
+            // New enriched fields
+            component.variants?.length ? `variants: ${component.variants.join(' ')}` : '',
+            component.sizes?.length ? `sizes: ${component.sizes.join(' ')}` : '',
+            component.states?.length ? `states: ${component.states.join(' ')}` : '',
+            component.features?.length ? `features: ${component.features.join(' ')}` : '',
+            component.patterns?.length ? `patterns: ${component.patterns.join(' ')}` : ''
           ].filter(Boolean);
 
           const text = parts.join(' ');
@@ -110,7 +127,12 @@ export const createVectorSearch = async (components) => {
               hasVariants: component.hasVariants || false,
               isInteractive: component.isInteractive || false,
               dependencies: component.dependencies || [],
-              purpose: component.purpose || ''
+              purpose: component.purpose || '',
+              variants: component.variants || [],
+              sizes: component.sizes || [],
+              states: component.states || [],
+              features: component.features || [],
+              patterns: component.patterns || []
             }
           }]);
         } catch (error) {

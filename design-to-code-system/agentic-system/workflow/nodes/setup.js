@@ -13,8 +13,8 @@ export async function setupNode(state) {
   console.log('='.repeat(60));
 
   try {
-    // Load reference components for pattern matching
-    const referenceComponents = await scanReferenceComponents(null, false);
+    // Load reference components for pattern matching with AI analysis
+    const referenceComponents = await scanReferenceComponents(null);
 
     // Create vector search index
     const vectorSearch = await createVectorSearch(referenceComponents);

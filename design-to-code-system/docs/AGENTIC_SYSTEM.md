@@ -44,23 +44,23 @@ index.js (Entry Point)
 ```
 agentic-system/
 ├── index.js                    # Main entry point
-├── workflow/
-│   ├── graph.js               # LangGraph StateGraph definition
-│   ├── openai-client.js       # ChatOpenAI model factory
-│   ├── tool-executor.js       # Tool implementations + definitions
-│   ├── langsmith-config.js    # LangSmith setup & validation
-│   └── nodes/
-│       ├── setup.js           # Resource loading node
-│       ├── generate.js        # ChatOpenAI agent node
-│       └── finalize.js        # Reporting node
-├── core/
-│   ├── prompts.js            # Agent system prompts
-│   └── context.js            # Context management
-└── tools/
-    ├── figma-extractor.js    # Figma API + GPT-4o Vision
-    ├── reference-scanner.js  # Component discovery
-    ├── vector-search.js      # Semantic search
-    └── registry.js           # Component registry
+├── config/                     # System-wide configuration
+│   ├── openai-client.js        # ChatOpenAI model factory
+│   ├── tool-executor.js        # Tool implementations + definitions
+│   └── langsmith-config.js     # LangSmith setup & validation
+├── workflow/                   # LangGraph workflow
+│   ├── graph.js                # StateGraph definition
+│   ├── prompts/                # System prompts (extensible)
+│   │   └── agent-prompts.js    # Agent system prompts
+│   └── nodes/                  # Workflow execution nodes
+│       ├── setup.js            # Resource loading node
+│       ├── generate.js         # ChatOpenAI agent node
+│       └── finalize.js         # Reporting node
+└── tools/                      # Utility tools
+    ├── figma-extractor.js      # Figma API + GPT-4o Vision
+    ├── reference-scanner.js    # Component discovery
+    ├── vector-search.js        # Semantic search
+    └── registry.js             # Component registry
 ```
 
 ## Environment Variables

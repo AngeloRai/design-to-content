@@ -10,7 +10,7 @@ import { fileURLToPath } from 'url';
 import { Client } from 'langsmith';
 import { extractFigmaDesign } from './tools/figma-extractor.js';
 import { buildWorkflow } from './workflow/graph.js';
-import { configureLangSmith } from './workflow/langsmith-config.js';
+import { configureLangSmith } from './config/langsmith-config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

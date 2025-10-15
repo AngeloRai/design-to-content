@@ -5,9 +5,9 @@
 
 import path from 'path';
 import { HumanMessage, SystemMessage, ToolMessage } from '@langchain/core/messages';
-import { AGENT_SYSTEM_PROMPT } from '../../core/prompts.js';
-import { getChatModel } from '../openai-client.js';
-import { createToolExecutor, TOOLS } from '../tool-executor.js';
+import { AGENT_SYSTEM_PROMPT } from '../prompts/agent-prompts.js';
+import { getChatModel } from '../../config/openai-client.js';
+import { createToolExecutor, TOOLS } from '../../config/tool-executor.js';
 
 export async function generateNode(state) {
   console.log('\n🤖 Phase: Generate - Running Agent');
