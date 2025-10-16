@@ -184,10 +184,56 @@ export const createToolExecutor = (vectorSearch, registry, outputDir) => {
     },
 
     async get_registry() {
-      return {
-        components: registry.components,
+      const allComponents = [];
+
+      // Flatten registry by type
+      for (const type of ['elements', 'components', 'modules', 'icons']) {
+        const components = registry.components[type] || [];
+        components.forEach(comp => {
+          allComponents.push({
+            name: comp.name,
+            type,
+            atomicLevel: type === 'elements' ? 'atom' : type === 'components' ? 'molecule' : 'organism',
+            importPath: registry.importMap[comp.name],
+            description: comp.description || '',
+            dependencies: comp.dependencies || []
+          });
+        });
+      }
+
+      // Count by atomic level
+      const atoms = allComponents.filter(c => c.atomicLevel === 'atom');
+      const molecules = allComponents.filter(c => c.atomicLevel === 'molecule');
+      const organisms = allComponents.filter(c => c.atomicLevel === 'organism');
+
+      // Build helpful response
+      const response = {
+        summary: {
+          total: allComponents.length,
+          atoms: atoms.length,
+          molecules: molecules.length,
+          organisms: organisms.length
+        },
+        components: {
+          atoms: atoms.map(c => ({ name: c.name, importPath: c.importPath, description: c.description })),
+          molecules: molecules.map(c => ({ name: c.name, importPath: c.importPath, dependencies: c.dependencies })),
+          organisms: organisms.map(c => ({ name: c.name, importPath: c.importPath, dependencies: c.dependencies }))
+        },
         importMap: registry.importMap
       };
+
+      // Add contextual hints based on current state
+      if (allComponents.length === 0) {
+        response.hint = "📋 Registry is empty. This is a fresh start.\n\n💡 Start by generating ATOMS first (buttons, inputs, headings, etc).\nAtoms are self-contained and don't import other components.";
+      } else if (molecules.length === 0 && atoms.length > 0) {
+        response.hint = `📋 Registry contains ${atoms.length} atom(s): ${atoms.map(a => a.name).join(', ')}\n\n💡 You can now generate MOLECULES that import and compose these atoms.\nExample: SearchBar can import Button + Input.`;
+      } else if (organisms.length === 0 && molecules.length > 0) {
+        response.hint = `📋 Registry contains:\n- ${atoms.length} atoms: ${atoms.map(a => a.name).join(', ')}\n- ${molecules.length} molecules: ${molecules.map(m => m.name).join(', ')}\n\n💡 You can now generate ORGANISMS that compose molecules and atoms.\nExample: Navigation can import Logo + SearchBar + Button.`;
+      } else {
+        response.hint = `📋 Full registry:\n- ${atoms.length} atoms\n- ${molecules.length} molecules\n- ${organisms.length} organisms\n\n💡 Import existing components using paths from importMap.\nGenerate new components in atomic order: atoms → molecules → organisms.`;
+      }
+
+      return response;
     }
   };
 

@@ -3,18 +3,29 @@
  * Uses ChatOpenAI with automatic LangSmith tracing
  */
 
-import path from 'path';
-import { HumanMessage, SystemMessage, ToolMessage } from '@langchain/core/messages';
-import { AGENT_SYSTEM_PROMPT } from '../prompts/agent-prompts.js';
-import { getChatModel } from '../../config/openai-client.js';
-import { createToolExecutor, TOOLS } from '../../config/tool-executor.js';
+import path from "path";
+import {
+  HumanMessage,
+  SystemMessage,
+  ToolMessage,
+} from "@langchain/core/messages";
+import { AGENT_SYSTEM_PROMPT } from "../prompts/agent-prompts.js";
+import { getChatModel } from "../../config/openai-client.js";
+import { createToolExecutor, TOOLS } from "../../config/tool-executor.js";
 
 export async function generateNode(state) {
-  console.log('\n🤖 Phase: Generate - Running Agent');
-  console.log('='.repeat(60));
+  console.log("🚀 ~ generateNode ~ state:", JSON.stringify(state, null, 2));
+  console.log("\n🤖 Phase: Generate - Running Agent");
+  console.log("=".repeat(60));
 
   try {
-    const { figmaAnalysis, vectorSearch, registry, outputDir, conversationHistory } = state;
+    const {
+      figmaAnalysis,
+      vectorSearch,
+      registry,
+      outputDir,
+      conversationHistory,
+    } = state;
 
     // Setup tool executor
     const toolExecutor = createToolExecutor(vectorSearch, registry, outputDir);
@@ -27,15 +38,22 @@ export async function generateNode(state) {
     const systemPrompt = await AGENT_SYSTEM_PROMPT();
 
     // Format component list for agent
-    const componentSummary = figmaAnalysis.components.map((comp, i) =>
-      `${i + 1}. ${comp.name} (${comp.atomicLevel} - ${comp.type}): ${comp.description}`
-    ).join('\n');
+    const componentSummary = figmaAnalysis.components
+      .map(
+        (comp, i) =>
+          `${i + 1}. ${comp.name} (${comp.atomicLevel} - ${comp.type}): ${
+            comp.description
+          }`
+      )
+      .join("\n");
 
     const userContent = `Generate React components following the ATOMIC DESIGN pattern based on this structured analysis from Figma:
 
 📊 ANALYSIS SUMMARY:
 - Total Components Identified: ${figmaAnalysis.analysis.totalComponents}
-- Sections: ${figmaAnalysis.analysis.sections.map(s => `${s.name} (${s.componentCount} components)`).join(', ')}
+- Sections: ${figmaAnalysis.analysis.sections
+      .map((s) => `${s.name} (${s.componentCount} components)`)
+      .join(", ")}
 
 🔬 COMPONENT LIST (from Figma analysis):
 ${componentSummary}
@@ -73,27 +91,51 @@ ${componentSummary}
 FULL COMPONENT SPECIFICATIONS:
 ${JSON.stringify(figmaAnalysis.components, null, 2)}
 
-Begin by planning which components to consolidate, then generate them systematically.`;
+🚨 MANDATORY FIRST STEP: Call get_registry() to see what components already exist.
+
+Then follow this workflow:
+
+1. **Review Registry Results**
+   - Note which atoms, molecules, and organisms already exist
+   - Identify which can be reused vs need to be generated
+
+2. **Sort Components by Atomic Level**
+   - Group the ${figmaAnalysis.analysis.totalComponents} components into:
+     * Atoms (self-contained building blocks)
+     * Molecules (compose atoms)
+     * Organisms (compose molecules + atoms)
+
+3. **Generate in Order**
+   - FIRST: Generate all atoms
+   - SECOND: Generate molecules (import existing atoms)
+   - THIRD: Generate organisms (import existing molecules + atoms)
+
+4. **Plan Consolidation Within Each Level**
+   - Within atoms: consolidate similar buttons, inputs, etc.
+   - Within molecules: consolidate similar patterns
+   - Within organisms: consolidate similar layouts
+
+Begin now by calling get_registry().`;
 
     // Initialize messages as LangChain message objects
-    const messages = conversationHistory.length > 0
-      ? conversationHistory
-      : [
-          new SystemMessage(systemPrompt),
-          new HumanMessage(userContent)
-        ];
+    const messages =
+      conversationHistory.length > 0
+        ? conversationHistory
+        : [new SystemMessage(systemPrompt), new HumanMessage(userContent)];
 
     let continueLoop = true;
     let iterationCount = 0;
     const maxIterations = 50;
 
-    console.log('💭 Agent thinking...\n');
+    console.log("💭 Agent thinking...\n");
 
     // Agent loop - keep going until agent says it's done
     while (continueLoop && iterationCount < maxIterations) {
       iterationCount++;
 
-      console.log(`\n📨 Iteration ${iterationCount} - Invoking ChatOpenAI...\n`);
+      console.log(
+        `\n📨 Iteration ${iterationCount} - Invoking ChatOpenAI...\n`
+      );
 
       // Invoke model with tools
       const response = await modelWithTools.invoke(messages);
@@ -118,24 +160,41 @@ Begin by planning which components to consolidate, then generate them systematic
 
           // Execute tool
           const result = await toolExecutor.execute(functionName, functionArgs);
-          console.log(`   Result: ${JSON.stringify(result, null, 2).slice(0, 200)}${JSON.stringify(result).length > 200 ? '...' : ''}\n`);
+          console.log(
+            `   Result: ${JSON.stringify(result, null, 2).slice(0, 200)}${
+              JSON.stringify(result).length > 200 ? "..." : ""
+            }\n`
+          );
 
           // CRITICAL: If write_component was called, auto-validate immediately
-          if (functionName === 'write_component' && result.success) {
-            console.log('   🔍 Auto-validating component...');
-            const filePath = path.relative(path.resolve(outputDir, '..'), result.path);
-            const validation = await toolExecutor.execute('validate_typescript', { file_path: filePath });
+          if (functionName === "write_component" && result.success) {
+            console.log("   🔍 Auto-validating component...");
+            const filePath = path.relative(
+              path.resolve(outputDir, ".."),
+              result.path
+            );
+            const validation = await toolExecutor.execute(
+              "validate_typescript",
+              { file_path: filePath }
+            );
 
             if (validation.valid) {
-              console.log('   ✅ Validation passed - component is complete\n');
+              console.log("   ✅ Validation passed - component is complete\n");
               result.validated = true;
-              result.validation = 'passed';
+              result.validation = "passed";
             } else {
-              console.log('   ❌ Validation failed - fix required before proceeding\n');
-              console.log(`   Errors: ${validation.errors?.split('\n').slice(0, 3).join('\n   ')}\n`);
+              console.log(
+                "   ❌ Validation failed - fix required before proceeding\n"
+              );
+              console.log(
+                `   Errors: ${validation.errors
+                  ?.split("\n")
+                  .slice(0, 3)
+                  .join("\n   ")}\n`
+              );
 
               result.validated = false;
-              result.validation = 'failed';
+              result.validation = "failed";
               result.validationErrors = validation.errors;
               result.message = `⚠️ VALIDATION FAILED - TypeScript errors must be fixed before proceeding:\n\n${validation.errors}\n\nUse write_component again with corrected code.`;
             }
@@ -145,37 +204,37 @@ Begin by planning which components to consolidate, then generate them systematic
           messages.push(
             new ToolMessage({
               content: JSON.stringify(result),
-              tool_call_id: toolCall.id
+              tool_call_id: toolCall.id,
             })
           );
         }
       } else {
         // No tool calls, agent is done
         continueLoop = false;
-        console.log('✅ Agent completed task\n');
+        console.log("✅ Agent completed task\n");
       }
     }
 
     if (iterationCount >= maxIterations) {
-      console.log('⚠️  Reached maximum iterations limit\n');
+      console.log("⚠️  Reached maximum iterations limit\n");
     }
 
-    console.log('='.repeat(60) + '\n');
+    console.log("=".repeat(60) + "\n");
 
     return {
       ...state,
       conversationHistory: messages,
       iterations: iterationCount,
-      currentPhase: 'finalize'
+      currentPhase: "finalize",
     };
   } catch (error) {
-    console.error('❌ Generate failed:', error.message);
+    console.error("❌ Generate failed:", error.message);
     console.error(error.stack);
     return {
       ...state,
-      errors: [...state.errors, { phase: 'generate', error: error.message }],
+      errors: [...state.errors, { phase: "generate", error: error.message }],
       success: false,
-      currentPhase: 'finalize'
+      currentPhase: "finalize",
     };
   }
 }
