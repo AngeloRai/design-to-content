@@ -6,8 +6,8 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
+import { getChatModel } from '../config/openai-client.js';
 
 
 // Zod schema for AI-extracted metadata
@@ -27,15 +27,14 @@ const ComponentMetadataSchema = z.object({
 
 /**
  * Extract metadata from component using AI
+ * Uses shared model instance from openai-client to prevent MaxListeners warning
  */
 const extractComponentMetadata = async (filePath) => {
   try {
     const code = await fs.readFile(filePath, 'utf-8');
 
-    const model = new ChatOpenAI({
-      modelName: "gpt-4o-mini",
-      temperature: 0
-    }).withStructuredOutput(ComponentMetadataSchema);
+    // Use centralized model instance to prevent creating too many event listeners
+    const model = getChatModel('gpt-4o-mini').withStructuredOutput(ComponentMetadataSchema);
 
     const prompt = `Analyze this React component and extract detailed metadata for semantic search.
 

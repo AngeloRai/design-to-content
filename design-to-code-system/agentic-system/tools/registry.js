@@ -8,9 +8,9 @@
 import fs from 'fs-extra';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 import dotenv from 'dotenv';
+import { getChatModel } from '../config/openai-client.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -111,15 +111,14 @@ export const getImportPath = (registry, componentName) => {
 
 /**
  * Extract component metadata using AI with structured output
+ * Uses shared model instance from openai-client to prevent MaxListeners warning
  */
 export const extractComponentMetadata = async (filePath) => {
   try {
     const code = await fs.readFile(filePath, 'utf-8');
 
-    const model = new ChatOpenAI({
-      modelName: "gpt-4o-mini",
-      temperature: 0
-    }).withStructuredOutput(ComponentMetadataSchema);
+    // Use centralized model instance to prevent creating too many event listeners
+    const model = getChatModel('gpt-4o-mini').withStructuredOutput(ComponentMetadataSchema);
 
     const prompt = `Analyze this React component and extract metadata.
 
