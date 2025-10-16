@@ -11,34 +11,88 @@ import { finalizeNode } from './nodes/finalize.js';
 /**
  * Define state schema using Annotation
  * This replaces the previous ComponentGenerationState object
+ *
+ * CRITICAL: Use reducer functions to merge state properly between nodes
+ * Without reducers, each node completely replaces fields instead of merging
  */
 const WorkflowState = Annotation.Root({
   // Input
-  figmaUrl: Annotation(),
-  outputDir: Annotation(),
+  figmaUrl: Annotation({
+    reducer: (existing, update) => update ?? existing,
+    default: () => null
+  }),
+  outputDir: Annotation({
+    reducer: (existing, update) => update ?? existing,
+    default: () => null
+  }),
 
   // Phase 1: Figma Analysis
-  figmaAnalysis: Annotation(),
-  componentsIdentified: Annotation(),
+  figmaAnalysis: Annotation({
+    reducer: (existing, update) => update ?? existing,
+    default: () => null
+  }),
+  componentsIdentified: Annotation({
+    reducer: (existing, update) => update ?? existing,
+    default: () => 0
+  }),
 
   // Phase 2: Setup
-  referenceComponents: Annotation(),
-  vectorSearch: Annotation(),
-  registry: Annotation(),
+  referenceComponents: Annotation({
+    reducer: (existing, update) => update ?? existing,
+    default: () => []
+  }),
+  vectorSearch: Annotation({
+    reducer: (existing, update) => update ?? existing,
+    default: () => null
+  }),
+  registry: Annotation({
+    reducer: (existing, update) => update ?? existing,
+    default: () => null
+  }),
 
   // Phase 3: Generation
-  conversationHistory: Annotation(),
-  generatedComponents: Annotation(),
-  iterations: Annotation(),
+  conversationHistory: Annotation({
+    reducer: (existing, update) => update ?? existing,
+    default: () => []
+  }),
+  generatedComponents: Annotation({
+    reducer: (existing, update) => update ?? existing,
+    default: () => 0
+  }),
+  iterations: Annotation({
+    reducer: (existing, update) => update ?? existing,
+    default: () => 0
+  }),
 
   // Workflow status
-  currentPhase: Annotation(),
-  success: Annotation(),
-  errors: Annotation(),
+  currentPhase: Annotation({
+    reducer: (existing, update) => update ?? existing,
+    default: () => 'init'
+  }),
+  success: Annotation({
+    reducer: (existing, update) => update ?? existing,
+    default: () => false
+  }),
+  errors: Annotation({
+    reducer: (existing, update) => {
+      // Merge arrays
+      if (Array.isArray(update) && Array.isArray(existing)) {
+        return [...existing, ...update];
+      }
+      return update ?? existing;
+    },
+    default: () => []
+  }),
 
   // Metadata
-  startTime: Annotation(),
-  endTime: Annotation()
+  startTime: Annotation({
+    reducer: (existing, update) => update ?? existing,
+    default: () => null
+  }),
+  endTime: Annotation({
+    reducer: (existing, update) => update ?? existing,
+    default: () => null
+  })
 });
 
 /**
