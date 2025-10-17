@@ -14,7 +14,6 @@ import { getChatModel } from "../../config/openai-client.js";
 import { createToolExecutor, TOOLS } from "../../config/tool-executor.js";
 
 export async function generateNode(state) {
-  console.log("🚀 ~ generateNode ~ state:", JSON.stringify(state, null, 2));
   console.log("\n🤖 Phase: Generate - Running Agent");
   console.log("=".repeat(60));
 

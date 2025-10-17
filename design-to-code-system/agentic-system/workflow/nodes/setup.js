@@ -22,8 +22,9 @@ export async function setupNode(state) {
     // Build registry of existing components
     const registry = await buildRegistry(state.outputDir);
 
+    const totalComponents = Object.values(registry.components).flat().length;
     console.log(`✅ Loaded ${referenceComponents.length} reference components`);
-    console.log(`✅ Found ${registry.components.length} existing components`);
+    console.log(`✅ Found ${totalComponents} existing components`);
     console.log('='.repeat(60) + '\n');
 
     return {
