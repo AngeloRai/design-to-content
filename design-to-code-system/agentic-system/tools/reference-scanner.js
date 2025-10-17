@@ -27,14 +27,12 @@ const ComponentMetadataSchema = z.object({
 
 /**
  * Extract metadata from component using AI
- * Uses shared model instance from openai-client to prevent MaxListeners warning
+ * @param {string} filePath - Path to component file
+ * @param {Object} model - Pre-configured model with structured output
  */
-const extractComponentMetadata = async (filePath) => {
+const extractComponentMetadataWithModel = async (filePath, model) => {
   try {
     const code = await fs.readFile(filePath, 'utf-8');
-
-    // Use centralized model instance to prevent creating too many event listeners
-    const model = getChatModel('gpt-4o-mini').withStructuredOutput(ComponentMetadataSchema);
 
     const prompt = `Analyze this React component and extract detailed metadata for semantic search.
 
@@ -175,11 +173,14 @@ export const scanReferenceComponents = async (referenceDir = null) => {
 
   console.log(`Found ${components.length} reference components, analyzing with AI...\n`);
 
+  // Create reusable model instance once to prevent MaxListeners warning
+  const model = getChatModel('gpt-4o-mini').withStructuredOutput(ComponentMetadataSchema);
+
   // Extract metadata for each component using AI
   const analyzed = [];
   for (const comp of components) {
     console.log(`  Analyzing ${comp.type}/${comp.name}...`);
-    const metadata = await extractComponentMetadata(comp.path);
+    const metadata = await extractComponentMetadataWithModel(comp.path, model);
 
     analyzed.push({
       ...comp,
