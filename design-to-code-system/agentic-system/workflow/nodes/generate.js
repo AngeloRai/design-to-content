@@ -129,6 +129,8 @@ Begin now by calling get_registry().`;
     console.log("💭 Agent thinking...\n");
 
     // Agent loop - keep going until agent says it's done
+    let hasUnresolvedValidationFailures = false;
+
     while (continueLoop && iterationCount < maxIterations) {
       iterationCount++;
 
@@ -149,6 +151,9 @@ Begin now by calling get_registry().`;
 
       // Check for tool calls
       if (response.tool_calls && response.tool_calls.length > 0) {
+        // Reset validation failure flag at start of new iteration
+        hasUnresolvedValidationFailures = false;
+
         // Execute all tool calls
         for (const toolCall of response.tool_calls) {
           const functionName = toolCall.name;
@@ -192,6 +197,9 @@ Begin now by calling get_registry().`;
                   .join("\n   ")}\n`
               );
 
+              // Mark that we have unresolved validation failures
+              hasUnresolvedValidationFailures = true;
+
               result.validated = false;
               result.validation = "failed";
               result.validationErrors = validation.errors;
@@ -208,9 +216,27 @@ Begin now by calling get_registry().`;
           );
         }
       } else {
-        // No tool calls, agent is done
-        continueLoop = false;
-        console.log("✅ Agent completed task\n");
+        // No tool calls, agent wants to exit
+        if (hasUnresolvedValidationFailures) {
+          // BLOCK EXIT - validation failures must be fixed
+          console.log("🚫 Cannot exit: Unresolved validation failures exist\n");
+          console.log("   Agent must fix TypeScript errors before completing.\n");
+
+          // Force agent to continue by adding a system message
+          messages.push(
+            new ToolMessage({
+              content: JSON.stringify({
+                error: "Cannot complete - you have unresolved TypeScript validation failures. You MUST use write_component again to fix the errors before you can finish.",
+                action_required: "Fix all validation errors"
+              }),
+              tool_call_id: "validation_blocker"
+            })
+          );
+        } else {
+          // All validations passed, agent can exit
+          continueLoop = false;
+          console.log("✅ Agent completed task\n");
+        }
       }
     }
 
