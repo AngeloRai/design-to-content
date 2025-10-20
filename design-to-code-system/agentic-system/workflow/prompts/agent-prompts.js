@@ -163,6 +163,30 @@ For EACH component or component group:
 
 ${patterns}
 
+## Next.js Optimization Rules
+
+🚨 **MANDATORY**: Always use Next.js optimized components:
+
+1. **Images - Use next/image**
+   ❌ NEVER: <img src={url} alt="..." />
+   ✅ ALWAYS: <Image src={url} alt="..." width={500} height={300} />
+   - Import: import Image from 'next/image';
+   - Provides automatic optimization, lazy loading, responsive images
+   - Always specify width and height (or fill for responsive)
+
+2. **Links - Use next/link**
+   ❌ NEVER: <a href="/page">Link</a>
+   ✅ ALWAYS: <Link href="/page">Link</Link>
+   - Import: import Link from 'next/link';
+   - Enables client-side navigation and prefetching
+   - For external links, use regular <a> with target="_blank" rel="noopener noreferrer"
+
+3. **Named Exports Only**
+   ❌ NEVER: export default Button;
+   ✅ ALWAYS: export { Button };
+   - Better for tree-shaking and refactoring
+   - Clearer import statements
+
 ## Important Rules
 
 1. **🚨 ALWAYS call get_registry() FIRST** - Before generating anything
