@@ -183,35 +183,51 @@ export const extractFigmaDesign = async (figmaUrl) => {
 - **Molecules**: Simple combinations of atoms (SearchBar = Input + Button)
 - **Organisms**: Complex components (Header, Card, Form)
 
-YOUR TASK: Extract ALL individual components from this design as separate, reusable elements.
+YOUR TASK: Extract ALL individual components, RECOGNIZING VARIANTS where appropriate.
 
 CRITICAL ANALYSIS STEPS:
 
 1. VISUAL INVENTORY
    - Examine the screenshot carefully
    - Identify EVERY distinct UI element
-   - Note if elements are grouped in sections (e.g., "Buttons section" with multiple button variants)
-   - Do NOT create one monolithic component - extract each element individually
+   - **LOOK FOR PATTERNS**: If you see multiple similar elements with ONLY visual differences (color, size), these are VARIANTS of the same component
+   - Examples of variant patterns:
+     * Multiple buttons with different colors → ONE Button component with color variants
+     * Multiple badges with different states → ONE Badge component with state variants
+     * Multiple search bars with different sizes → ONE SearchBar component with size variants
 
-2. NODE DATA CROSS-REFERENCE
+2. VARIANT DETECTION (CRITICAL)
+   - If components have:
+     * Same structure and props
+     * Same interaction behavior
+     * Only differ in: color, size, spacing, or visual style
+   - Then they are VARIANTS of a single component
+   - Extract as ONE component with populated variants array
+   - Example: "SuccessButton", "ErrorButton", "InfoButton" → Extract as ONE component named "Button" or "ToastButton" with variants: ["success", "error", "info"]
+
+3. NODE DATA CROSS-REFERENCE
    - Examine the node data structure below (especially children arrays)
    - Match visual elements to node data
    - If visual shows more elements than node data captured, set needsDeeperFetch=true
 
-3. COMPONENT EXTRACTION
-   - For EACH individual component, extract complete specifications
-   - Example: If you see 7 button variations, create 7 separate component specs
-   - Example: If you see typography showcase, create specs for each heading/text level
-   - Example: If you see form inputs, create separate specs for TextInput, TextArea, Checkbox, Toggle, Select, Radio
+4. COMPONENT EXTRACTION
+   - For components with variants: Extract ONE component with variants array populated
+     * Example: 4 toast buttons → ONE "ToastButton" component with variants: ["success", "error", "warning", "info"]
+   - For truly different components: Extract separately
+     * Example: TextInput, TextArea, Checkbox are different types → Extract as 3 separate components
+   - Typography: Extract each distinct level (Heading, BodyText, Caption, etc.)
+   - Use the ACTUAL variant names from the design if visible
 
 Node Data (depth=5):
 ${JSON.stringify(nodeDataResult.node, null, 2)}
 
 REQUIREMENTS:
-- Extract EVERY component visible in the screenshot
-- Provide complete visual properties for each
-- List all text content found in each component
-- Identify interaction states and variants
+- Extract components with variant consolidation where appropriate
+- For components with variants, populate the variants array with actual variant names
+- For components without variants, set variants to null
+- Provide complete visual properties for the BASE/DEFAULT variant
+- List all text content found in components
+- Identify interaction states (hover, disabled, etc.)
 - Be thorough - missing components is unacceptable
 
 Return structured data following the schema.`;
