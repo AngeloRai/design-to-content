@@ -1,0 +1,11 @@
+{
+  "node_version": "20",
+  "dependencies": ["."],
+  "graphs": {
+    "design_to_code": "./agentic-system/workflow/graph.js:graph"
+  },
+  "env": ".env",
+  "store": {
+    "uri": "memory://"
+  }
+}
