@@ -17,7 +17,13 @@ export async function finalizeNode(state) {
     const finalRegistry = await buildRegistry(outputDir);
     const success = errors.length === 0;
 
-    console.log(`✅ Components Generated: ${finalRegistry.components.length}`);
+    // Count total components across all types (elements, components, modules, icons)
+    const totalComponents = Object.values(finalRegistry.components).reduce(
+      (sum, arr) => sum + arr.length,
+      0
+    );
+
+    console.log(`✅ Components Generated: ${totalComponents}`);
     console.log(`   Iterations: ${iterations}`);
 
     if (errors.length > 0) {
@@ -33,7 +39,7 @@ export async function finalizeNode(state) {
 
     return {
       ...state,
-      generatedComponents: finalRegistry.components.length,
+      generatedComponents: totalComponents,
       success,
       endTime: new Date().toISOString()
     };
