@@ -26,12 +26,22 @@ export async function generateNode(state) {
       conversationHistory,
     } = state;
 
+    // Safety check: if figmaAnalysis is null/undefined, skip generation
+    if (!figmaAnalysis || !figmaAnalysis.components) {
+      console.log("⚠️  No Figma analysis available, skipping generation\n");
+      console.log("=".repeat(60) + "\n");
+      return {
+        ...state,
+        currentPhase: "finalize",
+      };
+    }
+
     // Setup tool executor
     const toolExecutor = createToolExecutor(vectorSearch, registry, outputDir);
 
     // Get ChatOpenAI model with tool binding (uses DEFAULT_MODEL env var or 'gpt-4o')
+    // In LangChain v1.0, tools are passed directly in the invocation, not via bind()
     const model = getChatModel();
-    const modelWithTools = model.bind({ tools: TOOLS });
 
     // Setup conversation with structured component data
     const systemPrompt = await AGENT_SYSTEM_PROMPT();
@@ -80,41 +90,29 @@ ${componentSummary}
    - Use TypeScript properly
    - Use Tailwind for all styling
 
-4. **Process**:
-   - Start by analyzing which components to consolidate
-   - For each component/group, find similar reference patterns
-   - Generate the component with all variants
-   - Validate TypeScript
-   - Move to next component
+4. **Process** (EXECUTE, DON'T JUST PLAN):
+   - DO NOT spend iterations planning - START GENERATING immediately
+   - Search for references ONCE per component, then GENERATE
+   - Each component: search → generate → validate → next component
+   - DO NOT loop on the same search query multiple times
 
 FULL COMPONENT SPECIFICATIONS:
 ${JSON.stringify(figmaAnalysis.components, null, 2)}
 
-🚨 MANDATORY FIRST STEP: Call get_registry() to see what components already exist.
+🚨 **ACTION WORKFLOW** (DO THESE STEPS, DON'T JUST DESCRIBE THEM):
 
-Then follow this workflow:
+1. Call get_registry() → See what exists
+2. Generate atoms FIRST (type='elements') → Search once, generate immediately
+3. Generate molecules NEXT (type='components') → Search once, generate immediately
+4. Generate organisms LAST (type='modules') → Search once, generate immediately
 
-1. **Review Registry Results**
-   - Note which atoms, molecules, and organisms already exist
-   - Identify which can be reused vs need to be generated
+**For EACH component:**
+- find_similar_components ONCE
+- write_component IMMEDIATELY
+- If validation passes: NEXT component
+- If validation fails: Fix ONCE, then NEXT component
 
-2. **Sort Components by Atomic Level**
-   - Group the ${figmaAnalysis.analysis.totalComponents} components into:
-     * Atoms (self-contained building blocks)
-     * Molecules (compose atoms)
-     * Organisms (compose molecules + atoms)
-
-3. **Generate in Order**
-   - FIRST: Generate all atoms
-   - SECOND: Generate molecules (import existing atoms)
-   - THIRD: Generate organisms (import existing molecules + atoms)
-
-4. **Plan Consolidation Within Each Level**
-   - Within atoms: consolidate similar buttons, inputs, etc.
-   - Within molecules: consolidate similar patterns
-   - Within organisms: consolidate similar layouts
-
-Begin now by calling get_registry().`;
+BEGIN NOW: Call get_registry() then start generating atoms.`;
 
     // Initialize messages as LangChain message objects
     const messages =
@@ -129,7 +127,8 @@ Begin now by calling get_registry().`;
     console.log("💭 Agent thinking...\n");
 
     // Agent loop - keep going until agent says it's done
-    let hasUnresolvedValidationFailures = false;
+    // Track ALL failed components (don't reset - keep accumulating)
+    const failedComponents = new Set();
 
     while (continueLoop && iterationCount < maxIterations) {
       iterationCount++;
@@ -138,8 +137,8 @@ Begin now by calling get_registry().`;
         `\n📨 Iteration ${iterationCount} - Invoking ChatOpenAI...\n`
       );
 
-      // Invoke model with tools
-      const response = await modelWithTools.invoke(messages);
+      // Invoke model with tools (in v1.0, tools are passed in invoke options)
+      const response = await model.invoke(messages, { tools: TOOLS });
 
       // Add AI response to messages
       messages.push(response);
@@ -151,8 +150,7 @@ Begin now by calling get_registry().`;
 
       // Check for tool calls
       if (response.tool_calls && response.tool_calls.length > 0) {
-        // Reset validation failure flag at start of new iteration
-        hasUnresolvedValidationFailures = false;
+        // Process tool calls (validation tracking happens below)
 
         // Execute all tool calls
         for (const toolCall of response.tool_calls) {
@@ -184,8 +182,12 @@ Begin now by calling get_registry().`;
 
             if (validation.valid) {
               console.log("   ✅ Validation passed - component is complete\n");
+              // Remove from failed list if it was there (successful fix)
+              failedComponents.delete(functionArgs.name);
+
               result.validated = true;
               result.validation = "passed";
+              result.message = `✅ Component '${functionArgs.name}' generated successfully and validated. Move to the next component in your plan.`;
             } else {
               console.log(
                 "   ❌ Validation failed - fix required before proceeding\n"
@@ -197,37 +199,57 @@ Begin now by calling get_registry().`;
                   .join("\n   ")}\n`
               );
 
-              // Mark that we have unresolved validation failures
-              hasUnresolvedValidationFailures = true;
+              // Add to failed components list (keeps accumulating)
+              failedComponents.add(functionArgs.name);
 
               result.validated = false;
               result.validation = "failed";
               result.validationErrors = validation.errors;
               result.message = `⚠️ VALIDATION FAILED - TypeScript errors must be fixed before proceeding:\n\n${validation.errors}\n\nUse write_component again with corrected code.`;
+
+              // 🔍 DEBUG: Log what we're sending to the agent
+              console.log("\n📋 DEBUG - Message being sent to agent:");
+              console.log("================================================");
+              console.log("Tool Result Object:");
+              console.log(JSON.stringify(result, null, 2));
+              console.log("================================================\n");
             }
           }
 
           // Add tool result to conversation as ToolMessage
-          messages.push(
-            new ToolMessage({
-              content: JSON.stringify(result),
-              tool_call_id: toolCall.id,
-            })
-          );
+          const toolMessage = new ToolMessage({
+            content: JSON.stringify(result),
+            tool_call_id: toolCall.id,
+          });
+
+          // 🔍 DEBUG: Log the actual ToolMessage
+          if (result.validation === "failed") {
+            console.log("\n📨 DEBUG - ToolMessage being added to conversation:");
+            console.log("================================================");
+            console.log("ToolMessage content length:", toolMessage.content.length);
+            console.log("ToolMessage preview:", toolMessage.content.substring(0, 500));
+            console.log("================================================\n");
+          }
+
+          messages.push(toolMessage);
         }
       } else {
         // No tool calls, agent wants to exit
-        if (hasUnresolvedValidationFailures) {
-          // BLOCK EXIT - validation failures must be fixed
-          console.log("🚫 Cannot exit: Unresolved validation failures exist\n");
-          console.log("   Agent must fix TypeScript errors before completing.\n");
+        if (failedComponents.size > 0) {
+          // BLOCK EXIT - failed components must be fixed
+          const failedList = Array.from(failedComponents).join(', ');
+          console.log(`🚫 Cannot exit: ${failedComponents.size} component(s) have validation failures\n`);
+          console.log(`   Failed components: ${failedList}\n`);
+          console.log("   Agent must fix ALL TypeScript errors before completing.\n");
 
           // Force agent to continue by adding a system message
           messages.push(
             new ToolMessage({
               content: JSON.stringify({
-                error: "Cannot complete - you have unresolved TypeScript validation failures. You MUST use write_component again to fix the errors before you can finish.",
-                action_required: "Fix all validation errors"
+                error: `Cannot complete - you have unresolved TypeScript validation failures in these components: ${failedList}`,
+                failed_components: Array.from(failedComponents),
+                action_required: `Fix ALL validation errors by calling write_component again for: ${failedList}`,
+                reminder: "You said you would fix these later - fix them NOW before exiting"
               }),
               tool_call_id: "validation_blocker"
             })
