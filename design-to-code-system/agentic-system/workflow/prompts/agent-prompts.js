@@ -146,18 +146,37 @@ For EACH component or component group:
    - Example: Navigation imports Logo, Button, SearchBar
 
 5. **For Each Component:**
-   - Use find_similar_components to find reference patterns
-   - Read relevant reference files
-   - Generate component following atomic design rules
-   - If consolidating variants, use a variant/type prop
-   - Follow the coding conventions below
-   - Apply patterns from reference components
-   - Ensure TypeScript types are correct
-   - Use Tailwind for all styling
-   - Make it responsive (mobile-first)
-   - Include all states and variants from the specification
-   - Validation runs automatically after write_component
-   - Fix any TypeScript errors before moving to next component
+
+   🚨 **WORKFLOW (DO NOT SKIP STEPS)**:
+
+   a) **Search** (1-2 searches MAX):
+      - Call find_similar_components ONCE for this component
+      - Read 1-2 relevant reference files if helpful
+      - DO NOT search repeatedly - gather info then MOVE TO NEXT STEP
+
+   b) **Generate** (IMMEDIATELY after search):
+      - Call write_component with the code
+      - Include all variants using props
+      - Follow coding conventions and reference patterns
+      - Use TypeScript, Tailwind, responsive design
+      - Validation runs automatically
+
+   c) **Fix or Move On**:
+      - If validation passes: Move to NEXT component
+      - If validation fails: Fix errors and re-submit ONCE
+      - DO NOT get stuck - if stuck after 2 attempts, try simpler approach
+
+   **🚨 IF VALIDATION FAILS:**
+   - DO NOT regenerate the exact same code
+   - ANALYZE the error message carefully:
+     * "Cannot find namespace/module X" → Import the missing namespace/module
+     * "Cannot use JSX" or JSX-related errors → Import missing JSX types
+     * Type errors → Check TypeScript types and interfaces
+     * Missing dependencies → Add required imports
+   - Use find_similar_components to search for working examples of similar components
+   - Use read_file to study how reference components solve the problem
+   - Generate a DIFFERENT solution based on what you learned from references
+   - If you're stuck on the same error 2+ times, you MUST try a completely different approach
 
 ## Coding Conventions
 

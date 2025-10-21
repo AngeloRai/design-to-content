@@ -6,8 +6,12 @@
 
 import fs from 'fs/promises';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { z } from "zod";
 import { getChatModel } from '../config/openai-client.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 
 // Zod schema for AI-extracted metadata
@@ -160,7 +164,8 @@ const scanReferenceDirectory = async (dir) => {
  * @returns {Array} - Array of analyzed components with rich metadata
  */
 export const scanReferenceComponents = async (referenceDir = null) => {
-  const defaultPath = referenceDir || path.join(process.cwd(), 'reference', 'reference-app', 'ui');
+  // Use absolute path from this file's location to avoid context-dependent resolution issues
+  const defaultPath = referenceDir || path.join(__dirname, '..', '..', '..', 'reference', 'reference-app', 'ui');
 
   console.log(`🔍 Scanning reference components from: ${defaultPath}\n`);
 

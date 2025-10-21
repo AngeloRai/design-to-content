@@ -134,8 +134,16 @@ export const createToolExecutor = (vectorSearch, registry, outputDir) => {
         const dir = path.join(outputDir, type);
         await fs.mkdir(dir, { recursive: true });
 
+        // Normalize code - replace double-escaped characters with actual characters
+        // This handles cases where the agent sends JSON-escaped code (e.g., \\n instead of \n)
+        const normalizedCode = code
+          .replace(/\\n/g, '\n')     // Replace literal \n with newlines
+          .replace(/\\t/g, '\t')     // Replace literal \t with tabs
+          .replace(/\\"/g, '"')      // Replace escaped quotes
+          .replace(/\\'/g, "'");     // Replace escaped single quotes
+
         const filePath = path.join(dir, fileName);
-        await fs.writeFile(filePath, code, 'utf-8');
+        await fs.writeFile(filePath, normalizedCode, 'utf-8');
 
         return {
           name,
@@ -156,13 +164,14 @@ export const createToolExecutor = (vectorSearch, registry, outputDir) => {
     async validate_typescript({ file_path }) {
       try {
         // Run tsc from design-to-code-system where TypeScript is installed
-        // Must explicitly pass --jsx and --esModuleInterop flags for React/JSX support
+        // Must match the tsconfig.json settings for accurate validation
         const designToCodeDir = path.resolve(__dirname, '..', '..');
         const projectRoot = path.resolve(outputDir, '..');
 
-        // Run TypeScript compiler with explicit flags
+        // Run TypeScript compiler with flags matching nextjs-app/tsconfig.json
+        // jsx: preserve, esModuleInterop, skipLibCheck, lib: dom,dom.iterable,esnext
         const output = execSync(
-          `cd ${projectRoot} && npx --prefix ${designToCodeDir} tsc --noEmit --jsx react-jsx --esModuleInterop ${file_path} 2>&1`,
+          `cd ${projectRoot} && npx --prefix ${designToCodeDir} tsc --noEmit --jsx preserve --esModuleInterop --skipLibCheck --lib dom,dom.iterable,esnext --moduleResolution bundler --module esnext ${file_path} 2>&1`,
           {
             encoding: 'utf-8',
             shell: '/bin/bash'

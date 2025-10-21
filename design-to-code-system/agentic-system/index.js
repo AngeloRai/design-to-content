@@ -8,7 +8,6 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { Client } from 'langsmith';
-import { extractFigmaDesign } from './tools/figma-extractor.js';
 import { buildWorkflow } from './workflow/graph.js';
 import { configureLangSmith } from './config/langsmith-config.js';
 
@@ -61,36 +60,17 @@ Options:
   console.log('='.repeat(60) + '\n');
 
   try {
-    // Step 1: Extract design from Figma with structured analysis
-    console.log('📊 Phase: Figma Analysis');
-    console.log('='.repeat(60));
-    const extractionResult = await extractFigmaDesign(figmaUrl);
-    const { structuredAnalysis } = extractionResult;
-    console.log(`✅ Extracted ${structuredAnalysis.components.length} components`);
-    console.log('='.repeat(60) + '\n');
-
-    // Step 2: Build and run LangGraph workflow
+    // Build and run LangGraph workflow
+    // The workflow now handles Figma analysis as the first node
     const workflow = buildWorkflow();
 
     const initialState = {
       figmaUrl,
       outputDir,
-      figmaAnalysis: structuredAnalysis,
-      componentsIdentified: structuredAnalysis.components.length,
-      referenceComponents: [],
-      vectorSearch: null,
-      registry: null,
-      conversationHistory: [],
-      generatedComponents: 0,
-      iterations: 0,
-      currentPhase: 'init',
-      success: false,
-      errors: [],
-      startTime: new Date().toISOString(),
-      endTime: null
+      startTime: new Date().toISOString()
     };
 
-    // Invoke workflow
+    // Invoke workflow - starts with analyzeNode
     const result = await workflow.invoke(initialState);
 
     // Report final results
