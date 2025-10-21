@@ -5,7 +5,73 @@
  */
 
 import { OpenAIEmbeddings } from "@langchain/openai";
-import { MemoryVectorStore } from "langchain/vectorstores/memory";
+import { Document } from "@langchain/core/documents";
+
+/**
+ * Calculate cosine similarity between two vectors
+ */
+const cosineSimilarity = (a, b) => {
+  let dotProduct = 0;
+  let normA = 0;
+  let normB = 0;
+
+  for (let i = 0; i < a.length; i++) {
+    dotProduct += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+
+  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+};
+
+/**
+ * Create simple in-memory vector store using closures
+ * MemoryVectorStore was removed in langchain v1.0
+ */
+const createSimpleVectorStore = async (texts, metadatas, embeddings) => {
+  // Convert texts to documents
+  const documents = texts.map((text, i) => new Document({
+    pageContent: text,
+    metadata: metadatas[i]
+  }));
+
+  // Generate embeddings for all documents
+  const documentTexts = documents.map(d => d.pageContent);
+  const vectors = await embeddings.embedDocuments(documentTexts);
+
+  // Mutable state captured in closure
+  let storedDocuments = [...documents];
+  let storedVectors = [...vectors];
+
+  // Return API with closure over mutable state
+  return {
+    async similaritySearch(query, k = 3) {
+      if (storedDocuments.length === 0) return [];
+
+      const queryVector = await embeddings.embedQuery(query);
+
+      // Calculate similarities
+      const similarities = storedVectors.map((vec, i) => ({
+        index: i,
+        similarity: cosineSimilarity(queryVector, vec)
+      }));
+
+      // Sort and return top k
+      return similarities
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, k)
+        .map(s => storedDocuments[s.index]);
+    },
+
+    async addDocuments(newDocs) {
+      const newTexts = newDocs.map(d => d.pageContent);
+      const newVectors = await embeddings.embedDocuments(newTexts);
+
+      storedDocuments = [...storedDocuments, ...newDocs];
+      storedVectors = [...storedVectors, ...newVectors];
+    }
+  };
+};
 
 /**
  * Create vector search from components
@@ -65,8 +131,9 @@ export const createVectorSearch = async (components) => {
       patterns: comp.patterns || []
     }));
 
-    // Create vector store
-    const vectorStore = await MemoryVectorStore.fromTexts(
+    // Create vector store using our functional implementation
+    // (MemoryVectorStore was removed in LangChain v1.0)
+    const vectorStore = await createSimpleVectorStore(
       texts,
       metadatas,
       embeddings
@@ -115,7 +182,7 @@ export const createVectorSearch = async (components) => {
 
           const text = parts.join(' ');
 
-          await vectorStore.addDocuments([{
+          await vectorStore.addDocuments([new Document({
             pageContent: text,
             metadata: {
               name: component.name,
@@ -134,7 +201,7 @@ export const createVectorSearch = async (components) => {
               features: component.features || [],
               patterns: component.patterns || []
             }
-          }]);
+          })]);
         } catch (error) {
           console.error('Error adding component to vector store:', error);
         }
