@@ -90,12 +90,58 @@ export const TOOLS = [
         properties: {}
       }
     }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'check_code_quality',
+      description: 'Check code quality issues using ESLint (unused imports, best practices, etc.)',
+      parameters: {
+        type: 'object',
+        required: ['file_path'],
+        properties: {
+          file_path: {
+            type: 'string',
+            description: 'Relative path to the file to check (e.g., "ui/modules/Modal.tsx")'
+          }
+        }
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'list_directory',
+      description: 'List files and directories in a given path. Useful for exploring the codebase structure.',
+      parameters: {
+        type: 'object',
+        required: ['directory_path'],
+        properties: {
+          directory_path: {
+            type: 'string',
+            description: 'Path to the directory to list (relative or absolute)'
+          },
+          recursive: {
+            type: 'boolean',
+            description: 'If true, list all files recursively. Default: false'
+          }
+        }
+      }
+    }
   }
 ];
 
 export const createToolExecutor = (vectorSearch, registry, outputDir) => {
   const tools = {
     async find_similar_components({ query, limit = 3 }) {
+      if (!vectorSearch) {
+        return {
+          query,
+          results: [],
+          message: 'Vector search not available in this context. Use get_registry to see existing components instead.'
+        };
+      }
+
       const results = await vectorSearch.search(query, limit);
       return {
         query,
@@ -113,17 +159,52 @@ export const createToolExecutor = (vectorSearch, registry, outputDir) => {
 
     async read_file({ file_path }) {
       try {
-        const content = await fs.readFile(file_path, 'utf-8');
+        // Resolve relative paths against the project root
+        const projectRoot = path.resolve(outputDir, '..');
+        const resolvedPath = path.isAbsolute(file_path)
+          ? file_path
+          : path.resolve(projectRoot, file_path);
+
+        // CRITICAL: Block reading node_modules - prevents context overflow
+        if (resolvedPath.includes('node_modules')) {
+          console.error(`      ❌ BLOCKED: Cannot read node_modules files`);
+          return {
+            path: file_path,
+            resolved_path: resolvedPath,
+            error: 'Reading node_modules files is not allowed',
+            success: false,
+            message: 'ERROR: You attempted to read a node_modules file. DO NOT read type definition files from node_modules. Use TypeScript types directly in your code. If you need to understand a type like React.SelectHTMLAttributes, just use it - the TypeScript compiler knows about it.'
+          };
+        }
+
+        console.log(`      📖 Reading: ${file_path} → ${resolvedPath}`);
+
+        const content = await fs.readFile(resolvedPath, 'utf-8');
+        const lines = content.split('\n');
+
         return {
           path: file_path,
+          resolved_path: resolvedPath,
           content,
+          lines, // Include for backwards compatibility
           success: true
         };
       } catch (error) {
+        const projectRoot = path.resolve(outputDir, '..');
+        const resolvedPath = path.isAbsolute(file_path)
+          ? file_path
+          : path.resolve(projectRoot, file_path);
+
+        console.error(`      ❌ Failed to read file: ${file_path}`);
+        console.error(`         Resolved to: ${resolvedPath}`);
+        console.error(`         Error: ${error.message}`);
+
         return {
           path: file_path,
-          error: error.message,
-          success: false
+          resolved_path: resolvedPath,
+          error: `Failed to read file at ${resolvedPath}: ${error.message}`,
+          success: false,
+          message: `ERROR: File not found. The file ${file_path} does not exist at ${resolvedPath}. This is a critical error - you cannot proceed without reading the file. Check if the path is correct.`
         };
       }
     },
@@ -163,31 +244,172 @@ export const createToolExecutor = (vectorSearch, registry, outputDir) => {
 
     async validate_typescript({ file_path }) {
       try {
-        // Run tsc from design-to-code-system where TypeScript is installed
-        // Must match the tsconfig.json settings for accurate validation
+        // Run tsc on the entire project to respect tsconfig.json (includes path aliases)
+        // Then filter output for just the file we're validating
         const designToCodeDir = path.resolve(__dirname, '..', '..');
         const projectRoot = path.resolve(outputDir, '..');
 
-        // Run TypeScript compiler with flags matching nextjs-app/tsconfig.json
-        // jsx: preserve, esModuleInterop, skipLibCheck, lib: dom,dom.iterable,esnext
+        // Run tsc --noEmit on entire project (picks up tsconfig.json automatically)
+        // This respects path aliases like @/ui/elements/Button
         const output = execSync(
-          `cd ${projectRoot} && npx --prefix ${designToCodeDir} tsc --noEmit --jsx preserve --esModuleInterop --skipLibCheck --lib dom,dom.iterable,esnext --moduleResolution bundler --module esnext ${file_path} 2>&1`,
+          `cd ${projectRoot} && npx --prefix ${designToCodeDir} tsc --noEmit 2>&1`,
           {
             encoding: 'utf-8',
             shell: '/bin/bash'
           }
         );
 
+        // If we get here, no errors (success case shouldn't happen with catch block)
         return {
           path: file_path,
           valid: true,
-          output: output || 'No TypeScript errors'
+          output: 'No TypeScript errors'
         };
       } catch (error) {
+        const fullOutput = error.stdout || error.message;
+
+        // Filter errors to only show ones related to the specific file
+        const fileErrors = fullOutput
+          .split('\n')
+          .filter(line => line.includes(file_path))
+          .join('\n');
+
+        // If no errors for this specific file, it's valid
+        if (!fileErrors.trim()) {
+          return {
+            path: file_path,
+            valid: true,
+            output: 'No TypeScript errors for this file'
+          };
+        }
+
         return {
           path: file_path,
           valid: false,
-          errors: error.stdout || error.message
+          errors: fileErrors
+        };
+      }
+    },
+
+    async check_code_quality({ file_path }) {
+      try {
+        const designToCodeDir = path.resolve(__dirname, '..', '..');
+        const projectRoot = path.resolve(outputDir, '..');
+
+        // Run ESLint on the specific file
+        const output = execSync(
+          `cd ${projectRoot} && npx --prefix ${designToCodeDir} eslint ${file_path} --format json 2>&1`,
+          {
+            encoding: 'utf-8',
+            shell: '/bin/bash'
+          }
+        );
+
+        // ESLint returns JSON format
+        const results = JSON.parse(output);
+        const fileResult = results[0];
+
+        if (!fileResult || fileResult.errorCount === 0 && fileResult.warningCount === 0) {
+          return {
+            path: file_path,
+            valid: true,
+            issues: []
+          };
+        }
+
+        // Format issues for the agent
+        const issues = fileResult.messages.map(msg => ({
+          line: msg.line,
+          column: msg.column,
+          severity: msg.severity === 2 ? 'error' : 'warning',
+          message: msg.message,
+          rule: msg.ruleId
+        }));
+
+        return {
+          path: file_path,
+          valid: false,
+          errorCount: fileResult.errorCount,
+          warningCount: fileResult.warningCount,
+          issues
+        };
+      } catch (error) {
+        // ESLint might return non-zero exit code with issues
+        // Try to parse the output as JSON
+        try {
+          const output = error.stdout || error.message;
+          const results = JSON.parse(output);
+          const fileResult = results[0];
+
+          const issues = fileResult.messages.map(msg => ({
+            line: msg.line,
+            column: msg.column,
+            severity: msg.severity === 2 ? 'error' : 'warning',
+            message: msg.message,
+            rule: msg.ruleId
+          }));
+
+          return {
+            path: file_path,
+            valid: false,
+            errorCount: fileResult.errorCount,
+            warningCount: fileResult.warningCount,
+            issues
+          };
+        } catch {
+          // If JSON parsing fails, return the raw output for debugging
+          return {
+            path: file_path,
+            error: `Failed to parse ESLint output: ${error.stdout || error.message}`
+          };
+        }
+      }
+    },
+
+    async list_directory({ directory_path, recursive = false }) {
+      try {
+        const projectRoot = path.resolve(outputDir, '..');
+        const resolvedPath = path.isAbsolute(directory_path)
+          ? directory_path
+          : path.resolve(projectRoot, directory_path);
+
+        if (recursive) {
+          // Use find command for recursive listing
+          const output = execSync(
+            `find "${resolvedPath}" -type f -name "*.tsx" -o -name "*.ts" -o -name "*.json"`,
+            { encoding: 'utf-8' }
+          );
+          const files = output.trim().split('\n').filter(Boolean);
+
+          return {
+            path: directory_path,
+            resolved_path: resolvedPath,
+            files,
+            count: files.length,
+            recursive: true
+          };
+        } else {
+          // List current directory only
+          const entries = await fs.readdir(resolvedPath, { withFileTypes: true });
+          const items = entries.map(entry => ({
+            name: entry.name,
+            type: entry.isDirectory() ? 'directory' : 'file',
+            path: path.join(directory_path, entry.name)
+          }));
+
+          return {
+            path: directory_path,
+            resolved_path: resolvedPath,
+            items,
+            count: items.length,
+            recursive: false
+          };
+        }
+      } catch (error) {
+        return {
+          path: directory_path,
+          error: error.message,
+          success: false
         };
       }
     },
