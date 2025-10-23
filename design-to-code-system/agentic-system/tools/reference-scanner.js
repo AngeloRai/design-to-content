@@ -159,6 +159,34 @@ const scanReferenceDirectory = async (dir) => {
 };
 
 /**
+ * Process items with limited concurrency to avoid MaxListeners warnings
+ * @param {Array} items - Items to process
+ * @param {number} limit - Max concurrent operations
+ * @param {Function} worker - Async function to process each item
+ * @returns {Promise<Array>} - Array of results in original order
+ */
+async function mapLimit(items, limit, worker) {
+  const results = new Array(items.length);
+  let currentIndex = 0;
+
+  const runWorker = async () => {
+    while (currentIndex < items.length) {
+      const index = currentIndex++;
+      results[index] = await worker(items[index], index);
+    }
+  };
+
+  // Run workers in parallel up to the limit
+  const workers = Array.from(
+    { length: Math.min(limit, items.length) },
+    () => runWorker()
+  );
+
+  await Promise.all(workers);
+  return results;
+}
+
+/**
  * Scan and analyze all reference components using AI
  * @param {string} referenceDir - Path to reference component directory
  * @returns {Array} - Array of analyzed components with rich metadata
@@ -178,20 +206,20 @@ export const scanReferenceComponents = async (referenceDir = null) => {
 
   console.log(`Found ${components.length} reference components, analyzing with AI...\n`);
 
-  // Create reusable model instance once to prevent MaxListeners warning
-  const model = getChatModel('gpt-4o-mini').withStructuredOutput(ComponentMetadataSchema);
-
-  // Extract metadata for each component using AI
-  const analyzed = [];
-  for (const comp of components) {
+  // Process with limited concurrency to avoid MaxListeners warning
+  // Each concurrent call gets its own model instance with fresh AbortSignal
+  const analyzed = await mapLimit(components, 5, async (comp) => {
     console.log(`  Analyzing ${comp.type}/${comp.name}...`);
+
+    // Create fresh model instance per batch to avoid shared AbortSignal issues
+    const model = getChatModel('gpt-4o-mini').withStructuredOutput(ComponentMetadataSchema);
     const metadata = await extractComponentMetadataWithModel(comp.path, model);
 
-    analyzed.push({
+    return {
       ...comp,
       ...metadata
-    });
-  }
+    };
+  });
 
   console.log(`\n✅ Analyzed ${analyzed.length} reference components\n`);
 
