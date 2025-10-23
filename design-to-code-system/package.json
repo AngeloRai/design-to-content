@@ -6,19 +6,9 @@
   "main": "langgraph-workflow/index.js",
   "scripts": {
     "postinstall": "npx playwright install chromium",
-    "test": "npm run test:workflow",
-    "test:workflow": "node --test langgraph-workflow/test/*.test.js",
-    "test:basic": "node langgraph-workflow/test/workflow.test.js",
-    "test:state": "node langgraph-workflow/test/state.test.js",
-    "test:models": "node langgraph-workflow/test/model-selector.test.js",
-    "test:costs": "node langgraph-workflow/test/cost-tracker.test.js",
-    "test:openai": "node langgraph-workflow/test/openai-integration.test.js",
-    "test:config": "node -e \"import('./langgraph-workflow/utils/config.js').then(m => m.printConfigSummary())\"",
-    "verify": "npm run test:config && npm run test:models && npm run test:costs && npm run test:openai",
     "lint": "eslint .",
     "dev": "node --watch langgraph-workflow/index.js",
-    "build": "tsc",
-    "figma:process": "node ../figma-processor/design-processor.js"
+    "build": "tsc"
   },
   "dependencies": {
     "@figma/rest-api-spec": "^0.33.0",
