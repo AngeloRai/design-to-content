@@ -7,6 +7,7 @@ import { StateGraph, END, Annotation } from '@langchain/langgraph';
 import { analyzeNode } from './nodes/analyze.js';
 import { setupNode } from './nodes/setup.js';
 import { generateNode } from './nodes/generate.js';
+import { validateNode } from './nodes/validate.js';
 import { finalizeNode } from './nodes/finalize.js';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -25,7 +26,6 @@ dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
  * CRITICAL: Use reducer functions to merge state properly between nodes
  * Without reducers, each node completely replaces fields instead of merging
 */
-console.log('Loaded graph:', __filename); 
 const WorkflowState = Annotation.Root({
   // Input fields - set once at workflow start, never updated during execution
   // Defaults read from env vars, can be overridden by passing explicit values
@@ -73,6 +73,16 @@ const WorkflowState = Annotation.Root({
   iterations: Annotation({
     reducer: (existing, update) => update ?? existing,
     default: () => 0
+  }),
+  failedComponents: Annotation({
+    reducer: (existing, update) => update ?? existing,
+    default: () => ({})
+  }),
+
+  // Phase 4: Validation & Quality Review (always runs)
+  validationResults: Annotation({
+    reducer: (existing, update) => update ?? existing,
+    default: () => ({})
   }),
 
   // Workflow status
@@ -134,6 +144,7 @@ export function createWorkflowGraph() {
   workflow.addNode('analyze', analyzeNode);
   workflow.addNode('setup', setupNode);
   workflow.addNode('generate', generateNode);
+  workflow.addNode('validate', validateNode);
   workflow.addNode('finalize', finalizeNode);
 
   // Define edges (workflow flow)
@@ -150,7 +161,8 @@ export function createWorkflowGraph() {
   );
 
   workflow.addEdge('setup', 'generate');
-  workflow.addEdge('generate', 'finalize');
+  workflow.addEdge('generate', 'validate');  // Always validate for quality review
+  workflow.addEdge('validate', 'finalize');
   workflow.addEdge('finalize', END);
 
   return workflow;
