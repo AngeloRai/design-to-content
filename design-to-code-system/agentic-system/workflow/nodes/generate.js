@@ -12,6 +12,7 @@ import {
 import { AGENT_SYSTEM_PROMPT } from "../prompts/agent-prompts.js";
 import { getChatModel } from "../../config/openai-client.js";
 import { createToolExecutor, TOOLS } from "../../config/tool-executor.js";
+import { buildRegistry } from "../../tools/registry.js";
 
 export async function generateNode(state) {
   console.log("\n🤖 Phase: Generate - Running Agent");
@@ -127,8 +128,9 @@ BEGIN NOW: Call get_registry() then start generating atoms.`;
     console.log("💭 Agent thinking...\n");
 
     // Agent loop - keep going until agent says it's done
-    // Track ALL failed components (don't reset - keep accumulating)
-    const failedComponents = new Set();
+    // Track ALL failed components with their error details
+    const failedComponents = {};
+    const componentFixAttempts = {}; // Track how many times we've tried to fix each component
 
     while (continueLoop && iterationCount < maxIterations) {
       iterationCount++;
@@ -183,7 +185,7 @@ BEGIN NOW: Call get_registry() then start generating atoms.`;
             if (validation.valid) {
               console.log("   ✅ Validation passed - component is complete\n");
               // Remove from failed list if it was there (successful fix)
-              failedComponents.delete(functionArgs.name);
+              delete failedComponents[functionArgs.name];
 
               result.validated = true;
               result.validation = "passed";
@@ -199,13 +201,30 @@ BEGIN NOW: Call get_registry() then start generating atoms.`;
                   .join("\n   ")}\n`
               );
 
-              // Add to failed components list (keeps accumulating)
-              failedComponents.add(functionArgs.name);
+              // Track fix attempts for this component
+              componentFixAttempts[functionArgs.name] = (componentFixAttempts[functionArgs.name] || 0) + 1;
+              const attemptCount = componentFixAttempts[functionArgs.name];
+
+              // Store full error details for validation node
+              failedComponents[functionArgs.name] = {
+                path: result.path,
+                errors: validation.errors,
+                componentType: functionArgs.type
+              };
 
               result.validated = false;
               result.validation = "failed";
               result.validationErrors = validation.errors;
-              result.message = `⚠️ VALIDATION FAILED - TypeScript errors must be fixed before proceeding:\n\n${validation.errors}\n\nUse write_component again with corrected code.`;
+
+              // Limit fix attempts to 2 - after that, let validate node handle it
+              if (attemptCount >= 2) {
+                console.log(`   ⚠️  Max fix attempts (${attemptCount}) reached for ${functionArgs.name}`);
+                console.log(`   Moving to next component - validate node will fix this later\n`);
+
+                result.message = `⚠️ Validation failed after ${attemptCount} attempts. Moving to next component.\n\nThe validate node will fix this issue after all components are generated.\n\nContinue with the next component in your plan.`;
+              } else {
+                result.message = `⚠️ VALIDATION FAILED (Attempt ${attemptCount}/2) - TypeScript errors must be fixed:\n\n${validation.errors}\n\nUse write_component again with corrected code.`;
+              }
 
               // 🔍 DEBUG: Log what we're sending to the agent
               console.log("\n📋 DEBUG - Message being sent to agent:");
@@ -235,30 +254,20 @@ BEGIN NOW: Call get_registry() then start generating atoms.`;
         }
       } else {
         // No tool calls, agent wants to exit
-        if (failedComponents.size > 0) {
-          // BLOCK EXIT - failed components must be fixed
-          const failedList = Array.from(failedComponents).join(', ');
-          console.log(`🚫 Cannot exit: ${failedComponents.size} component(s) have validation failures\n`);
-          console.log(`   Failed components: ${failedList}\n`);
-          console.log("   Agent must fix ALL TypeScript errors before completing.\n");
-
-          // Force agent to continue by adding a system message
-          messages.push(
-            new ToolMessage({
-              content: JSON.stringify({
-                error: `Cannot complete - you have unresolved TypeScript validation failures in these components: ${failedList}`,
-                failed_components: Array.from(failedComponents),
-                action_required: `Fix ALL validation errors by calling write_component again for: ${failedList}`,
-                reminder: "You said you would fix these later - fix them NOW before exiting"
-              }),
-              tool_call_id: "validation_blocker"
-            })
-          );
+        const failedComponentNames = Object.keys(failedComponents);
+        if (failedComponentNames.length > 0) {
+          // Informational only - let validate node handle remaining issues
+          const failedList = failedComponentNames.join(', ');
+          console.log(`📋 Generation complete with ${failedComponentNames.length} component(s) pending validation fixes:\n`);
+          console.log(`   ${failedList}\n`);
+          console.log("   These will be fixed by the validate node.\n");
         } else {
-          // All validations passed, agent can exit
-          continueLoop = false;
-          console.log("✅ Agent completed task\n");
+          console.log("✅ All components generated and validated\n");
         }
+
+        // Allow exit - validate node will handle any remaining issues
+        continueLoop = false;
+        console.log("✅ Agent completed generation phase\n");
       }
     }
 
@@ -268,10 +277,20 @@ BEGIN NOW: Call get_registry() then start generating atoms.`;
 
     console.log("=".repeat(60) + "\n");
 
+    // Build registry to count generated components and update state
+    const finalRegistry = await buildRegistry(outputDir);
+    const totalComponents = Object.values(finalRegistry.components).reduce(
+      (sum, arr) => sum + arr.length,
+      0
+    );
+
     return {
       ...state,
       conversationHistory: messages,
       iterations: iterationCount,
+      generatedComponents: totalComponents,
+      registry: finalRegistry,  // Update registry in state
+      failedComponents,  // Pass failed components to validation node
       currentPhase: "finalize",
     };
   } catch (error) {
