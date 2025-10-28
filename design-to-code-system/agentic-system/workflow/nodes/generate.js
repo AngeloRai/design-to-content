@@ -11,7 +11,7 @@ import {
 } from "@langchain/core/messages";
 import { AGENT_SYSTEM_PROMPT } from "../prompts/agent-prompts.js";
 import { getChatModel } from "../../config/openai-client.js";
-import { createToolExecutor, TOOLS } from "../../config/tool-executor.js";
+import { createToolExecutor, TOOLS } from "../../utils/tool-executor.js";
 import { buildRegistry } from "../../tools/registry.js";
 
 export async function generateNode(state) {
@@ -202,14 +202,15 @@ BEGIN NOW: Call get_registry() then start generating atoms.`;
               );
 
               // Track fix attempts for this component
-              componentFixAttempts[functionArgs.name] = (componentFixAttempts[functionArgs.name] || 0) + 1;
+              componentFixAttempts[functionArgs.name] =
+                (componentFixAttempts[functionArgs.name] || 0) + 1;
               const attemptCount = componentFixAttempts[functionArgs.name];
 
               // Store full error details for validation node
               failedComponents[functionArgs.name] = {
                 path: result.path,
                 errors: validation.errors,
-                componentType: functionArgs.type
+                componentType: functionArgs.type,
               };
 
               result.validated = false;
@@ -218,8 +219,12 @@ BEGIN NOW: Call get_registry() then start generating atoms.`;
 
               // Limit fix attempts to 2 - after that, let validate node handle it
               if (attemptCount >= 2) {
-                console.log(`   ⚠️  Max fix attempts (${attemptCount}) reached for ${functionArgs.name}`);
-                console.log(`   Moving to next component - validate node will fix this later\n`);
+                console.log(
+                  `   ⚠️  Max fix attempts (${attemptCount}) reached for ${functionArgs.name}`
+                );
+                console.log(
+                  `   Moving to next component - validate node will fix this later\n`
+                );
 
                 result.message = `⚠️ Validation failed after ${attemptCount} attempts. Moving to next component.\n\nThe validate node will fix this issue after all components are generated.\n\nContinue with the next component in your plan.`;
               } else {
@@ -243,10 +248,18 @@ BEGIN NOW: Call get_registry() then start generating atoms.`;
 
           // 🔍 DEBUG: Log the actual ToolMessage
           if (result.validation === "failed") {
-            console.log("\n📨 DEBUG - ToolMessage being added to conversation:");
+            console.log(
+              "\n📨 DEBUG - ToolMessage being added to conversation:"
+            );
             console.log("================================================");
-            console.log("ToolMessage content length:", toolMessage.content.length);
-            console.log("ToolMessage preview:", toolMessage.content.substring(0, 500));
+            console.log(
+              "ToolMessage content length:",
+              toolMessage.content.length
+            );
+            console.log(
+              "ToolMessage preview:",
+              toolMessage.content.substring(0, 500)
+            );
             console.log("================================================\n");
           }
 
@@ -257,8 +270,10 @@ BEGIN NOW: Call get_registry() then start generating atoms.`;
         const failedComponentNames = Object.keys(failedComponents);
         if (failedComponentNames.length > 0) {
           // Informational only - let validate node handle remaining issues
-          const failedList = failedComponentNames.join(', ');
-          console.log(`📋 Generation complete with ${failedComponentNames.length} component(s) pending validation fixes:\n`);
+          const failedList = failedComponentNames.join(", ");
+          console.log(
+            `📋 Generation complete with ${failedComponentNames.length} component(s) pending validation fixes:\n`
+          );
           console.log(`   ${failedList}\n`);
           console.log("   These will be fixed by the validate node.\n");
         } else {
@@ -289,8 +304,8 @@ BEGIN NOW: Call get_registry() then start generating atoms.`;
       conversationHistory: messages,
       iterations: iterationCount,
       generatedComponents: totalComponents,
-      registry: finalRegistry,  // Update registry in state
-      failedComponents,  // Pass failed components to validation node
+      registry: finalRegistry, // Update registry in state
+      failedComponents, // Pass failed components to validation node
       currentPhase: "finalize",
     };
   } catch (error) {
