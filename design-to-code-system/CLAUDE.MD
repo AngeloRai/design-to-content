@@ -91,3 +91,4 @@
 - **Be thorough**: Complete investigation before implementing fixes
 - **Stay focused**: Only work on the assigned task, note other issues for later
  - **Favor functional patterns**: When in doubt, default to pure functions, composition, and hooks rather than classes or deep inheritance.
+- **Functional Architecture**: Pure functions, no classes
