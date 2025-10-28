@@ -24,7 +24,9 @@ Add visual validation to achieve pixel-perfect accuracy by comparing generated c
   - Stores props, variants, dependencies
   - Available in workflow state
 
-- [x] **Playwright** installed via MCP server
+- [x] **Playwright** installed as npm dependency (`@playwright/test`)
+  - Will be used programmatically for automated screenshot capture
+  - MCP Playwright server available for interactive debugging if needed
 - [x] **Code Validation** working (TypeScript + ESLint)
 
 ---
