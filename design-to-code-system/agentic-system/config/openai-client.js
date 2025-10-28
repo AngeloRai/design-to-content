@@ -1,19 +1,37 @@
 /**
  * OpenAI Client
  * LangChain-wrapped ChatOpenAI for automatic LangSmith tracing
+ *
+ * Follows LangChain best practice: Initialize models once and reuse them
+ * to avoid MaxListeners warnings from creating too many instances
  */
 
 import { ChatOpenAI } from '@langchain/openai';
 
+// Singleton model instances (LangChain recommended pattern)
+const modelInstances = new Map();
+
 /**
- * Create a new ChatOpenAI model instance
- * Returns a fresh instance each time to avoid singleton issues in LangGraph Studio
+ * Get a ChatOpenAI model instance (singleton pattern)
+ * Reuses existing instances to avoid MaxListeners warnings
+ *
+ * LangChain best practice: Create models once at startup and reuse them
+ * throughout the application lifecycle
+ *
+ * @param {string} modelName - Model to use (e.g., 'gpt-4o', 'gpt-4o-mini')
+ * @returns {ChatOpenAI} Singleton model instance
  */
 export const getChatModel = (modelName) => {
   const defaultModel = process.env.DEFAULT_MODEL || 'gpt-4o';
   const selectedModel = modelName || defaultModel;
 
-  return new ChatOpenAI({
+  // Return existing instance if already created
+  if (modelInstances.has(selectedModel)) {
+    return modelInstances.get(selectedModel);
+  }
+
+  // Create new singleton instance
+  const model = new ChatOpenAI({
     modelName: selectedModel,
     temperature: 0,
     openAIApiKey: process.env.OPENAI_API_KEY,
@@ -21,4 +39,7 @@ export const getChatModel = (modelName) => {
     // GPT-4o supports up to 16,384 output tokens
     maxTokens: 16384,
   });
+
+  modelInstances.set(selectedModel, model);
+  return model;
 };

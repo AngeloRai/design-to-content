@@ -7,8 +7,8 @@ import { StateGraph, END, Annotation } from '@langchain/langgraph';
 import { analyzeNode } from './nodes/analyze.js';
 import { setupNode } from './nodes/setup.js';
 import { generateNode } from './nodes/generate.js';
-import { validateNode } from './nodes/validate.js';
 import { finalizeNode } from './nodes/finalize.js';
+import { createValidationSubgraph } from './nodes/validate.js';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -140,11 +140,14 @@ export function createWorkflowGraph() {
   // Studio v1.0 will detect fields without defaults as inputs
   const workflow = new StateGraph(WorkflowState);
 
+  // Create validation subgraph
+  const validationSubgraph = createValidationSubgraph();
+
   // Add nodes
   workflow.addNode('analyze', analyzeNode);
   workflow.addNode('setup', setupNode);
   workflow.addNode('generate', generateNode);
-  workflow.addNode('validate', validateNode);
+  workflow.addNode('validate', validationSubgraph);
   workflow.addNode('finalize', finalizeNode);
 
   // Define edges (workflow flow)
@@ -161,7 +164,7 @@ export function createWorkflowGraph() {
   );
 
   workflow.addEdge('setup', 'generate');
-  workflow.addEdge('generate', 'validate');  // Always validate for quality review
+  workflow.addEdge('generate', 'validate');
   workflow.addEdge('validate', 'finalize');
   workflow.addEdge('finalize', END);
 
