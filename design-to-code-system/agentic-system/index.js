@@ -7,12 +7,18 @@
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { EventEmitter } from 'events';
 import { Client } from 'langsmith';
 import { buildWorkflow } from './workflow/graph.js';
 import { configureLangSmith } from './config/langsmith-config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Increase max listeners to prevent warnings during concurrent API calls
+// This is safe because we're making many concurrent LangChain/OpenAI API calls
+// and each creates abort listeners that are properly cleaned up
+EventEmitter.defaultMaxListeners = 20;
 
 // Load .env from design-to-code-system directory
 dotenv.config({ path: path.join(__dirname, '..', '.env') });

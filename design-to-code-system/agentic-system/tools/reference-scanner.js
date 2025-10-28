@@ -206,13 +206,14 @@ export const scanReferenceComponents = async (referenceDir = null) => {
 
   console.log(`Found ${components.length} reference components, analyzing with AI...\n`);
 
-  // Process with limited concurrency to avoid MaxListeners warning
-  // Each concurrent call gets its own model instance with fresh AbortSignal
+  // Get singleton model instance (LangChain best practice)
+  const model = getChatModel('gpt-4o').withStructuredOutput(ComponentMetadataSchema);
+
+  // Process with limited concurrency for better progress visibility
   const analyzed = await mapLimit(components, 5, async (comp) => {
     console.log(`  Analyzing ${comp.type}/${comp.name}...`);
 
-    // Create fresh model instance per batch to avoid shared AbortSignal issues
-    const model = getChatModel('gpt-4o-mini').withStructuredOutput(ComponentMetadataSchema);
+    // Reuse singleton model instance
     const metadata = await extractComponentMetadataWithModel(comp.path, model);
 
     return {
