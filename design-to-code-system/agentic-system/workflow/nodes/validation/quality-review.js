@@ -74,8 +74,8 @@ For className management:
 
 For TypeScript interfaces:
 - [ ] Extends proper HTML element props (e.g., React.InputHTMLAttributes<HTMLInputElement>)
-- [ ] Omits 'size' from HTML props if component defines custom size prop
-- [ ] Omits 'onChange' if component uses custom handler like onValueChange
+- [ ] Uses Omit<> when HTML attributes conflict with custom props (e.g., 'size', 'type')
+- [ ] NEVER omit event handlers like 'onChange' - always extract them in destructuring if needed
 - [ ] Exports interface for external usage
 
 ### 2. NEXT.JS BEST PRACTICES REVIEW
@@ -89,7 +89,8 @@ For TypeScript interfaces:
 ### 3. REACT BEST PRACTICES REVIEW
 
 - [ ] Proper prop destructuring with defaults
-- [ ] Correct handling of event handlers (both native onChange AND custom onValueChange)
+- [ ] Event handlers extracted in destructuring if accessed (example: const Component = ({ onChange, onValueChange, ...props }) => ...)
+- [ ] CRITICAL: If interface uses Omit to remove a prop, that prop MUST be extracted in destructuring to be accessible
 - [ ] No unused variables or imports
 - [ ] Proper key props in mapped lists
 - [ ] Conditional rendering done cleanly (ternary or logical &&)
@@ -104,6 +105,8 @@ For TypeScript interfaces:
 - [ ] Proper spacing scale (p-4, gap-2, not random values)
 - [ ] Hover/focus/active states defined for interactive elements
 - [ ] Transitions for smooth interactions (transition-colors, duration-200)
+- [ ] Uses canonical class names: 'grow' not 'flex-grow', 'shrink' not 'flex-shrink', 'basis-0' not 'flex-basis-0'
+- [ ] No redundant or conflicting classes
 
 ### 5. COMPONENT STRUCTURE REVIEW
 
