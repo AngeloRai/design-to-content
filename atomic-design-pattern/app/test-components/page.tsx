@@ -6,7 +6,7 @@ import TextInput from '@/ui/elements/TextInput';
 
 export default function TestComponentsPage() {
   return (
-    <div className="p-8 space-y-8  mx-auto">
+    <div className="p-8 space-y-8  mx-auto ">
       <div>
         <h1 className="text-3xl font-bold mb-4">Component Test Page</h1>
         <p className="text-gray-600">Testing Tailwind CSS styling for generated components</p>
@@ -39,11 +39,6 @@ export default function TestComponentsPage() {
         <div className="space-y-2">
           <p className="text-sm text-gray-500">Destructive Button:</p>
           <Button variant="destructive">Destructive Button</Button>
-        </div>
-
-        <div className="space-y-2">
-          <p className="text-sm text-gray-500">Call to Action Button:</p>
-          <Button variant="callToAction">Call to Action</Button>
         </div>
 
         <div className="space-y-2">

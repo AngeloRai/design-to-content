@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Explicitly register /ui directory for Tailwind v4 source detection */
+/* Tailwind v4 respects .gitignore - @source directive overrides this */
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
