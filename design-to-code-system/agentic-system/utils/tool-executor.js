@@ -6,12 +6,16 @@
 
 import fs from "fs/promises";
 import path from "path";
+import { fileURLToPath } from 'url';
 import { execSync } from "child_process";
 import {
   runTypeScriptValidation,
   extractFileErrors,
   runESLintValidation,
 } from "./validation-utils.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * Tool definitions for OpenAI function calling
@@ -198,6 +202,12 @@ export const TOOLS = [
 ];
 
 export const createToolExecutor = (vectorSearch, registry, outputDir) => {
+  // Resolve outputDir to absolute path to ensure consistent file operations
+  // outputDir like '../atomic-design-pattern/ui' needs to be resolved from the tool-executor's location
+  // __dirname is: /design-to-content/design-to-code-system/agentic-system/utils
+  // We need to go up 2 levels to get to design-to-code-system/, then resolve outputDir from there
+  const absoluteOutputDir = path.resolve(__dirname, '..', '..', outputDir);
+
   const tools = {
     async find_similar_components({ query, limit = 3 }) {
       if (!vectorSearch) {
@@ -226,8 +236,9 @@ export const createToolExecutor = (vectorSearch, registry, outputDir) => {
 
     async read_file({ file_path }) {
       try {
-        // Resolve relative paths against the project root
-        const projectRoot = path.resolve(outputDir, "..");
+        // If file_path is already absolute (from registry), use it directly
+        // Otherwise resolve relative paths against the project root
+        const projectRoot = path.resolve(absoluteOutputDir, "..", "..");
         const resolvedPath = path.isAbsolute(file_path)
           ? file_path
           : path.resolve(projectRoot, file_path);
@@ -322,9 +333,10 @@ export const createToolExecutor = (vectorSearch, registry, outputDir) => {
           );
         }
 
-        const fileName = `${name}.tsx`;
-        const dir = path.join(outputDir, type);
-        await fs.mkdir(dir, { recursive: true });
+        // Create folder structure: ui/elements/ComponentName/ComponentName.tsx
+        const componentFileName = `${name}.tsx`;
+        const componentDir = path.join(absoluteOutputDir, type, name);
+        await fs.mkdir(componentDir, { recursive: true });
 
         // Normalize code - replace double-escaped characters with actual characters
         // This handles cases where the agent sends JSON-escaped code (e.g., \\n instead of \n)
@@ -334,16 +346,27 @@ export const createToolExecutor = (vectorSearch, registry, outputDir) => {
           .replace(/\\"/g, '"') // Replace escaped quotes
           .replace(/\\'/g, "'"); // Replace escaped single quotes
 
-        const filePath = path.join(dir, fileName);
-        await fs.writeFile(filePath, normalizedCode, "utf-8");
+        // Write the component file
+        const componentFilePath = path.join(componentDir, componentFileName);
+        await fs.writeFile(componentFilePath, normalizedCode, "utf-8");
 
-        console.log(`      ✅ Wrote component: ${type}/${fileName}`);
+        // Create index.ts barrel export file
+        const indexContent = `export { default } from './${name}';\n`;
+        const indexFilePath = path.join(componentDir, 'index.ts');
+        await fs.writeFile(indexFilePath, indexContent, "utf-8");
+
+        const timestamp = new Date().toISOString();
+        console.log(`      ✅ Wrote component: ${type}/${name}/${componentFileName}`);
+        console.log(`      📁 Full path: ${componentFilePath}`);
+        console.log(`      🕐 Timestamp: ${timestamp}`);
+        console.log(`      ✅ Created barrel export: ${type}/${name}/index.ts`);
 
         return {
           name,
           type,
-          path: filePath,
+          path: componentFilePath,
           success: true,
+          timestamp,
         };
       } catch (error) {
         return {
