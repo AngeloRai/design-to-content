@@ -7,6 +7,7 @@ import { StateGraph, END, Annotation } from '@langchain/langgraph';
 import { analyzeNode } from './nodes/analyze.js';
 import { setupNode } from './nodes/setup.js';
 import { generateNode } from './nodes/generate.js';
+import { generateStoriesNode } from './nodes/generate-stories.js';
 import { finalizeNode } from './nodes/finalize.js';
 import { createValidationSubgraph } from './nodes/validate.js';
 import dotenv from 'dotenv';
@@ -34,7 +35,7 @@ const WorkflowState = Annotation.Root({
     // default: () => process.env.FIGMA_URL || null
   }),
   outputDir: Annotation({
-    default: () => process.env.OUTPUT_DIR || '../nextjs-app/ui'
+    default: () => process.env.OUTPUT_DIR || '../atomic-design-pattern/ui'
   }),
 
   // Phase 1: Figma Analysis
@@ -77,6 +78,16 @@ const WorkflowState = Annotation.Root({
   failedComponents: Annotation({
     reducer: (existing, update) => update ?? existing,
     default: () => ({})
+  }),
+
+  // Phase 3.5: Story Generation (for visual validation)
+  storiesGenerated: Annotation({
+    reducer: (existing, update) => update ?? existing,
+    default: () => false
+  }),
+  storyResults: Annotation({
+    reducer: (existing, update) => update ?? existing,
+    default: () => null
   }),
 
   // Phase 4: Validation & Quality Review (always runs)
@@ -147,6 +158,7 @@ export function createWorkflowGraph() {
   workflow.addNode('analyze', analyzeNode);
   workflow.addNode('setup', setupNode);
   workflow.addNode('generate', generateNode);
+  workflow.addNode('generate_stories', generateStoriesNode);
   workflow.addNode('validate', validationSubgraph);
   workflow.addNode('finalize', finalizeNode);
 
@@ -164,7 +176,8 @@ export function createWorkflowGraph() {
   );
 
   workflow.addEdge('setup', 'generate');
-  workflow.addEdge('generate', 'validate');
+  workflow.addEdge('generate', 'generate_stories');  // Generate stories after components
+  workflow.addEdge('generate_stories', 'validate');  // Then validate
   workflow.addEdge('validate', 'finalize');
   workflow.addEdge('finalize', END);
 
