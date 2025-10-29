@@ -153,42 +153,49 @@ Extract:
 /**
  * Scan directory for component files with AI-enriched metadata
  */
-export const scanDirectory = async (directory, useAI = true) => {
+export const scanDirectory = async (directory, useAI = true, projectRoot = null) => {
   const components = [];
+
+  // If projectRoot not provided, use process.cwd()
+  const baseForRelativePath = projectRoot || process.cwd();
 
   try {
     for (const type of ['elements', 'components', 'modules', 'icons']) {
       const typePath = path.join(directory, type);
 
       if (await fs.pathExists(typePath)) {
-        const files = await fs.readdir(typePath);
+        const entries = await fs.readdir(typePath, { withFileTypes: true });
 
-        for (const file of files) {
-          if (file.endsWith('.tsx') || file.endsWith('.jsx')) {
-            const name = file.replace(/\.(tsx|jsx)$/, '');
-            const filePath = path.join(typePath, file);
+        for (const entry of entries) {
+          // Check if this is a component folder
+          if (entry.isDirectory()) {
+            const componentName = entry.name;
+            const componentFile = path.join(typePath, componentName, `${componentName}.tsx`);
 
-            let metadata = {
-              description: '',
-              props: [],
-              hasVariants: false,
-              isInteractive: false,
-              dependencies: [],
-              purpose: type
-            };
+            // Check if component file exists
+            if (await fs.pathExists(componentFile)) {
+              let metadata = {
+                description: '',
+                props: [],
+                hasVariants: false,
+                isInteractive: false,
+                dependencies: [],
+                purpose: type
+              };
 
-            if (useAI) {
-              console.log(`  Analyzing ${type}/${file}...`);
-              metadata = await extractComponentMetadata(filePath);
+              if (useAI) {
+                console.log(`  Analyzing ${type}/${componentName}/${componentName}.tsx...`);
+                metadata = await extractComponentMetadata(componentFile);
+              }
+
+              components.push({
+                name: componentName,
+                type,
+                path: componentFile,
+                relativePath: path.relative(baseForRelativePath, componentFile),
+                ...metadata
+              });
             }
-
-            components.push({
-              name,
-              type,
-              path: filePath,
-              relativePath: path.relative(process.cwd(), filePath),
-              ...metadata
-            });
           }
         }
       }
@@ -207,9 +214,21 @@ export const scanDirectory = async (directory, useAI = true) => {
 export const buildRegistry = async (generatedDir = null) => {
   let registry = createEmptyRegistry();
 
-  // Default path: from project root
-  const defaultPath = generatedDir || path.join(__dirname, '..', '..', 'nextjs-app', 'ui');
-  const components = await scanDirectory(defaultPath);
+  // Default path: use OUTPUT_DIR from environment or fallback
+  // Path should be relative to design-to-code-system/ directory
+  const outputDir = process.env.OUTPUT_DIR || '../atomic-design-pattern/ui';
+  let scanPath = generatedDir || path.join(__dirname, '..', '..', outputDir);
+
+  // CRITICAL: Resolve to absolute path for scanning
+  // generatedDir might be relative (e.g., "../atomic-design-pattern/ui")
+  scanPath = path.resolve(__dirname, '..', '..', scanPath);
+
+  console.log(`🔍 Scanning for components at: ${scanPath}`);
+
+  // Calculate project root for relativePath calculation
+  const projectRoot = path.resolve(scanPath, '..', '..');
+
+  const components = await scanDirectory(scanPath, true, projectRoot);
 
   for (const comp of components) {
     registry = addComponent(registry, comp.type, comp);
