@@ -158,17 +158,30 @@ const content = renderContent();
 
 ### Tailwind Usage
 
-**Base + Variant Pattern:**
+**Modern Variant Pattern (Recommended):**
+
+For components with variants, **always use CVA with VariantProps** (see CVA Pattern section below):
+
 ```typescript
-const baseClasses = "inline-flex items-center justify-center font-body-bold rounded-xl transition-all duration-200";
+import { cva, type VariantProps } from 'class-variance-authority';
+import { cn } from '@/lib/utils';
 
-const variantClasses = {
-  primary: "bg-brand-primary text-white hover:bg-brand-secondary",
-  secondary: "bg-white text-neutral-dark hover:bg-white/90",
-  outline: "bg-transparent text-white border-2 border-white"
-};
+const buttonVariants = cva(
+  "inline-flex items-center justify-center font-body-bold rounded-xl transition-all duration-200",
+  {
+    variants: {
+      variant: {
+        primary: "bg-brand-primary text-white hover:bg-brand-secondary",
+        secondary: "bg-white text-neutral-dark hover:bg-white/90",
+        outline: "bg-transparent text-white border-2 border-white"
+      }
+    },
+    defaultVariants: { variant: 'primary' }
+  }
+);
 
-const combinedClasses = `${baseClasses} ${variantClasses[variant]} ${className}`;
+// Usage in component
+className={cn(buttonVariants({ variant }), className)}
 ```
 
 ### Responsive Classes
@@ -335,22 +348,24 @@ export default function IconName({ className = "w-8 h-8" }: IconProps) {
 ## Accessibility & Reusability Patterns
 
 ### Form Input Pattern (Best Practice)
+
+**Note:** See the reference TextInput component for a complete CVA-based example with variant management.
+
+This simplified example shows accessibility patterns without variants:
+
 ```typescript
 import React, { forwardRef, useId } from 'react';
 import { cn } from '@/lib/utils';
 
-type Size = 'sm' | 'md' | 'lg';
-
-export interface TextInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'> {
+export interface TextInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
-  size?: Size;
   error?: string | boolean;
   helperText?: string;
   onValueChange?: (value: string) => void;
 }
 
 const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function TextInput(
-  { id, label, size = 'md', error, helperText, className, onChange, onValueChange, required, ...rest },
+  { id, label, error, helperText, className, onChange, onValueChange, required, ...rest },
   ref
 ) {
   // Auto-generate unique ID for accessibility
@@ -359,20 +374,12 @@ const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function TextInpu
   const hasError = Boolean(error);
   const describedBy = helperText || hasError ? `${inputId}-desc` : undefined;
 
-  const sizeCls =
-    size === 'sm' ? 'h-9 px-3 text-sm' : size === 'lg' ? 'h-12 px-4 text-base' : 'h-10 px-4 text-sm';
-
-  const base =
-    'w-full rounded-lg border transition placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1';
-  const normal = 'border-gray-300 focus-visible:ring-blue-500';
-  const invalid = 'border-red-500 focus-visible:ring-red-500';
-
   return (
     <div className="w-full">
       {label && (
         <label htmlFor={inputId} className="mb-1 block text-sm font-medium text-gray-700">
           {label}
-          {required ? <span className="text-red-600"> *</span> : null}
+          {required && <span className="text-red-600"> *</span>}
         </label>
       )}
 
@@ -382,7 +389,14 @@ const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function TextInpu
         aria-invalid={hasError || undefined}
         aria-describedby={describedBy}
         required={required}
-        className={cn(base, sizeCls, hasError ? invalid : normal, className)}
+        className={cn(
+          'w-full rounded-lg border transition placeholder:text-gray-400',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1',
+          hasError
+            ? 'border-red-500 focus-visible:ring-red-500'
+            : 'border-gray-300 focus-visible:ring-blue-500',
+          className
+        )}
         onChange={(e) => {
           onChange?.(e);
           onValueChange?.(e.target.value);
@@ -422,51 +436,55 @@ className={cn(
   className  // Allow parent to override
 )}
 
-// With size variants
-className={cn(
-  baseClasses,
-  sizeClasses[size],
-  variantClasses[variant],
-  className
-)}
+// With CVA variants (recommended pattern)
+className={cn(buttonVariants({ variant, size }), className)}
 ```
 
 ### forwardRef Pattern for Reusable Components
+
+**For components with variants, use CVA with VariantProps** (see CVA Pattern section below for complete example).
+
 ```typescript
 import { forwardRef } from 'react';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary';
+  children: React.ReactNode;
 }
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant = 'primary', className, children, ...rest },
+  { className, children, ...rest },
   ref
 ) {
   return (
-    <button
-      ref={ref}
-      className={cn(baseClasses, variantClasses[variant], className)}
-      {...rest}
-    >
+    <button ref={ref} className={className} {...rest}>
       {children}
     </button>
   );
 });
 
+Button.displayName = 'Button';
+
 export default Button;
 ```
 
 ### Extending HTML Attributes
+
+**For components with variants, always use CVA + VariantProps** (see CVA Pattern section).
+
 ```typescript
-// Omit conflicting props when extending HTML attributes
-interface SelectProps extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'size'> {
-  size?: 'sm' | 'md' | 'lg';  // Custom size prop
+// When HTML attributes conflict with custom props, use Omit
+// Example: HTML <select> has 'size' attribute, but we want custom size variants
+interface SelectProps
+  extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'size'>,
+    VariantProps<typeof selectVariants> {  // ← Extract size from CVA
+  // Additional custom props
+  label?: string;
 }
 
-// Extend with additional props
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary';
+// Simple extension without conflicts
+interface ButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+    VariantProps<typeof buttonVariants> {  // ← Extract variant from CVA
   isLoading?: boolean;
 }
 ```
@@ -549,27 +567,191 @@ import FocusTrap from 'focus-trap-react';
 
 ---
 
+## CVA (Class Variance Authority) Pattern
+
+**CRITICAL: Always use CVA with VariantProps for components with variants**
+
+CVA provides type-safe variant management for Tailwind CSS and ensures all variant classes are statically discoverable (required for Tailwind v4).
+
+### Complete CVA Pattern with VariantProps
+
+```typescript
+import React from 'react';
+import { cva, type VariantProps } from 'class-variance-authority';
+import { cn } from '@/lib/utils';
+
+/**
+ * Define variants using CVA
+ * This is the SINGLE SOURCE OF TRUTH for all variant classes
+ */
+const buttonVariants = cva(
+  // Base classes applied to all variants
+  'inline-flex items-center justify-center rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed',
+  {
+    variants: {
+      // Variant dimension 1: visual style
+      variant: {
+        primary: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500',
+        secondary: 'bg-gray-200 text-gray-900 hover:bg-gray-300 focus:ring-gray-500',
+        outline: 'border-2 border-gray-300 bg-transparent hover:bg-gray-100 focus:ring-gray-500',
+        ghost: 'bg-transparent hover:bg-gray-100 focus:ring-gray-500',
+        destructive: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500',
+      },
+      // Variant dimension 2: size
+      size: {
+        sm: 'px-3 py-1.5 text-sm',
+        md: 'px-4 py-2 text-base',
+        lg: 'px-6 py-3 text-lg',
+      },
+    },
+    // Default values when props not provided
+    defaultVariants: {
+      variant: 'primary',
+      size: 'md',
+    },
+  }
+);
+
+/**
+ * Extract variant prop types from CVA definition using VariantProps
+ * This provides type safety and IntelliSense for variant values
+ */
+interface ButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+    VariantProps<typeof buttonVariants> {  // ← Extract variant/size types from CVA
+  children: React.ReactNode;
+}
+
+/**
+ * Component implementation using forwardRef for ref forwarding
+ */
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ variant, size, className, children, type = 'button', ...props }, ref) => {
+    return (
+      <button
+        ref={ref}
+        type={type}
+        className={cn(buttonVariants({ variant, size }), className)}  // ← Apply variants + custom classes
+        {...props}
+      >
+        {children}
+      </button>
+    );
+  }
+);
+
+Button.displayName = 'Button';
+
+export default Button;
+```
+
+### Why Use CVA with VariantProps?
+
+**Benefits:**
+1. **Type Safety**: TypeScript knows `variant` can only be `'primary' | 'secondary' | 'outline' | 'ghost' | 'destructive'`
+2. **Single Source of Truth**: Variant types extracted from CVA, not manually duplicated
+3. **IntelliSense**: Auto-completion for all valid variant values
+4. **Compile-Time Checking**: TypeScript catches invalid variant values
+5. **Tailwind v4 Compatibility**: All classes statically discoverable for proper purging
+6. **Compound Variants**: Easy to add complex variant combinations
+
+**❌ Wrong - Manual Variant Types (DON'T DO THIS):**
+```typescript
+// BAD: Manually defining variant types (duplicates CVA definition)
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: 'primary' | 'secondary' | 'outline';  // ← Duplicate definition!
+  size?: 'sm' | 'md' | 'lg';                      // ← Duplicate definition!
+}
+
+const buttonVariants = cva('...', {
+  variants: {
+    variant: { primary: '...', secondary: '...', outline: '...' },
+    size: { sm: '...', md: '...', lg: '...' },
+  },
+});
+```
+
+**✅ Correct - VariantProps Extraction (DO THIS):**
+```typescript
+// GOOD: Types extracted from CVA automatically
+interface ButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+    VariantProps<typeof buttonVariants> {  // ← Auto-extracts variant/size types
+  children: React.ReactNode;
+}
+
+const buttonVariants = cva('...', {
+  variants: {
+    variant: { primary: '...', secondary: '...', outline: '...' },
+    size: { sm: '...', md: '...', lg: '...' },
+  },
+});
+```
+
+### Advanced CVA: Compound Variants
+
+Use compound variants for complex combinations:
+
+```typescript
+const buttonVariants = cva('base-classes', {
+  variants: {
+    variant: {
+      primary: 'bg-blue-500',
+      secondary: 'bg-gray-500',
+    },
+    size: {
+      sm: 'text-sm',
+      lg: 'text-lg',
+    },
+    disabled: {
+      true: 'opacity-50 cursor-not-allowed',
+    },
+  },
+  compoundVariants: [
+    // Special case: large destructive buttons have extra padding
+    {
+      variant: 'destructive',
+      size: 'lg',
+      className: 'px-8 py-4',
+    },
+  ],
+  defaultVariants: {
+    variant: 'primary',
+    size: 'sm',
+  },
+});
+```
+
+### CVA Best Practices
+
+1. **Always use with VariantProps** - Never manually duplicate variant types
+2. **Define base classes** - Common styles in the first argument
+3. **Use defaultVariants** - Provide sensible defaults
+4. **Combine with cn()** - Allow className overrides: `cn(buttonVariants({ variant, size }), className)`
+5. **Export the CVA definition** - If other components need to reference variants
+
+### When to Use CVA
+
+Use CVA for any component with:
+- Multiple visual variants (primary, secondary, outline, etc.)
+- Size variants (sm, md, lg)
+- State variants (active, disabled, loading, etc.)
+- Any combination of the above
+
+### When NOT to Use CVA
+
+Don't use CVA for:
+- Single-variant components with no variations
+- Components where className is entirely dynamic
+- Simple utility functions
+
+---
+
 ## Common Variants & Sizes
 
-### Size Variants
-```typescript
-const sizeClasses = {
-  small: "px-4 py-2 text-sm gap-2",
-  medium: "px-6 py-3 text-base gap-2",
-  large: "px-8 py-4 text-lg gap-3",
-};
-```
+**Use CVA Pattern for all variant and size management** (see CVA Pattern section above).
 
-### Style Variants
-```typescript
-const variantClasses = {
-  primary: "bg-brand-primary text-white",
-  secondary: "bg-white text-neutral-dark",
-  outline: "bg-transparent border-2",
-  ghost: "bg-white/20 backdrop-blur-sm",
-  icon: "bg-transparent p-3",
-};
-```
+CVA provides type-safe variants with proper TypeScript integration. Define size and variant classes within the CVA definition, not as separate objects.
 
 ---
 
@@ -577,15 +759,16 @@ const variantClasses = {
 
 1. **Always use TypeScript** - interfaces, proper types, extend HTML attributes
 2. **Functional components only** - no classes
-3. **Use forwardRef** - for reusable components that need ref access
-4. **Use useId()** - for accessibility (label/input associations)
-5. **Use cn() utility** - from '@/lib/utils' for className merging
-6. **Tailwind for all styling** - no CSS-in-JS, no inline styles
-7. **Responsive by default** - mobile-first with sm:, md:, lg:
-8. **Composition over complexity** - small, focused components
-9. **Sensible defaults** - provide default prop values
-10. **Accessibility first** - ARIA labels, aria-invalid, aria-describedby, semantic HTML
-11. **Next.js optimizations** - use <Image> instead of <img>, <Link> instead of <a>
-12. **Clean imports** - organized by type (React, Next, types, utils, components)
-13. **Extend HTML attributes** - Use Omit<> when needed to avoid conflicts
-14. **Error states** - Proper ARIA associations with role="alert"
+3. **Use CVA with VariantProps** - for components with variants (CRITICAL for type safety)
+4. **Use forwardRef** - for reusable components that need ref access
+5. **Use useId()** - for accessibility (label/input associations)
+6. **Use cn() utility** - from '@/lib/utils' for className merging
+7. **Tailwind for all styling** - no CSS-in-JS, no inline styles
+8. **Responsive by default** - mobile-first with sm:, md:, lg:
+9. **Composition over complexity** - small, focused components
+10. **Sensible defaults** - provide default prop values
+11. **Accessibility first** - ARIA labels, aria-invalid, aria-describedby, semantic HTML
+12. **Next.js optimizations** - use <Image> instead of <img>, <Link> instead of <a>
+13. **Clean imports** - organized by type (React, Next, types, utils, components)
+14. **Extend HTML attributes** - Use Omit<> when needed to avoid conflicts
+15. **Error states** - Proper ARIA associations with role="alert"
