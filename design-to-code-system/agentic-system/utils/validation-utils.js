@@ -261,9 +261,11 @@ export async function runESLintValidation(projectRoot, targetPath, options = {})
         warningCount
       };
     } catch (parseError) {
-      // ESLint output wasn't JSON
+      // ESLint output wasn't JSON - log the actual error for debugging
       if (verbose) {
         console.log('      ❌ ESLint: Error running check');
+        console.log('      Error output:', errorOutput);
+        console.log('      Parse error:', parseError.message);
       }
 
       return {
@@ -271,7 +273,10 @@ export async function runESLintValidation(projectRoot, targetPath, options = {})
         valid: false,
         issues: [{ message: errorOutput }],
         componentIssues: {},
-        error: 'Failed to parse ESLint output'
+        errorCount: 0,
+        warningCount: 0,
+        error: 'Failed to parse ESLint output',
+        rawError: errorOutput
       };
     }
   }

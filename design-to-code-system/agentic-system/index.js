@@ -18,7 +18,7 @@ const __dirname = path.dirname(__filename);
 // Increase max listeners to prevent warnings during concurrent API calls
 // This is safe because we're making many concurrent LangChain/OpenAI API calls
 // and each creates abort listeners that are properly cleaned up
-EventEmitter.defaultMaxListeners = 20;
+EventEmitter.defaultMaxListeners = 30;
 
 // Load .env from design-to-code-system directory
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
