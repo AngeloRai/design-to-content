@@ -53,7 +53,7 @@ export async function finalCheckNode(state) {
         componentPathMap[comp.name] = {
           name: comp.name,
           type,
-          path: `ui/${type}/${comp.name}.tsx`
+          path: comp.path // Use absolute path from registry
         };
       });
     }

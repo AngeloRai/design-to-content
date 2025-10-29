@@ -423,7 +423,7 @@ export async function qualityReviewNode(state) {
           componentsToReview.push({
             name: comp.name,
             type: type,
-            path: `ui/${type}/${comp.name}.tsx`,
+            path: comp.path, // Use absolute path from registry
           });
         });
       }
@@ -438,7 +438,7 @@ export async function qualityReviewNode(state) {
     console.log("   - Applying required patterns\n");
 
     for (const [componentName] of Object.entries(failedComponents)) {
-      // Find component in registry to get its type
+      // Find component in registry to get its type and path
       let found = false;
       if (registry && registry.components) {
         for (const [type, components] of Object.entries(registry.components)) {
@@ -447,7 +447,7 @@ export async function qualityReviewNode(state) {
             componentsToReview.push({
               name: componentName,
               type: type,
-              path: `ui/${type}/${componentName}.tsx`,
+              path: comp.path, // Use absolute path from registry
             });
             found = true;
             break;
