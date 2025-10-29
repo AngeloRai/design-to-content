@@ -99,14 +99,14 @@ nextjs-app/ui/modules/
 !nextjs-app/ui/modules/.gitkeep
 
 # Atomic Design Pattern app generated components
-atomic-design-pattern/ui/elements/
-atomic-design-pattern/ui/components/
-atomic-design-pattern/ui/modules/
-atomic-design-pattern/ui/icons/
-!atomic-design-pattern/ui/elements/.gitkeep
-!atomic-design-pattern/ui/components/.gitkeep
-!atomic-design-pattern/ui/modules/.gitkeep
-!atomic-design-pattern/ui/icons/.gitkeep
+# atomic-design-pattern/ui/elements/
+# atomic-design-pattern/ui/components/
+# atomic-design-pattern/ui/modules/
+# atomic-design-pattern/ui/icons/
+# !atomic-design-pattern/ui/elements/.gitkeep
+# !atomic-design-pattern/ui/components/.gitkeep
+# !atomic-design-pattern/ui/modules/.gitkeep
+# !atomic-design-pattern/ui/icons/.gitkeep
 
 # Visual validation artifacts
 design-to-code-system/visual-diffs/
