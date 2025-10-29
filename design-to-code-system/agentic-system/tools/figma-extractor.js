@@ -17,7 +17,7 @@ const ComponentSpecSchema = z.object({
   description: z.string().describe('Clear description of this specific component'),
   textContent: z.array(z.string()).describe('All text visible in this component'),
   visualProperties: z.object({
-    colors: z.string().describe('Color properties (background, text, border)'),
+    colors: z.string().describe('PRECISE color properties with approximate HEX values estimated from visual (e.g., "background: ~#1E293B (dark slate), text: ~#FFFFFF (white), border: ~#E5E7EB (light gray)")'),
     typography: z.string().describe('Font, size, weight, line-height'),
     spacing: z.string().describe('Padding, margin, gap values'),
     borders: z.string().describe('Border radius, width, style'),
@@ -229,6 +229,14 @@ REQUIREMENTS:
 - List all text content found in components
 - Identify interaction states (hover, disabled, etc.)
 - Be thorough - missing components is unacceptable
+
+COLOR ANALYSIS (CRITICAL):
+- ALWAYS estimate HEX values from the visual appearance
+- Be PRECISE: distinguish between black (#000000), dark slate (#1E293B), navy (#1E3A8A), and blue (#2563EB)
+- Don't default to generic names like "blue" - analyze the actual shade
+- Format: "background: ~#1E293B (dark slate)" not just "background: blue"
+- If a color looks very dark/black, estimate it as ~#000000 to ~#334155 range, NOT as "blue"
+- Use the ~ prefix to indicate these are visual estimations
 
 Return structured data following the schema.`;
 
