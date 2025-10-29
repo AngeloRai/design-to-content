@@ -6,8 +6,12 @@
 
 import fs from 'fs/promises';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { z } from 'zod';
 import { getChatModel } from '../config/openai-client.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * Schema for AI-generated story configuration
@@ -37,13 +41,15 @@ export async function generateStoryForComponent(component, options = {}) {
 
   // Read component file from new folder structure
   // outputDir already includes '/ui', so we just add type/name/Component.tsx
-  const componentPath = path.join(outputDir, type, name, `${name}.tsx`);
+  // Resolve to absolute path from the agentic-system directory
+  const componentPath = path.resolve(__dirname, '..', '..', outputDir, type, name, `${name}.tsx`);
   let componentCode = '';
 
   try {
     componentCode = await fs.readFile(componentPath, 'utf-8');
   } catch (error) {
     console.error(`Failed to read component ${name}:`, error.message);
+    console.error(`   Attempted path: ${componentPath}`);
     return { success: false, error: error.message };
   }
 
@@ -58,12 +64,8 @@ export async function generateStoryForComponent(component, options = {}) {
   });
 
   // Save story file in the same folder as the component
-  const storyPath = path.join(
-    outputDir,
-    type,
-    name,
-    `${name}.stories.tsx`
-  );
+  // Resolve to absolute path from the agentic-system directory
+  const storyPath = path.resolve(__dirname, '..', '..', outputDir, type, name, `${name}.stories.tsx`);
 
   return {
     success: true,
@@ -120,7 +122,7 @@ For a Button with \`variant\` and \`children\`:
 \`\`\`json
 {
   "name": "Primary",
-  "argsJson": "{\"variant\": \"primary\", \"children\": \"Click me\"}",
+  "argsJson": "{\\"variant\\": \\"primary\\", \\"children\\": \\"Click me\\"}",
   "description": "Primary button variant"
 }
 \`\`\`
@@ -129,7 +131,7 @@ For a TextInput with \`placeholder\` and \`value\`:
 \`\`\`json
 {
   "name": "Empty",
-  "argsJson": "{\"placeholder\": \"Enter text...\", \"value\": \"\"}",
+  "argsJson": "{\\"placeholder\\": \\"Enter text...\\", \\"value\\": \\"\\"}",
   "description": "Empty input field"
 }
 \`\`\`
@@ -138,7 +140,7 @@ For a component with multiple prop types:
 \`\`\`json
 {
   "name": "CustomExample",
-  "argsJson": "{\"size\": \"large\", \"isActive\": true, \"children\": \"Example\"}",
+  "argsJson": "{\\"size\\": \\"large\\", \\"isActive\\": true, \\"children\\": \\"Example\\"}",
   "description": "Large active state"
 }
 \`\`\`
