@@ -101,7 +101,7 @@ node agentic-system/index.js "https://figma.com/design/..." "../custom/output/pa
 ```bash
 node agentic-system/index.js \
   "https://figma.com/design/qflwMPDJ4XpMn19ZGHHQCq/Atomic-Design?node-id=6-3" \
-  "../nextjs-app/ui"
+  "../atomic-design-pattern/ui"
 ```
 
 ## How It Works

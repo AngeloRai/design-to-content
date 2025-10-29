@@ -4,7 +4,7 @@
 
 ## 🎯 Purpose
 
-This is an **isolated system** that implements a modern LangGraph workflow for converting Figma designs into production-ready React components. It's designed to be completely separate from the existing `figma-processor` and `nextjs-app` code, allowing for independent development, testing, and deployment.
+This is an **isolated system** that implements a modern LangGraph workflow for converting Figma designs into production-ready React components. It's designed to be completely separate from the existing `figma-processor` code, allowing for independent development, testing, and deployment.
 
 ## 📁 Directory Structure
 
@@ -96,7 +96,7 @@ npm test
 While isolated, the system connects to existing code at specific points:
 
 - **Input**: Figma URLs and screenshots (from existing processor)
-- **Output**: Components saved to `nextjs-app/ui/` structure
+- **Output**: Components saved to `atomic-design-pattern/ui/` structure (configurable via OUTPUT_DIR env var)
 - **Library**: Reads existing components for context
 - **Validation**: Uses existing TypeScript configuration
 

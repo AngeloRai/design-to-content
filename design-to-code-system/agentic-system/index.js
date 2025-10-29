@@ -37,7 +37,7 @@ const main = async () => {
 
   // Get Figma URL from args or environment
   const figmaUrl = args[0] || process.env.FIGMA_URL;
-  const outputDir = args[1] || path.join(__dirname, '..', '..', 'nextjs-app', 'ui');
+  const outputDir = args[1] || process.env.OUTPUT_DIR || '../atomic-design-pattern/ui';
 
   if (!figmaUrl) {
     console.log(`
@@ -50,11 +50,11 @@ Or set FIGMA_URL environment variable:
 
 Examples:
   node index-langgraph.js "https://figma.com/file/abc123/design?node-id=1:2"
-  node index-langgraph.js "https://figma.com/file/abc123/design?node-id=1:2" "../nextjs-app/ui"
+  node index-langgraph.js "https://figma.com/file/abc123/design?node-id=1:2" "../atomic-design-pattern/ui"
 
 Options:
   figma-url    Figma file URL with node-id parameter
-  output-dir   Output directory for generated components (default: ../nextjs-app/ui)
+  output-dir   Output directory for generated components (default: ../atomic-design-pattern/ui)
 `);
     process.exit(1);
   }

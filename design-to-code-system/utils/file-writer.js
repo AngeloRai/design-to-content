@@ -14,11 +14,14 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 /**
- * Get the target UI directory (nextjs-app/ui/)
+ * Get the target UI directory (atomic-design-pattern/ui/)
  */
 const getUIDirectory = () => {
-  // Go up from design-to-code-system/utils/ to parent, then into nextjs-app/ui/
-  return resolve(__dirname, '..', '..', 'nextjs-app', 'ui');
+  // Use OUTPUT_DIR from environment or fallback
+  // Path should be relative to design-to-code-system/ directory
+  const outputDir = process.env.OUTPUT_DIR || '../atomic-design-pattern/ui';
+  // Resolve from design-to-code-system/utils/ directory
+  return resolve(__dirname, '..', outputDir);
 };
 
 /**
