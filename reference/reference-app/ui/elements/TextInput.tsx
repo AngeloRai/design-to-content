@@ -6,6 +6,8 @@ import { cn } from '@/lib/utils';
 
 /**
  * TextInput variants using CVA for Tailwind v4 compatibility
+ * CVA ensures all variant classes are statically discoverable
+ * This is the SINGLE SOURCE OF TRUTH for variant types
  */
 const inputVariants = cva(
   'w-full rounded-lg border bg-white transition-colors placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-1',
@@ -29,8 +31,15 @@ const inputVariants = cva(
 );
 
 /**
+ * TextInput props extend HTML input attributes AND extract variant types from CVA
+ *
  * CRITICAL: Omit 'size' from native input props because we define custom size prop
- * This prevents TypeScript errors from prop conflicts
+ * This prevents TypeScript errors from prop conflicts between HTML's size and our variant
+ *
+ * VariantProps<typeof inputVariants> automatically provides:
+ * - size?: 'sm' | 'md' | 'lg'
+ * - state?: 'default' | 'error'
+ * This ensures type safety and IntelliSense support
  */
 interface TextInputProps
   extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'>,

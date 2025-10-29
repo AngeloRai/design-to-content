@@ -1,9 +1,11 @@
 import React from 'react';
-import { cva } from 'class-variance-authority';
+import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 /**
  * Heading variants using CVA for Tailwind v4 compatibility
+ * CVA ensures all variant classes are statically discoverable
+ * This is the SINGLE SOURCE OF TRUTH for variant types
  */
 const headingVariants = cva('font-bold text-black m-0', {
   variants: {
@@ -18,8 +20,16 @@ const headingVariants = cva('font-bold text-black m-0', {
   },
 });
 
-interface HeadingProps {
-  level: 1 | 2 | 3 | 4 | 5 | 6;
+/**
+ * Heading props extract level type from CVA using VariantProps
+ *
+ * VariantProps<typeof headingVariants> automatically provides:
+ * - level?: 1 | 2 | 3 | 4 | 5 | 6
+ * We use NonNullable to make level required (no default variant)
+ * This ensures type safety and IntelliSense support
+ */
+interface HeadingProps extends VariantProps<typeof headingVariants> {
+  level: NonNullable<VariantProps<typeof headingVariants>['level']>;
   children: React.ReactNode;
   className?: string;
 }

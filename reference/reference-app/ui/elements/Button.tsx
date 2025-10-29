@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 /**
  * Button variants using CVA for Tailwind v4 compatibility
  * CVA ensures all variant classes are statically discoverable
+ * This is the SINGLE SOURCE OF TRUTH for variant types
  */
 const buttonVariants = cva(
   'inline-flex items-center justify-center rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed',
@@ -30,6 +31,13 @@ const buttonVariants = cva(
   }
 );
 
+/**
+ * Button props extend HTML button attributes AND extract variant types from CVA
+ * VariantProps<typeof buttonVariants> automatically provides:
+ * - variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'destructive'
+ * - size?: 'sm' | 'md' | 'lg'
+ * This ensures type safety and IntelliSense support
+ */
 interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
@@ -38,8 +46,11 @@ interface ButtonProps
 
 /**
  * Button component with variants and sizes
- * Extends native button props for full HTML compatibility
- * Uses forwardRef for parent component ref access
+ *
+ * @example
+ * <Button variant="primary" size="md">Click me</Button>
+ * <Button variant="destructive" size="lg">Delete</Button>
+ * <Button variant="outline">Cancel</Button>
  */
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ variant, size, className, children, type = 'button', ...props }, ref) => {
