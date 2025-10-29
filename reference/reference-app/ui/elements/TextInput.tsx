@@ -1,15 +1,41 @@
 'use client';
 
 import React, { forwardRef, useId } from 'react';
+import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
+
+/**
+ * TextInput variants using CVA for Tailwind v4 compatibility
+ */
+const inputVariants = cva(
+  'w-full rounded-lg border bg-white transition-colors placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-1',
+  {
+    variants: {
+      size: {
+        sm: 'h-9 px-3 text-sm',
+        md: 'h-10 px-4 text-sm',
+        lg: 'h-12 px-4 text-base',
+      },
+      state: {
+        default: 'border-gray-300 focus:border-blue-500 focus:ring-blue-200',
+        error: 'border-red-500 focus:border-red-500 focus:ring-red-200',
+      },
+    },
+    defaultVariants: {
+      size: 'md',
+      state: 'default',
+    },
+  }
+);
 
 /**
  * CRITICAL: Omit 'size' from native input props because we define custom size prop
  * This prevents TypeScript errors from prop conflicts
  */
-interface TextInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'> {
+interface TextInputProps
+  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'>,
+    VariantProps<typeof inputVariants> {
   label?: string;
-  size?: 'sm' | 'md' | 'lg';
   error?: string;
   helperText?: string;
   onValueChange?: (value: string) => void;
@@ -46,18 +72,7 @@ const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function TextInpu
   const hasError = Boolean(error);
   const describedBy = helperText || hasError ? `${inputId}-desc` : undefined;
 
-  const baseClasses =
-    'w-full rounded-lg border bg-white transition-colors placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-1';
-
-  const sizeClasses = {
-    sm: 'h-9 px-3 text-sm',
-    md: 'h-10 px-4 text-sm',
-    lg: 'h-12 px-4 text-base',
-  };
-
-  const stateClasses = hasError
-    ? 'border-red-500 focus:border-red-500 focus:ring-red-200'
-    : 'border-gray-300 focus:border-blue-500 focus:ring-blue-200';
+  const inputState = hasError ? 'error' : 'default';
 
   return (
     <div className="w-full">
@@ -74,7 +89,7 @@ const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function TextInpu
         aria-invalid={hasError || undefined}
         aria-describedby={describedBy}
         required={required}
-        className={cn(baseClasses, sizeClasses[size], stateClasses, className)}
+        className={cn(inputVariants({ size, state: inputState }), className)}
         onChange={(e) => {
           onChange?.(e);
           onValueChange?.(e.target.value);
