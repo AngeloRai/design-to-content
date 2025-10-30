@@ -37,7 +37,7 @@ const main = async () => {
 
   // Get Figma URL from args or environment
   const figmaUrl = args[0] || process.env.FIGMA_URL;
-  const outputDir = args[1] || process.env.OUTPUT_DIR || '../atomic-design-pattern/ui';
+  const outputDir = args[1] || process.env.OUTPUT_DIR || 'atomic-design-pattern/ui';
 
   if (!figmaUrl) {
     console.log(`

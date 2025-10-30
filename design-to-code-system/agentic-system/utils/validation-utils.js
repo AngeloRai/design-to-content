@@ -20,13 +20,20 @@ export async function runTypeScriptValidation(projectRoot, options = {}) {
   if (verbose) {
     console.log('   🔍 Running TypeScript check...');
     console.log(`      📁 Project root: ${projectRoot}`);
+    console.log(`      📍 VALIDATION-UTILS TSC VERSION: shell:true ENABLED`);
+    console.log(`      📍 Shell: ${process.env.SHELL || 'undefined'}`);
   }
 
   try {
+    if (verbose) {
+      console.log(`      📍 Executing: npx tsc --noEmit --skipLibCheck`);
+    }
+
     execSync('npx tsc --noEmit --skipLibCheck', {
       cwd: projectRoot,
       encoding: 'utf-8',
-      stdio: 'pipe'
+      stdio: 'pipe',
+      shell: true // Explicitly use shell to avoid ENOENT errors
     });
 
     if (verbose) {
@@ -191,6 +198,11 @@ export async function runESLintValidation(projectRoot, targetPath, options = {})
 
   if (verbose) {
     console.log('   🔍 Running ESLint check...');
+    console.log(`      📍 VALIDATION-UTILS VERSION: shell:true ENABLED`);
+    console.log(`      📍 Project root: ${projectRoot}`);
+    console.log(`      📍 Target path: ${targetPath}`);
+    console.log(`      📍 Shell environment: ${process.env.SHELL || 'undefined'}`);
+    console.log(`      📍 PATH: ${process.env.PATH?.substring(0, 100)}...`);
   }
 
   try {
@@ -198,10 +210,16 @@ export async function runESLintValidation(projectRoot, targetPath, options = {})
       ? targetPath
       : path.join(projectRoot, targetPath);
 
-    execSync(`npx eslint "${resolvedPath}" --ext .ts,.tsx --format json`, {
+    if (verbose) {
+      console.log(`      📍 Resolved path: ${resolvedPath}`);
+      console.log(`      📍 About to execute: npx eslint`);
+    }
+
+    const stdout = execSync(`npx eslint "${resolvedPath}" --ext .ts,.tsx --format json`, {
       cwd: projectRoot,
       encoding: 'utf-8',
-      stdio: 'pipe'
+      stdio: ['pipe', 'pipe', 'pipe'], // stdin, stdout, stderr
+      shell: true // Explicitly use shell to avoid ENOENT errors
     });
 
     if (verbose) {
@@ -216,6 +234,18 @@ export async function runESLintValidation(projectRoot, targetPath, options = {})
       warningCount: 0
     };
   } catch (error) {
+    // ESLint returns exit code 1 when there are linting errors
+    // The output should be in stdout, not stderr
+    if (verbose) {
+      console.log(`      ❌ ESLint execSync failed!`);
+      console.log(`      📍 Error code: ${error.code}`);
+      console.log(`      📍 Error message: ${error.message}`);
+      console.log(`      📍 Error errno: ${error.errno}`);
+      console.log(`      📍 Error syscall: ${error.syscall}`);
+      console.log(`      📍 Has stdout: ${!!error.stdout}`);
+      console.log(`      📍 Has stderr: ${!!error.stderr}`);
+    }
+
     const errorOutput = error.stdout || error.stderr || error.message;
 
     try {

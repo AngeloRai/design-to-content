@@ -35,7 +35,7 @@ const WorkflowState = Annotation.Root({
     // default: () => process.env.FIGMA_URL || null
   }),
   outputDir: Annotation({
-    default: () => process.env.OUTPUT_DIR || '../atomic-design-pattern/ui'
+    default: () => process.env.OUTPUT_DIR || 'atomic-design-pattern/ui'
   }),
 
   // Phase 1: Figma Analysis

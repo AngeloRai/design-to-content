@@ -5,24 +5,39 @@
  */
 
 import path from 'path';
+import { fileURLToPath } from 'url';
 import {
   runTypeScriptValidation,
   runESLintValidation
 } from '../../../utils/validation-utils.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export async function finalCheckNode(state) {
   console.log('\n📗 Pass 3: Final Validation Check');
   console.log('='.repeat(60));
 
   const { outputDir, registry, finalCheckAttempts = 0 } = state;
-  const projectRoot = path.resolve(outputDir, '..');
+
+  // CRITICAL FIX: outputDir is stored relative to wherever the workflow was launched from
+  // Just resolve it using current working directory, don't try to calculate relative paths
+  const absoluteOutputDir = path.resolve(process.cwd(), outputDir);
+  const projectRoot = path.dirname(absoluteOutputDir);
+
+  console.log(`   📍 DEBUG: process.cwd() = ${process.cwd()}`);
+  console.log(`   📍 DEBUG: outputDir = ${outputDir}`);
+  console.log(`   📍 DEBUG: absoluteOutputDir = ${absoluteOutputDir}`);
+  console.log(`   📍 DEBUG: projectRoot = ${projectRoot}\n`);
 
   console.log('Running comprehensive validation on all components...\n');
 
   // Run both checks in parallel using shared validation utilities
+  // ESLint should scan relative path 'ui' from projectRoot, not the full outputDir
+  const relativePath = path.basename(absoluteOutputDir); // Just 'ui'
   const [tscResult, eslintResult] = await Promise.all([
     runTypeScriptValidation(projectRoot, { verbose: true }),
-    runESLintValidation(projectRoot, outputDir, { verbose: true })
+    runESLintValidation(projectRoot, relativePath, { verbose: true })
   ]);
 
   const allPassed = tscResult.valid && eslintResult.valid;
