@@ -98,7 +98,14 @@ Options:
     // Flush LangSmith traces before exiting
     if (langsmithClient) {
       console.log('⏳ Flushing traces to LangSmith...');
+
+      // Wait a moment for the trace to be finalized by LangGraph
+      // This ensures the root span is properly closed before flushing
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Now await all pending trace batches
       await langsmithClient.awaitPendingTraceBatches();
+
       console.log('✅ Traces flushed successfully');
     }
 
@@ -113,6 +120,10 @@ Options:
     // Flush LangSmith traces before exiting
     if (langsmithClient) {
       console.log('⏳ Flushing traces to LangSmith...');
+
+      // Wait a moment for the trace to be finalized
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
       await langsmithClient.awaitPendingTraceBatches();
       console.log('✅ Traces flushed successfully');
     }
