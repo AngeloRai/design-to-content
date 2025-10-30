@@ -5,11 +5,14 @@
  */
 
 export async function finalizeNode(state) {
+  console.log('\n' + '🎯'.repeat(30));
+  console.log('🎯🎯🎯 FINALIZE NODE REACHED 🎯🎯🎯');
+  console.log('🎯'.repeat(30));
   console.log('\n📊 Phase: Finalize');
   console.log('='.repeat(60));
 
   try {
-    const { generatedComponents, iterations, errors } = state;
+    const { generatedComponents = 0, iterations = 0, errors = [] } = state;
     const success = errors.length === 0;
 
     console.log(`✅ Components Generated: ${generatedComponents}`);

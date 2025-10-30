@@ -120,6 +120,25 @@ const WorkflowState = Annotation.Root({
     default: () => []
   }),
 
+  // Validation state fields (used by validation subgraph)
+  finalCheckPassed: Annotation({
+    reducer: (existing, update) => update ?? existing,
+    default: () => false
+  }),
+  finalCheckAttempts: Annotation({
+    reducer: (existing, update) => update ?? existing,
+    default: () => 0
+  }),
+  validatedComponents: Annotation({
+    reducer: (existing, update) => {
+      if (Array.isArray(update) && Array.isArray(existing)) {
+        return [...new Set([...existing, ...update])];
+      }
+      return update ?? existing;
+    },
+    default: () => []
+  }),
+
   // Metadata
   startTime: Annotation({
     reducer: (existing, update) => update ?? existing,

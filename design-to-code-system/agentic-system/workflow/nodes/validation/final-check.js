@@ -40,7 +40,15 @@ export async function finalCheckNode(state) {
     runESLintValidation(projectRoot, relativePath, { verbose: true })
   ]);
 
+  console.log('\n🔍 VALIDATION RESULTS DEBUG:');
+  console.log(`   TypeScript result:`, JSON.stringify(tscResult, null, 2));
+  console.log(`   ESLint result:`, JSON.stringify(eslintResult, null, 2));
+  console.log(`   tscResult.valid: ${tscResult.valid}`);
+  console.log(`   eslintResult.valid: ${eslintResult.valid}`);
+
   const allPassed = tscResult.valid && eslintResult.valid;
+
+  console.log(`   allPassed: ${allPassed}\n`);
 
   if (allPassed) {
     console.log('\n' + '-'.repeat(60));
