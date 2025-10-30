@@ -215,13 +215,13 @@ export const buildRegistry = async (generatedDir = null) => {
   let registry = createEmptyRegistry();
 
   // Default path: use OUTPUT_DIR from environment or fallback
-  // Path should be relative to design-to-code-system/ directory
+  // outputDir from env is relative to process.cwd() (where workflow runs from)
   const outputDir = process.env.OUTPUT_DIR || '../atomic-design-pattern/ui';
-  let scanPath = generatedDir || path.join(__dirname, '..', '..', outputDir);
+  let scanPath = generatedDir || outputDir;
 
   // CRITICAL: Resolve to absolute path for scanning
-  // generatedDir might be relative (e.g., "../atomic-design-pattern/ui")
-  scanPath = path.resolve(__dirname, '..', '..', scanPath);
+  // Use process.cwd() to match the workflow context
+  scanPath = path.resolve(process.cwd(), scanPath);
 
   console.log(`🔍 Scanning for components at: ${scanPath}`);
 

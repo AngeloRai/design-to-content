@@ -31,8 +31,8 @@ const StoryConfigSchema = z.object({
  * @returns {Promise<Object>} Story file content and metadata
  */
 export async function generateStoryForComponent(component, options = {}) {
-  // outputDir is passed from workflow, which is relative to design-to-code-system/
-  // It should already include the '/ui' suffix (e.g., '../atomic-design-pattern/ui')
+  // outputDir is passed from workflow state (set by index.js) and is relative to process.cwd()
+  // It already includes the '/ui' suffix (e.g., 'atomic-design-pattern/ui')
   const {
     outputDir = process.env.OUTPUT_DIR || '../atomic-design-pattern/ui'
   } = options;
@@ -41,8 +41,8 @@ export async function generateStoryForComponent(component, options = {}) {
 
   // Read component file from new folder structure
   // outputDir already includes '/ui', so we just add type/name/Component.tsx
-  // Resolve to absolute path from the agentic-system directory
-  const componentPath = path.resolve(__dirname, '..', '..', outputDir, type, name, `${name}.tsx`);
+  // Resolve to absolute path from process.cwd() to match workflow context
+  const componentPath = path.resolve(process.cwd(), outputDir, type, name, `${name}.tsx`);
   let componentCode = '';
 
   try {
@@ -64,8 +64,8 @@ export async function generateStoryForComponent(component, options = {}) {
   });
 
   // Save story file in the same folder as the component
-  // Resolve to absolute path from the agentic-system directory
-  const storyPath = path.resolve(__dirname, '..', '..', outputDir, type, name, `${name}.stories.tsx`);
+  // Resolve to absolute path from process.cwd() to match workflow context
+  const storyPath = path.resolve(process.cwd(), outputDir, type, name, `${name}.stories.tsx`);
 
   return {
     success: true,

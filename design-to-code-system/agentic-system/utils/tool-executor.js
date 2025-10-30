@@ -203,10 +203,9 @@ export const TOOLS = [
 
 export const createToolExecutor = (vectorSearch, registry, outputDir) => {
   // Resolve outputDir to absolute path to ensure consistent file operations
-  // outputDir like '../atomic-design-pattern/ui' needs to be resolved from the tool-executor's location
-  // __dirname is: /design-to-content/design-to-code-system/agentic-system/utils
-  // We need to go up 2 levels to get to design-to-code-system/, then resolve outputDir from there
-  const absoluteOutputDir = path.resolve(__dirname, '..', '..', outputDir);
+  // outputDir is passed from workflow state (set by index.js) and is relative to process.cwd()
+  // Use process.cwd() to resolve, not __dirname, to match the workflow context
+  const absoluteOutputDir = path.resolve(process.cwd(), outputDir);
 
   const tools = {
     async find_similar_components({ query, limit = 3 }) {
