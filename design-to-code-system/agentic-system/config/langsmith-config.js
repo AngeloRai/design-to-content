@@ -9,13 +9,15 @@
  * - LANGCHAIN_PROJECT=<project-name> (optional, defaults to "design-to-code")
  */
 
+import { env } from './env.config.js';
+
 export function configureLangSmith() {
-  const tracingEnabled = process.env.LANGCHAIN_TRACING_V2 === 'true';
+  const tracingEnabled = env.langsmith.tracingV2;
 
   if (tracingEnabled) {
-    const hasApiKey = !!process.env.LANGCHAIN_API_KEY;
-    const workspaceId = process.env.LANGSMITH_WORKSPACE_ID;
-    const projectName = process.env.LANGCHAIN_PROJECT || 'design-to-code';
+    const hasApiKey = !!env.langsmith.apiKey;
+    const workspaceId = env.langsmith.workspaceId;
+    const projectName = env.langsmith.project;
 
     if (!hasApiKey) {
       console.warn('⚠️  LANGCHAIN_TRACING_V2 is enabled but LANGCHAIN_API_KEY is missing');

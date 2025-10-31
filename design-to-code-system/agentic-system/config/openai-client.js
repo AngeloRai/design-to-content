@@ -7,6 +7,7 @@
  */
 
 import { ChatOpenAI } from '@langchain/openai';
+import { env } from './env.config.js';
 
 // Singleton model instances (LangChain recommended pattern)
 const modelInstances = new Map();
@@ -22,8 +23,7 @@ const modelInstances = new Map();
  * @returns {ChatOpenAI} Singleton model instance
  */
 export const getChatModel = (modelName) => {
-  const defaultModel = process.env.DEFAULT_MODEL || 'gpt-4o';
-  const selectedModel = modelName || defaultModel;
+  const selectedModel = modelName || env.models.default;
 
   // Return existing instance if already created
   if (modelInstances.has(selectedModel)) {
@@ -34,7 +34,7 @@ export const getChatModel = (modelName) => {
   const model = new ChatOpenAI({
     modelName: selectedModel,
     temperature: 0,
-    openAIApiKey: process.env.OPENAI_API_KEY,
+    openAIApiKey: env.openai.apiKey,
     // Set to maximum tokens to prevent code truncation in function calls
     // GPT-4o supports up to 16,384 output tokens
     maxTokens: 16384,
