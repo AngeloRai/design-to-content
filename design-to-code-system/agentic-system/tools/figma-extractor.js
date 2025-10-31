@@ -6,6 +6,7 @@
 
 import { ChatOpenAI } from '@langchain/openai';
 import { z } from 'zod';
+const { env } = '../config/env.config.js'
 
 /**
  * Zod schemas for structured Figma analysis
@@ -65,7 +66,7 @@ export const parseFigmaUrl = (figmaUrl) => {
  * Fetch Figma screenshot using Figma API
  */
 export const fetchFigmaScreenshot = async (fileKey, nodeId, scale = 2) => {
-  const FIGMA_ACCESS_TOKEN = process.env.FIGMA_ACCESS_TOKEN;
+  const FIGMA_ACCESS_TOKEN = env.figma.accessToken;
 
   if (!FIGMA_ACCESS_TOKEN) {
     throw new Error('FIGMA_ACCESS_TOKEN environment variable is required');
@@ -107,7 +108,7 @@ export const fetchFigmaScreenshot = async (fileKey, nodeId, scale = 2) => {
  * Fetch Figma node data using Figma API
  */
 export const fetchFigmaNodeData = async (fileKey, nodeId) => {
-  const FIGMA_ACCESS_TOKEN = process.env.FIGMA_ACCESS_TOKEN;
+  const FIGMA_ACCESS_TOKEN = env.figma.accessToken;
 
   if (!FIGMA_ACCESS_TOKEN) {
     throw new Error('FIGMA_ACCESS_TOKEN environment variable is required');

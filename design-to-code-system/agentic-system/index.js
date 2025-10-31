@@ -4,24 +4,16 @@
  * Orchestrates Figma-to-React component generation using LangGraph workflow
  */
 
-import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import { EventEmitter } from 'events';
 import { Client } from 'langsmith';
 import { buildWorkflow } from './workflow/graph.js';
 import { configureLangSmith } from './config/langsmith-config.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { env } from './config/env.config.js';
 
 // Increase max listeners to prevent warnings during concurrent API calls
 // This is safe because we're making many concurrent LangChain/OpenAI API calls
 // and each creates abort listeners that are properly cleaned up
 EventEmitter.defaultMaxListeners = 30;
-
-// Load .env from design-to-code-system directory
-dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 // Configure LangSmith tracing
 const langSmithConfig = configureLangSmith();
@@ -36,8 +28,8 @@ const main = async () => {
   const args = process.argv.slice(2);
 
   // Get Figma URL from args or environment
-  const figmaUrl = args[0] || process.env.FIGMA_URL;
-  const outputDir = args[1] || process.env.OUTPUT_DIR || 'atomic-design-pattern/ui';
+  const figmaUrl = args[0] || env.figma.url;
+  const outputDir = args[1] || env.output.dir;
 
   if (!figmaUrl) {
     console.log(`
