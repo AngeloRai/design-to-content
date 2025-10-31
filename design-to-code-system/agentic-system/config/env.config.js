@@ -1,0 +1,213 @@
+/**
+ * Environment Configuration
+ * Centralized configuration for all environment variables
+ *
+ * Import this instead of accessing process.env directly:
+ * import { env } from './config/env.config.js';
+ *
+ * Benefits:
+ * - Type safety and validation
+ * - Single source of truth
+ * - Better IDE autocomplete
+ * - Easier to test and mock
+ */
+
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load .env file from design-to-code-system directory (two levels up from config/)
+dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
+
+/**
+ * Parse boolean environment variable
+ * @param {string} value - Environment variable value
+ * @param {boolean} defaultValue - Default value if not set
+ * @returns {boolean}
+ */
+const parseBoolean = (value, defaultValue = false) => {
+  if (value === undefined || value === null || value === '') return defaultValue;
+  return value.toLowerCase() === 'true';
+};
+
+/**
+ * Parse number environment variable
+ * @param {string} value - Environment variable value
+ * @param {number} defaultValue - Default value if not set
+ * @returns {number}
+ */
+const parseNumber = (value, defaultValue) => {
+  if (value === undefined || value === null || value === '') return defaultValue;
+  const parsed = Number(value);
+  return isNaN(parsed) ? defaultValue : parsed;
+};
+
+/**
+ * Environment configuration object
+ * All environment variables are accessed through this object
+ */
+export const env = {
+  // =============================================================================
+  // API Keys & Authentication
+  // =============================================================================
+
+  openai: {
+    apiKey: process.env.OPENAI_API_KEY,
+  },
+
+  figma: {
+    accessToken: process.env.FIGMA_ACCESS_TOKEN,
+    fileId: process.env.FIGMA_FILE_ID,
+    url: process.env.FIGMA_URL,
+    useDesktop: parseBoolean(process.env.USE_DESKTOP),
+  },
+
+  // =============================================================================
+  // LangSmith Configuration
+  // =============================================================================
+
+  langsmith: {
+    tracing: parseBoolean(process.env.LANGSMITH_TRACING),
+    tracingV2: parseBoolean(process.env.LANGCHAIN_TRACING_V2),
+    apiKey: process.env.LANGSMITH_API_KEY || process.env.LANGCHAIN_API_KEY,
+    project: process.env.LANGSMITH_PROJECT || process.env.LANGCHAIN_PROJECT || 'design-to-code-system',
+    workspaceId: process.env.LANGSMITH_WORKSPACE_ID,
+    flushDelayMs: parseNumber(process.env.LANGSMITH_FLUSH_DELAY_MS, 3000),
+  },
+
+  // =============================================================================
+  // OpenTelemetry Configuration
+  // =============================================================================
+
+  otel: {
+    logsEndpoint: process.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT,
+    headers: process.env.OTEL_EXPORTER_OTLP_HEADERS,
+  },
+
+  // =============================================================================
+  // Model Configuration
+  // =============================================================================
+
+  models: {
+    default: process.env.DEFAULT_MODEL || 'gpt-4o',
+    fallback: process.env.FALLBACK_MODEL || 'gpt-4o-mini',
+    available: process.env.AVAILABLE_MODELS?.split(',') || ['gpt-4o', 'gpt-4o-mini', 'o3-mini'],
+  },
+
+  // =============================================================================
+  // Model Selection Thresholds
+  // =============================================================================
+
+  modelSelection: {
+    simpleThreshold: parseNumber(process.env.SIMPLE_THRESHOLD || process.env.MODEL_SELECTION_SIMPLE_THRESHOLD, 3),
+    complexThreshold: parseNumber(process.env.COMPLEX_THRESHOLD || process.env.MODEL_SELECTION_COMPLEX_THRESHOLD, 7),
+    preferSpeed: parseBoolean(process.env.PREFER_SPEED || process.env.MODEL_SELECTION_PREFER_SPEED),
+    preferQuality: parseBoolean(process.env.PREFER_QUALITY || process.env.MODEL_SELECTION_PREFER_QUALITY),
+  },
+
+  // =============================================================================
+  // Cost Management
+  // =============================================================================
+
+  cost: {
+    maxSessionCost: parseNumber(process.env.MAX_SESSION_COST || process.env.COST_MAX_SESSION_COST, 5.0),
+    maxTaskCost: parseNumber(process.env.MAX_TASK_COST || process.env.COST_MAX_TASK_COST, 0.5),
+    enableTracking: parseBoolean(process.env.ENABLE_COST_TRACKING || process.env.COST_ENABLE_TRACKING, true),
+    enableOptimization: parseBoolean(process.env.ENABLE_COST_OPTIMIZATION || process.env.COST_ENABLE_OPTIMIZATION, true),
+  },
+
+  // =============================================================================
+  // Output Configuration
+  // =============================================================================
+
+  output: {
+    dir: process.env.OUTPUT_DIR || process.env.OUTPUT_PATH || 'atomic-design-pattern/ui',
+  },
+
+  // =============================================================================
+  // Development & Debugging
+  // =============================================================================
+
+  debug: parseBoolean(process.env.DEBUG),
+  logLevel: process.env.LOG_LEVEL || 'info',
+  enablePerformanceMonitoring: parseBoolean(process.env.ENABLE_PERFORMANCE_MONITORING, true),
+
+  // =============================================================================
+  // Node Environment
+  // =============================================================================
+
+  nodeEnv: process.env.NODE_ENV || 'development',
+  isProduction: process.env.NODE_ENV === 'production',
+  isDevelopment: process.env.NODE_ENV !== 'production',
+};
+
+/**
+ * Validate required environment variables
+ * Call this at application startup to ensure all required vars are set
+ *
+ * @throws {Error} If required environment variables are missing
+ */
+export const validateEnv = () => {
+  const errors = [];
+
+  // Check required API keys
+  if (!env.openai.apiKey) {
+    errors.push('OPENAI_API_KEY is required');
+  }
+
+  if (!env.figma.accessToken) {
+    errors.push('FIGMA_ACCESS_TOKEN is required');
+  }
+
+  // Check LangSmith if tracing is enabled
+  if (env.langsmith.tracingV2) {
+    if (!env.langsmith.apiKey) {
+      errors.push('LANGCHAIN_API_KEY is required when LANGCHAIN_TRACING_V2=true');
+    }
+    if (!env.langsmith.workspaceId) {
+      errors.push('LANGSMITH_WORKSPACE_ID is required when LANGCHAIN_TRACING_V2=true');
+    }
+  }
+
+  if (errors.length > 0) {
+    throw new Error(
+      `Missing required environment variables:\n${errors.map(e => `  - ${e}`).join('\n')}\n\n` +
+      `Please check your .env file or see .env.example for setup instructions.`
+    );
+  }
+};
+
+/**
+ * Get a safe summary of environment config (without sensitive values)
+ * Useful for logging and debugging
+ *
+ * @returns {Object} Safe config summary
+ */
+export const getConfigSummary = () => ({
+  openai: {
+    hasApiKey: !!env.openai.apiKey,
+  },
+  figma: {
+    hasAccessToken: !!env.figma.accessToken,
+    fileId: env.figma.fileId,
+    hasUrl: !!env.figma.url,
+  },
+  langsmith: {
+    tracing: env.langsmith.tracingV2,
+    hasApiKey: !!env.langsmith.apiKey,
+    project: env.langsmith.project,
+    workspaceId: env.langsmith.workspaceId,
+  },
+  models: env.models,
+  modelSelection: env.modelSelection,
+  cost: env.cost,
+  output: env.output,
+  debug: env.debug,
+  logLevel: env.logLevel,
+  nodeEnv: env.nodeEnv,
+});
+
+export default env;
