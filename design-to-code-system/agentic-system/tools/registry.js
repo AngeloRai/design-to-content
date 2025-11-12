@@ -170,6 +170,12 @@ export const scanDirectory = async (directory, useAI = true, projectRoot = null)
           // Check if this is a component folder
           if (entry.isDirectory()) {
             const componentName = entry.name;
+
+            // Skip .stories directories - these are not components
+            if (componentName.endsWith('.stories')) {
+              continue;
+            }
+
             const componentFile = path.join(typePath, componentName, `${componentName}.tsx`);
 
             // Check if component file exists
