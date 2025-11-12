@@ -63,6 +63,12 @@ export const env = {
     fileId: process.env.FIGMA_FILE_ID,
     url: process.env.FIGMA_URL,
     useDesktop: parseBoolean(process.env.USE_DESKTOP),
+    // Atomic Design Pattern URLs for multi-node processing
+    atomicLevels: {
+      atoms: process.env.FIGMA_ATOMS,
+      molecules: process.env.FIGMA_MOLECULES,
+      organisms: process.env.FIGMA_ORGANISMS,
+    },
   },
 
   // =============================================================================
@@ -125,6 +131,17 @@ export const env = {
 
   output: {
     dir: process.env.OUTPUT_DIR || process.env.OUTPUT_PATH || 'atomic-design-pattern/ui',
+    globalCssPath: process.env.GLOBAL_CSS_PATH || path.join(__dirname, '..', '..', '..', 'atomic-design-pattern', 'app', 'globals.css'),
+  },
+
+  // =============================================================================
+  // Checkpointing Configuration
+  // =============================================================================
+
+  checkpointing: {
+    enabled: parseBoolean(process.env.ENABLE_CHECKPOINTING, true),
+    // Future: Add support for persistent storage (SqliteSaver)
+    // storage: process.env.CHECKPOINT_STORAGE || 'memory',
   },
 
   // =============================================================================
@@ -194,6 +211,11 @@ export const getConfigSummary = () => ({
     hasAccessToken: !!env.figma.accessToken,
     fileId: env.figma.fileId,
     hasUrl: !!env.figma.url,
+    atomicLevels: {
+      atoms: !!env.figma.atomicLevels.atoms,
+      molecules: !!env.figma.atomicLevels.molecules,
+      organisms: !!env.figma.atomicLevels.organisms,
+    },
   },
   langsmith: {
     tracing: env.langsmith.tracingV2,
@@ -205,6 +227,7 @@ export const getConfigSummary = () => ({
   modelSelection: env.modelSelection,
   cost: env.cost,
   output: env.output,
+  checkpointing: env.checkpointing,
   debug: env.debug,
   logLevel: env.logLevel,
   nodeEnv: env.nodeEnv,

@@ -27,33 +27,85 @@ const langsmithClient = langSmithConfig.enabled ? new Client() : null;
 const main = async () => {
   const args = process.argv.slice(2);
 
-  // Get Figma URL from args or environment
-  const figmaUrl = args[0] || env.figma.url;
-  const outputDir = args[1] || env.output.dir;
+  // Parse command-line arguments
+  const threadIdArg = args.find(arg => arg.startsWith('--thread-id='));
+  const resumeArg = args.find(arg => arg.startsWith('--resume='));
 
-  if (!figmaUrl) {
+  // Get Figma URL from args or environment (skip flag arguments)
+  const figmaUrl = args.find(arg => !arg.startsWith('--')) || env.figma.url;
+  const outputDir = args.find((arg, i) => i > 0 && !arg.startsWith('--')) || env.output.dir;
+
+  // Generate or extract thread ID for checkpointing
+  // Thread ID format: run-<timestamp>-<url-hash>
+  let threadId;
+  if (threadIdArg) {
+    threadId = threadIdArg.split('=')[1];
+  } else if (resumeArg) {
+    threadId = resumeArg.split('=')[1];
+  } else if (figmaUrl) {
+    // Auto-generate thread ID from timestamp + Figma URL hash
+    const urlHash = Buffer.from(figmaUrl).toString('base64').slice(0, 8);
+    threadId = `run-${Date.now()}-${urlHash}`;
+  } else {
+    threadId = `run-${Date.now()}`;
+  }
+
+  // Check if we have either a single URL or atomic level URLs
+  const hasAtomicUrls = env.figma.atomicLevels.atoms ||
+                        env.figma.atomicLevels.molecules ||
+                        env.figma.atomicLevels.organisms;
+
+  if (!figmaUrl && !hasAtomicUrls) {
     console.log(`
-❌ Error: Figma URL is required
+❌ Error: No Figma URLs configured
 
-Usage: node index-langgraph.js <figma-url> [output-dir]
+You must provide either:
+  1. Atomic level URLs in .env (RECOMMENDED for multi-node workflow):
+     FIGMA_ATOMS=https://figma.com/design/...?node-id=29-1115
+     FIGMA_MOLECULES=https://figma.com/design/...?node-id=29-2220  (optional)
+     FIGMA_ORGANISMS=https://figma.com/design/...?node-id=29-3330  (optional)
 
-Or set FIGMA_URL environment variable:
-  FIGMA_URL="https://figma.com/file/abc123/design?node-id=1:2" node index-langgraph.js
+  2. Single URL via command line or .env:
+     node index.js "https://figma.com/file/abc123/design?node-id=1:2"
+     OR
+     FIGMA_URL="https://figma.com/file/abc123/design?node-id=1:2" node index.js
 
 Examples:
-  node index-langgraph.js "https://figma.com/file/abc123/design?node-id=1:2"
-  node index-langgraph.js "https://figma.com/file/abc123/design?node-id=1:2" "../atomic-design-pattern/ui"
+  # Multi-node workflow (processes atoms, molecules, organisms sequentially)
+  FIGMA_ATOMS="..." FIGMA_MOLECULES="..." node index.js
+
+  # Single node workflow
+  node index.js "https://figma.com/file/abc123/design?node-id=1:2" [output-dir]
+
+  # Resume interrupted workflow
+  node index.js --resume=run-1234567890-abcdef12
+
+  # Use specific thread ID (for debugging/testing)
+  node index.js "https://figma.com/..." --thread-id=my-custom-id
+
+Arguments:
+  figma-url    Figma file URL with node-id parameter (optional if atomic URLs set)
+  output-dir   Output directory for generated components (default: ${env.output.dir})
 
 Options:
-  figma-url    Figma file URL with node-id parameter
-  output-dir   Output directory for generated components (default: ../atomic-design-pattern/ui)
+  --thread-id=<id>   Use specific thread ID for checkpointing
+  --resume=<id>      Resume a previous workflow from checkpoint
 `);
     process.exit(1);
   }
 
   console.log('🚀 Agentic Component Generator (LangGraph)');
   console.log('='.repeat(60));
-  console.log(`Figma URL: ${figmaUrl}`);
+
+  if (hasAtomicUrls) {
+    console.log('Mode: Multi-Node Workflow (Atomic Design Pattern)');
+    if (env.figma.atomicLevels.atoms) console.log(`  ✓ Atoms URL configured`);
+    if (env.figma.atomicLevels.molecules) console.log(`  ✓ Molecules URL configured`);
+    if (env.figma.atomicLevels.organisms) console.log(`  ✓ Organisms URL configured`);
+  } else {
+    console.log(`Mode: Single Node Workflow`);
+    console.log(`Figma URL: ${figmaUrl}`);
+  }
   console.log(`Output Dir: ${outputDir}`);
   console.log('='.repeat(60) + '\n');
 
@@ -68,8 +120,11 @@ Options:
       startTime: new Date().toISOString()
     };
 
-    // Invoke workflow - starts with analyzeNode
-    const result = await workflow.invoke(initialState);
+    // Invoke workflow with checkpointing support - starts with analyzeNode
+    // Thread ID enables workflow resumption after interruptions
+    const result = await workflow.invoke(initialState, {
+      configurable: { thread_id: threadId }
+    });
 
     // Report final results
     console.log('\n📊 Final Results');
@@ -84,6 +139,11 @@ Options:
       console.log(`\n💡 View detailed traces in LangSmith:`);
       console.log(`   https://smith.langchain.com/o/projects/p/${langSmithConfig.projectName}`);
     }
+
+    // Display thread ID for resumption capability
+    console.log(`\n💾 Checkpoint Thread ID: ${threadId}`);
+    console.log(`   Resume this workflow: node index.js --resume=${threadId}`);
+    console.log(`   (Workflow state is preserved in memory for this session)`);
 
     console.log('='.repeat(60) + '\n');
 
