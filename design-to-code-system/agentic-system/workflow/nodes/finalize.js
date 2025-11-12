@@ -12,7 +12,19 @@ export async function finalizeNode(state) {
   console.log('='.repeat(60));
 
   try {
-    const { generatedComponents = 0, iterations = 0, errors = [] } = state;
+    const { generatedComponents = 0, iterations = 0, errors = [], mcpBridge } = state;
+
+    // Close MCP bridge if it's still open
+    if (mcpBridge && mcpBridge.close) {
+      console.log('🔌 Closing MCP bridge connection...');
+      try {
+        await mcpBridge.close();
+        console.log('✅ MCP bridge closed successfully\n');
+      } catch (closeError) {
+        console.error('⚠️  Failed to close MCP bridge:', closeError.message);
+      }
+    }
+
     const success = errors.length === 0;
 
     console.log(`✅ Components Generated: ${generatedComponents}`);

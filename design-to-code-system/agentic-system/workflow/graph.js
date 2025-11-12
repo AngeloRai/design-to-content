@@ -3,7 +3,7 @@
  * Defines the component generation workflow using StateGraph
  */
 
-import { StateGraph, END, Annotation } from '@langchain/langgraph';
+import { StateGraph, END, Annotation, MemorySaver } from '@langchain/langgraph';
 import { analyzeNode } from './nodes/analyze.js';
 import { setupNode } from './nodes/setup.js';
 import { generateNode } from './nodes/generate.js';
@@ -31,8 +31,7 @@ const WorkflowState = Annotation.Root({
   // Input fields - set once at workflow start, never updated during execution
   // Defaults read from env vars, can be overridden by passing explicit values
   figmaUrl: Annotation({
-    description: 'Figma file/page URL to analyze',
-    // default: () => process.env.FIGMA_URL || null
+    description: 'Figma file/page URL to analyze'
   }),
   outputDir: Annotation({
     default: () => process.env.OUTPUT_DIR || 'atomic-design-pattern/ui'
@@ -46,6 +45,16 @@ const WorkflowState = Annotation.Root({
   componentsIdentified: Annotation({
     reducer: (existing, update) => update ?? existing,
     default: () => 0
+  }),
+  mcpBridge: Annotation({
+    reducer: (existing, update) => update ?? existing,
+    default: () => null,
+    description: 'Active MCP bridge instance for Figma tool access'
+  }),
+  globalCssPath: Annotation({
+    reducer: (existing, update) => update ?? existing,
+    default: () => null,
+    description: 'Path to globals.css for design token management'
   }),
 
   // Phase 2: Setup
@@ -204,12 +213,19 @@ export function createWorkflowGraph() {
 }
 
 /**
- * Compile and return the workflow
+ * Compile and return the workflow with checkpointing support
  * In v1.0, Studio reads input schema from State Annotations
+ *
+ * Checkpointing enables:
+ * - Resume workflows after interruptions/failures
+ * - Inspect intermediate state for debugging
+ * - Pause workflows for human review
+ * - Replay from specific nodes during development
  */
 export function buildWorkflow() {
   const graph = createWorkflowGraph();
-  return graph.compile();
+  const checkpointer = new MemorySaver();
+  return graph.compile({ checkpointer });
 }
 
 /**
