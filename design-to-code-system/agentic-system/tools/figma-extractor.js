@@ -1,13 +1,12 @@
 /**
  * Figma Design Extractor
- * Fetches Figma designs and analyzes them with AI vision
- * Now supports MCP bridge for more efficient data fetching
+ * Extracts Figma designs using MCP (Model Context Protocol) bridge
  * Extracts design tokens first and merges with existing globals.css
+ * Analyzes components with AI vision
  */
 
 import { ChatOpenAI } from '@langchain/openai';
 import { z } from 'zod';
-import path from 'path';
 import {
   extractDesignTokens,
   inferTokensFromCode,
@@ -15,8 +14,6 @@ import {
   mergeTokens,
   updateGlobalCss
 } from './design-tokens-extractor.js';
-
-const { env } = '../config/env.config.js'
 
 /**
  * Base64 image format signatures (magic numbers)
@@ -108,235 +105,8 @@ export const parseAtomicLevelUrls = (atomicLevels) => {
 };
 
 /**
- * Fetch Figma screenshot using Figma API
- */
-export const fetchFigmaScreenshot = async (fileKey, nodeId, scale = 2) => {
-  const FIGMA_ACCESS_TOKEN = env.figma.accessToken;
-
-  if (!FIGMA_ACCESS_TOKEN) {
-    throw new Error('FIGMA_ACCESS_TOKEN environment variable is required');
-  }
-
-  const url = `https://api.figma.com/v1/images/${fileKey}?ids=${nodeId}&scale=${scale}&format=png`;
-
-  const response = await fetch(url, {
-    headers: {
-      'X-Figma-Token': FIGMA_ACCESS_TOKEN
-    }
-  });
-
-  if (!response.ok) {
-    throw new Error(`Figma API error: ${response.status} ${response.statusText}`);
-  }
-
-  const data = await response.json();
-
-  if (data.err) {
-    throw new Error(`Figma API error: ${data.err}`);
-  }
-
-  const imageUrl = data.images[nodeId];
-
-  if (!imageUrl) {
-    throw new Error(`No image URL returned for node ${nodeId}`);
-  }
-
-  return {
-    success: true,
-    imageUrl,
-    fileKey,
-    nodeId
-  };
-};
-
-/**
- * Fetch Figma node data using Figma API
- */
-export const fetchFigmaNodeData = async (fileKey, nodeId) => {
-  const FIGMA_ACCESS_TOKEN = env.figma.accessToken;
-
-  if (!FIGMA_ACCESS_TOKEN) {
-    throw new Error('FIGMA_ACCESS_TOKEN environment variable is required');
-  }
-
-  const url = `https://api.figma.com/v1/files/${fileKey}/nodes?ids=${nodeId}&depth=5`;
-
-  const response = await fetch(url, {
-    headers: {
-      'X-Figma-Token': FIGMA_ACCESS_TOKEN
-    }
-  });
-
-  if (!response.ok) {
-    throw new Error(`Figma API error: ${response.status} ${response.statusText}`);
-  }
-
-  const data = await response.json();
-
-  if (data.err) {
-    throw new Error(`Figma API error: ${data.err}`);
-  }
-
-  const node = data.nodes[nodeId]?.document;
-
-  if (!node) {
-    throw new Error(`No node data returned for node ${nodeId}`);
-  }
-
-  return {
-    success: true,
-    node,
-    fileKey,
-    nodeId
-  };
-};
-
-/**
- * Extract design specification from Figma using AI vision
- */
-export const extractFigmaDesign = async (figmaUrl) => {
-  console.log(`🎨 Extracting design from Figma: ${figmaUrl}\n`);
-
-  try {
-    // Parse Figma URL
-    const { fileKey, nodeId } = parseFigmaUrl(figmaUrl);
-    console.log(`   File Key: ${fileKey}`);
-    console.log(`   Node ID: ${nodeId}\n`);
-
-    // Fetch screenshot and node data in parallel
-    console.log('   📸 Fetching Figma screenshot...');
-    console.log('   📊 Fetching node data...\n');
-
-    const [screenshotResult, nodeDataResult] = await Promise.all([
-      fetchFigmaScreenshot(fileKey, nodeId, 2),
-      fetchFigmaNodeData(fileKey, nodeId)
-    ]);
-
-    // Use GPT-4o Vision to analyze the design with structured output
-    console.log('   🔍 Analyzing design with GPT-4o Vision (structured output)...\n');
-
-    const model = new ChatOpenAI({
-      modelName: 'gpt-4o',
-      temperature: 0
-    }).withStructuredOutput(FigmaAnalysisSchema, {
-      name: 'figma_component_analysis'
-    });
-
-    const analysisPrompt = `You are analyzing a Figma design to extract React components following ATOMIC DESIGN PRINCIPLES.
-
-🔬 ATOMIC DESIGN METHODOLOGY:
-- **Atoms**: Basic UI building blocks (Button, Input, Icon, Typography, etc.)
-- **Molecules**: Simple combinations of atoms (SearchBar = Input + Button)
-- **Organisms**: Complex components (Header, Card, Form)
-
-YOUR TASK: Extract ALL individual components, RECOGNIZING VARIANTS where appropriate.
-
-CRITICAL ANALYSIS STEPS:
-
-1. VISUAL INVENTORY
-   - Examine the screenshot carefully
-   - Identify EVERY distinct UI element
-   - **LOOK FOR PATTERNS**: If you see multiple similar elements with ONLY visual differences (color, size), these are VARIANTS of the same component
-   - Examples of variant patterns:
-     * Multiple buttons with different colors → ONE Button component with color variants
-     * Multiple badges with different states → ONE Badge component with state variants
-     * Multiple search bars with different sizes → ONE SearchBar component with size variants
-
-2. VARIANT DETECTION (CRITICAL)
-   - If components have:
-     * Same structure and props
-     * Same interaction behavior
-     * Only differ in: color, size, spacing, or visual style
-   - Then they are VARIANTS of a single component
-   - Extract as ONE component with populated variants array
-   - Example: "SuccessButton", "ErrorButton", "InfoButton" → Extract as ONE component named "Button" or "ToastButton" with variants: ["success", "error", "info"]
-
-3. NODE DATA CROSS-REFERENCE
-   - Examine the node data structure below (especially children arrays)
-   - Match visual elements to node data
-   - If visual shows more elements than node data captured, set needsDeeperFetch=true
-
-4. COMPONENT EXTRACTION
-   - For components with variants: Extract ONE component with variants array populated
-     * Example: 4 toast buttons → ONE "ToastButton" component with variants: ["success", "error", "warning", "info"]
-   - For truly different components: Extract separately
-     * Example: TextInput, TextArea, Checkbox are different types → Extract as 3 separate components
-   - Typography: Extract each distinct level (Heading, BodyText, Caption, etc.)
-   - Use the ACTUAL variant names from the design if visible
-
-Node Data (depth=5):
-${JSON.stringify(nodeDataResult.node, null, 2)}
-
-REQUIREMENTS:
-- Extract components with variant consolidation where appropriate
-- For components with variants, populate the variants array with actual variant names
-- For components without variants, set variants to null
-- Provide complete visual properties for the BASE/DEFAULT variant
-- List all text content found in components
-- Identify interaction states (hover, disabled, etc.)
-- Be thorough - missing components is unacceptable
-
-COLOR ANALYSIS (CRITICAL):
-- ALWAYS estimate HEX values from the visual appearance
-- Be PRECISE: distinguish between black (#000000), dark slate (#1E293B), navy (#1E3A8A), and blue (#2563EB)
-- Don't default to generic names like "blue" - analyze the actual shade
-- Format: "background: ~#1E293B (dark slate)" not just "background: blue"
-- If a color looks very dark/black, estimate it as ~#000000 to ~#334155 range, NOT as "blue"
-- Use the ~ prefix to indicate these are visual estimations
-
-Return structured data following the schema.`;
-
-    const structuredAnalysis = await model.invoke([
-      {
-        type: 'human',
-        content: [
-          {
-            type: 'image_url',
-            image_url: {
-              url: screenshotResult.imageUrl
-            }
-          },
-          {
-            type: 'text',
-            text: analysisPrompt
-          }
-        ]
-      }
-    ]);
-
-    console.log('   ✅ Design analysis complete\n');
-    console.log(`   📊 Extracted ${structuredAnalysis.components.length} components:`);
-    structuredAnalysis.components.forEach((comp, i) => {
-      console.log(`      ${i + 1}. ${comp.name} (${comp.atomicLevel})`);
-    });
-    console.log();
-
-    if (structuredAnalysis.analysis.needsDeeperFetch) {
-      console.log('   ⚠️  Analysis indicates visual has more detail than node data captured');
-      console.log('   💡 Consider fetching individual child nodes for more detail\n');
-    }
-
-    return {
-      componentName: nodeDataResult.node.name,
-      componentType: 'components',
-      structuredAnalysis,
-      figmaData: {
-        fileKey,
-        nodeId,
-        imageUrl: screenshotResult.imageUrl,
-        node: nodeDataResult.node
-      }
-    };
-
-  } catch (error) {
-    console.error(`   ❌ Error extracting Figma design: ${error.message}\n`);
-    throw error;
-  }
-};
-
-/**
  * Extract design tokens and components using MCP bridge
- * This is the new recommended approach that:
+ * This is the recommended approach that:
  * 1. Extracts design tokens first (from variables or code)
  * 2. Merges with existing globals.css (adds only, never removes)
  * 3. Updates globals.css before component generation
@@ -346,7 +116,6 @@ Return structured data following the schema.`;
  * @param {Object} options - Extraction options
  * @param {string} options.nodeId - Figma node ID (empty string = selected node)
  * @param {string} options.globalCssPath - Path to globals.css for token merging
- * @param {string} options.outputPath - Path to output directory for generated code
  * @param {boolean} options.isFirstNode - True if this is the first atomic level being processed
  * @param {Array} options.existingTokens - Tokens from previous atomic levels (for merging)
  * @param {string} options.atomicLevel - Atomic level name (atoms, molecules, organisms)
@@ -356,7 +125,6 @@ export async function extractWithMcp(mcpBridge, options = {}) {
   const {
     nodeId = '',
     globalCssPath = null,
-    outputPath = null,
     isFirstNode = true,
     existingTokens = [],
     atomicLevel = 'unknown'
@@ -426,7 +194,7 @@ export async function extractWithMcp(mcpBridge, options = {}) {
           console.log('   ℹ️  No variables found, will infer from code');
           console.log('');
         }
-      } catch (e) {
+      } catch {
         console.log('   ℹ️  Could not parse variables, will infer from code');
         console.log('');
       }
@@ -571,7 +339,7 @@ export async function extractWithMcp(mcpBridge, options = {}) {
         try {
           const screenshotData = JSON.parse(screenshotResult.content[0].text);
           screenshotUrl = screenshotData.url || screenshotData.imageUrl || screenshotData.screenshot;
-        } catch (e) {
+        } catch {
           // If not JSON, might be direct URL or base64
           const responseText = screenshotResult.content[0].text;
 
@@ -797,4 +565,4 @@ Return structured data following the schema.`;
   }
 }
 
-export default extractFigmaDesign;
+export default extractWithMcp;
