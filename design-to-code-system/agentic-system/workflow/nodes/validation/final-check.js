@@ -33,10 +33,10 @@ export async function finalCheckNode(state) {
   console.log('Running comprehensive validation on all components...\n');
 
   // Run both checks in parallel using shared validation utilities
-  // ESLint should scan relative path 'ui' from projectRoot, not the full outputDir
+  // Both TypeScript and ESLint should scan only the 'ui' directory
   const relativePath = path.basename(absoluteOutputDir); // Just 'ui'
   const [tscResult, eslintResult] = await Promise.all([
-    runTypeScriptValidation(projectRoot, { verbose: true }),
+    runTypeScriptValidation(projectRoot, relativePath, { verbose: true }),
     runESLintValidation(projectRoot, relativePath, { verbose: true })
   ]);
 

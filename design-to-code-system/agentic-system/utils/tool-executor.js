@@ -384,7 +384,8 @@ export const createToolExecutor = (vectorSearch, registry, outputDir) => {
       console.log(`      📁 Project root: ${projectRoot}`);
 
       // Use shared validation utility
-      const result = await runTypeScriptValidation(projectRoot, {
+      // Pass null for targetPath to check entire project (backward compatibility)
+      const result = await runTypeScriptValidation(projectRoot, null, {
         verbose: false,
       });
 

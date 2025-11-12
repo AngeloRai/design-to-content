@@ -129,11 +129,24 @@ Start by reading the file, then apply fixes systematically.`;
       if (sameErrorCount >= 3) {
         console.log(`      🔄 Stuck on same error, using search_help tool...`);
 
+        // Build a list of previous approaches as strings for the search_help tool
+        const previousApproaches = attemptHistory
+          .slice(-3) // Last 3 attempts
+          .map(a => `Iteration ${a.iteration}: ${a.approach}`)
+          .filter(Boolean);
+
         // Add a message prompting the agent to search for help
         messages.push(
           new HumanMessage(
             `You've tried to fix this error ${sameErrorCount} times but it keeps failing:\n${lastError}\n\n` +
-              `Use the search_help tool to find different approaches or documentation that might help. ` +
+              `Previous attempts:\n${previousApproaches.join('\n')}\n\n` +
+              `Use the search_help tool with this JSON format:\n` +
+              `{\n` +
+              `  "query": "your error message here",\n` +
+              `  "context": {\n` +
+              `    "previousAttempts": ${JSON.stringify(previousApproaches)}\n` +
+              `  }\n` +
+              `}\n\n` +
               `After getting help, try a COMPLETELY DIFFERENT approach based on what you learn.`
           )
         );

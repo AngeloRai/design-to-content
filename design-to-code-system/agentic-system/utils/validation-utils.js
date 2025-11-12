@@ -8,28 +8,34 @@ import { execSync } from 'child_process';
 import path from 'path';
 
 /**
- * Run TypeScript validation on entire project
+ * Run TypeScript validation on entire project or specific directory
  * @param {string} projectRoot - Root directory of the project (where tsconfig.json is)
+ * @param {string} targetPath - Specific path to check (optional, relative to projectRoot)
  * @param {Object} options - Validation options
  * @param {boolean} options.verbose - Show detailed logging
  * @returns {Promise<Object>} Validation result with success flag and errors
  */
-export async function runTypeScriptValidation(projectRoot, options = {}) {
+export async function runTypeScriptValidation(projectRoot, targetPath = null, options = {}) {
   const { verbose = false } = options;
 
   if (verbose) {
     console.log('   🔍 Running TypeScript check...');
     console.log(`      📁 Project root: ${projectRoot}`);
+    console.log(`      📁 Target path: ${targetPath || 'entire project'}`);
     console.log(`      📍 VALIDATION-UTILS TSC VERSION: shell:true ENABLED`);
     console.log(`      📍 Shell: ${process.env.SHELL || 'undefined'}`);
   }
 
   try {
+    // Build the tsc command - always run from project root to get proper type checking
+    const tscCommand = 'npx tsc --noEmit --skipLibCheck';
+
     if (verbose) {
-      console.log(`      📍 Executing: npx tsc --noEmit --skipLibCheck`);
+      console.log(`      📍 Working directory: ${projectRoot}`);
+      console.log(`      📍 Executing: ${tscCommand}`);
     }
 
-    execSync('npx tsc --noEmit --skipLibCheck', {
+    execSync(tscCommand, {
       cwd: projectRoot,
       encoding: 'utf-8',
       stdio: 'pipe',
@@ -49,10 +55,35 @@ export async function runTypeScriptValidation(projectRoot, options = {}) {
   } catch (error) {
     // Capture both stdout and stderr
     const fullOutput = error.stdout || error.stderr || error.message || '';
-    const errorLines = fullOutput.split('\n').filter(line => line.trim());
+    let errorLines = fullOutput.split('\n').filter(line => line.trim());
+
+    // If targetPath is specified, filter errors to only include files within that directory
+    if (targetPath) {
+      const relativePath = path.isAbsolute(targetPath)
+        ? path.relative(projectRoot, targetPath)
+        : targetPath;
+
+      if (verbose) {
+        console.log(`      📍 Filtering errors to only show files in: ${relativePath}/`);
+      }
+
+      // Filter error lines to only include those from files in the target directory
+      // TypeScript error format: path/to/file.tsx(line,col): error TS####: message
+      errorLines = errorLines.filter(line => {
+        // Extract the file path from the error line (everything before the first '(')
+        const match = line.match(/^([^(]+)\(/);
+        if (match) {
+          const filePath = match[1].trim();
+          // Check if the file path starts with the target directory
+          return filePath.startsWith(`${relativePath}/`) || filePath.startsWith(`${relativePath}\\`);
+        }
+        // If no match, this isn't an error line with a file path, filter it out
+        return false;
+      });
+    }
 
     if (verbose) {
-      console.log(`      ❌ TypeScript: ${errorLines.length} error line(s) found`);
+      console.log(`      ❌ TypeScript: ${errorLines.length} error line(s) found (after filtering)`);
       console.log(`      📊 Output length: ${fullOutput.length} chars`);
     }
 
@@ -73,14 +104,28 @@ export async function runTypeScriptValidation(projectRoot, options = {}) {
       };
     }
 
+    // If we filtered all errors out, validation passes!
+    if (targetPath && errorLines.length === 0) {
+      if (verbose) {
+        console.log(`      ✅ TypeScript: No errors in target directory`);
+      }
+      return {
+        success: true,
+        valid: true,
+        errors: [],
+        fullOutput: '',
+        filteredFrom: fullOutput
+      };
+    }
+
     // Parse errors to extract component names and group them
-    const componentErrors = parseTypeScriptErrors(fullOutput);
+    const componentErrors = parseTypeScriptErrors(errorLines.join('\n'));
 
     return {
       success: false,
       valid: false,
       errors: errorLines,
-      fullOutput,
+      fullOutput: errorLines.join('\n'), // Only return filtered errors
       componentErrors,
       errorCount: errorLines.length
     };
@@ -101,10 +146,13 @@ export function parseTypeScriptErrors(output) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    // Match errors for ui/ files: ui/elements/Button.tsx(10,5): error TS...
-    const match = line.match(/ui\/(\w+)\/([^.]+)\.tsx/);
+    // Match errors for ui/ files with nested structure:
+    // ui/elements/Button/Button.tsx or ui/components/Alert/Alert.stories.tsx
+    const match = line.match(/ui\/\w+\/([^/]+)\/([^/(]+)\.tsx/);
     if (match) {
-      const componentName = match[2];
+      // Use the component directory name as the base component name
+      // This works for both "Button/Button.tsx" and "Alert/Alert.stories.tsx"
+      const componentName = match[1];
       currentComponent = componentName;
 
       if (!componentErrors[componentName]) {
@@ -272,9 +320,10 @@ export async function runESLintValidation(projectRoot, targetPath, options = {})
       // Group by component
       const componentIssues = {};
       allIssues.forEach(issue => {
-        const match = issue.file.match(/ui\/(\w+)\/([^.]+)\.tsx/);
+        // Match ui/elements/Button/Button.tsx or ui/components/Alert/Alert.stories.tsx
+        const match = issue.file.match(/ui\/\w+\/([^/]+)\//);
         if (match) {
-          const componentName = match[2];
+          const componentName = match[1];
           if (!componentIssues[componentName]) {
             componentIssues[componentName] = [];
           }
