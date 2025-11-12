@@ -13,6 +13,7 @@ import { AGENT_SYSTEM_PROMPT } from "../prompts/agent-prompts.js";
 import { getChatModel } from "../../config/openai-client.js";
 import { createToolExecutor, TOOLS } from "../../utils/tool-executor.js";
 import { buildRegistry } from "../../tools/registry.js";
+import { MCP_TOOLS, createMcpToolExecutor } from "../../utils/mcp-agent-tools.js";
 
 export async function generateNode(state) {
   console.log("\n🤖 Phase: Generate - Running Agent");
@@ -25,6 +26,8 @@ export async function generateNode(state) {
       registry,
       outputDir,
       conversationHistory,
+      mcpBridge,
+      globalCssPath,
     } = state;
 
     // Safety check: if figmaAnalysis is null/undefined, skip generation
@@ -39,6 +42,19 @@ export async function generateNode(state) {
 
     // Setup tool executor
     const toolExecutor = createToolExecutor(vectorSearch, registry, outputDir);
+
+    // Setup MCP tool executor if MCP bridge is available
+    let mcpToolExecutor = null;
+    let allTools = [...TOOLS];
+
+    if (mcpBridge && globalCssPath) {
+      console.log('🔧 MCP bridge available - exposing Figma tools to agent');
+      mcpToolExecutor = createMcpToolExecutor(mcpBridge, globalCssPath);
+      allTools = [...TOOLS, ...MCP_TOOLS];
+      console.log(`   Total tools available: ${allTools.length} (${TOOLS.length} standard + ${MCP_TOOLS.length} MCP)\n`);
+    } else {
+      console.log('ℹ️  MCP bridge not available - using standard tools only\n');
+    }
 
     // Get ChatOpenAI model with tool binding (uses DEFAULT_MODEL env var or 'gpt-4o')
     // In LangChain v1.0, tools are passed directly in the invocation, not via bind()
@@ -57,13 +73,45 @@ export async function generateNode(state) {
       )
       .join("\n");
 
+    // Format design tokens by category for agent
+    const tokensByCategory = figmaAnalysis.tokens.reduce((acc, token) => {
+      const category = token.category || 'uncategorized';
+      if (!acc[category]) acc[category] = [];
+      acc[category].push(token);
+      return acc;
+    }, {});
+
+    const designTokensSummary = Object.entries(tokensByCategory)
+      .map(([category, tokens]) => {
+        const tokenList = tokens
+          .map(t => `  - ${t.name}: ${t.value}`)
+          .join('\n');
+        return `**${category}** (${tokens.length} tokens):\n${tokenList}`;
+      })
+      .join('\n\n');
+
     const userContent = `Generate React components following the ATOMIC DESIGN pattern based on this structured analysis from Figma:
 
 📊 ANALYSIS SUMMARY:
 - Total Components Identified: ${figmaAnalysis.analysis.totalComponents}
+- Design Tokens Extracted: ${figmaAnalysis.tokens.length} tokens across ${Object.keys(tokensByCategory).length} categories
 - Sections: ${figmaAnalysis.analysis.sections
       .map((s) => `${s.name} (${s.componentCount} components)`)
       .join(", ")}
+
+🎨 DESIGN TOKENS (MANDATORY - use ONLY these classes):
+These tokens are defined in globals.css via @theme inline.
+
+**How Tailwind v4 @theme works:**
+Token in @theme: --color-background-tertiary-red-100
+Available classes: bg-background-tertiary-red-100, text-background-tertiary-red-100, border-background-tertiary-red-100
+
+**Rule**: Remove the leading "--" and add the utility prefix (bg-, text-, p-, rounded-, etc.)
+
+**ALL AVAILABLE TOKENS:**
+${designTokensSummary}
+
+⚠️ **CRITICAL**: ONLY use classes derived from the tokens listed above. DO NOT invent class names like "bg-primary" or "text-secondary" unless those exact tokens exist in the list!
 
 🔬 COMPONENT LIST (from Figma analysis):
 ${componentSummary}
@@ -89,7 +137,9 @@ ${componentSummary}
    - Include ALL variants, states, and visual properties from specs
    - Follow reference patterns (use find_similar_components)
    - Use TypeScript properly
-   - Use Tailwind for all styling
+   - **USE DESIGN TOKENS** from globals.css (listed above) for colors, spacing, typography
+   - Use Tailwind v4 generated utility classes: bg-primary (not bg-[--color-primary])
+   - Only use generic Tailwind classes if no matching design token exists
 
 4. **Process** (EXECUTE, DON'T JUST PLAN):
    - DO NOT spend iterations planning - START GENERATING immediately
@@ -139,8 +189,8 @@ BEGIN NOW: Call get_registry() then start generating atoms.`;
         `\n📨 Iteration ${iterationCount} - Invoking ChatOpenAI...\n`
       );
 
-      // Invoke model with tools (in v1.0, tools are passed in invoke options)
-      const response = await model.invoke(messages, { tools: TOOLS });
+      // Invoke model with all tools (standard + MCP if available)
+      const response = await model.invoke(messages, { tools: allTools });
 
       // Add AI response to messages
       messages.push(response);
@@ -162,8 +212,20 @@ BEGIN NOW: Call get_registry() then start generating atoms.`;
           console.log(`🔧 Using tool: ${functionName}`);
           console.log(`   Input: ${JSON.stringify(functionArgs, null, 2)}`);
 
-          // Execute tool
-          const result = await toolExecutor.execute(functionName, functionArgs);
+          // Determine if this is an MCP tool or standard tool
+          const mcpToolNames = MCP_TOOLS.map(t => t.function.name);
+          const isMcpTool = mcpToolNames.includes(functionName);
+
+          let result;
+          if (isMcpTool && mcpToolExecutor) {
+            // Execute MCP tool
+            console.log(`   [MCP Tool]`);
+            result = await mcpToolExecutor(functionName, functionArgs);
+          } else {
+            // Execute standard tool
+            result = await toolExecutor.execute(functionName, functionArgs);
+          }
+
           console.log(
             `   Result: ${JSON.stringify(result, null, 2).slice(0, 200)}${
               JSON.stringify(result).length > 200 ? "..." : ""

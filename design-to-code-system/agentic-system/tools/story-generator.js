@@ -147,12 +147,13 @@ For a component with multiple prop types:
 
 **Important:**
 - Don't make assumptions about component behavior - base stories on the actual props
-- If a prop is a function (onClick, onChange), omit it from the argsJson (Storybook will handle it)
+- If a prop is a function (onClick, onChange, onSubmit, etc.), use null in the JSON: "onClick": null
 - Use actual text from Figma textContent when available
 - Generate 3-8 stories covering the most important variations
 - Include a "Disabled" story if the component supports disabled state
 - Don't include "hover" or "focus" stories (Storybook handles these via interactions)
 - Make sure argsJson is a valid JSON string with escaped quotes
+- NEVER use string representations of functions like "() => {}" - always use null for function props
 
 Generate the story configurations now.`;
 
@@ -196,7 +197,9 @@ function buildStoryFile({ name, type, stories }) {
   const storyExports = stories.map(story => {
     const argsString = JSON.stringify(story.args, null, 2)
       .replace(/"([^"]+)":/g, '$1:')  // Remove quotes from keys
-      .replace(/: null/g, ': () => {}');  // Convert null functions to arrow functions
+      .replace(/: null/g, ': () => {}')  // Convert null functions to arrow functions
+      .replace(/: "(\(\)\s*=>\s*\{\})"/g, ': () => {}')  // Convert string functions to real functions
+      .replace(/: "\(\)\s*=>\s*\{\s*\}"/g, ': () => {}');  // Convert string functions with spaces
 
     return `/**
  * ${story.description || story.name}

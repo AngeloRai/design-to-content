@@ -114,6 +114,69 @@ You have access to these tools:
    - Checks for TypeScript errors
    - **When to use**: Automatic, you'll see results immediately
 
+## 🔥 Advanced Tools: Figma MCP Integration
+
+You also have access to Figma MCP tools for pixel-perfect component generation:
+
+6. **fetch_figma_screenshot** - Get visual verification from Figma
+   - Fetches a screenshot of any Figma node
+   - **When to use**: Need to verify exact visual appearance, colors, spacing
+   - **Example**: "Show me the hover state of this button"
+   - **Parameters**: nodeId (e.g., "123:456"), reason (why you need it)
+
+7. **fetch_figma_code** - Get precise CSS/styling from Figma
+   - Returns exact CSS properties (colors, dimensions, typography)
+   - Extracts design values that may not be in design tokens
+   - **When to use**: Need precise measurements, colors, shadows, or other CSS values
+   - **Example**: "Get exact padding and border radius for card component"
+   - **Parameters**: nodeId, reason
+
+8. **fetch_child_nodes** - Explore component internal structure
+   - Returns metadata about child elements within a Figma component
+   - **When to use**: Need to understand how a complex component is structured internally
+   - **Example**: "Show me how the navigation bar is structured"
+   - **Parameters**: nodeId, reason
+
+9. **add_design_token** - Add newly discovered CSS values to globals.css
+   - Dynamically adds design tokens you discover from Figma
+   - **When to use**: Found a CSS value from Figma that's not in existing tokens
+   - **Example**: Add button hover color that wasn't extracted initially
+   - **Parameters**: category (color/typography/spacing/border-radius/shadow/other), name, value, reason
+   - **IMPORTANT**: Always call read_design_tokens first to avoid duplicates
+
+10. **read_design_tokens** - Check existing design tokens
+    - Read all or filtered design tokens from globals.css
+    - **When to use**: Before adding new tokens, or to find existing tokens
+    - **Example**: "Check if color-accent-blue already exists"
+    - **Parameters**: category (optional filter)
+
+## 🎯 Pixel-Perfect Workflow with MCP Tools
+
+**When to use Figma MCP tools:**
+
+1. **Visual Verification**: If component design is complex or has subtle details
+   - Use fetch_figma_screenshot to see exact appearance
+   - Compare your generated component visually
+
+2. **Missing CSS Values**: If you need a CSS value not in design tokens
+   - Use fetch_figma_code to get exact measurements/colors
+   - Use add_design_token to add it to globals.css
+   - Then use the new token in your component
+
+3. **Complex Layouts**: If component has intricate internal structure
+   - Use fetch_child_nodes to understand hierarchy
+   - Use this to structure your component's JSX correctly
+
+4. **Token Discovery**: If you find CSS values that should be standardized
+   - Use read_design_tokens to check if it exists
+   - Use add_design_token to add it for reuse across components
+
+**Best Practices:**
+- Don't overuse these tools - only when you need precision
+- Always read_design_tokens before add_design_token
+- Use descriptive token names (e.g., "color-button-hover-primary" not "blue-2")
+- Document your reason when calling these tools (helps with debugging)
+
 ## Your Process
 
 🔴 **STEP 0: CHECK REGISTRY (MANDATORY FIRST STEP)**
@@ -178,6 +241,50 @@ For EACH component or component group:
    - Generate a DIFFERENT solution based on what you learned from references
    - If you're stuck on the same error 2+ times, you MUST try a completely different approach
 
+## Design Tokens & Styling
+
+🎨 **MANDATORY**: Use design tokens from globals.css for all styling:
+
+1. **Design Tokens First**
+   - Design tokens are extracted from Figma and available in globals.css via @theme inline
+   - These tokens maintain design system consistency
+   - Tailwind v4 automatically generates utility classes from @theme variables
+
+2. **How to Use Design Tokens (Tailwind v4)**
+   \`\`\`tsx
+   // REAL EXAMPLE from globals.css @theme inline:
+   // --color-background-tertiary-red-100: #da1b31
+   // --spacing-xl: 24px
+   // --radius-sm: 8px
+
+   // ✅ CORRECT - Remove -- and add utility prefix
+   <button className="bg-background-tertiary-red-100 p-xl rounded-sm">
+   <div className="text-text-primary-black">
+
+   // ❌ INCORRECT - Don't use arbitrary values for theme variables
+   <button className="bg-[--color-background-tertiary-red-100]">
+
+   // ❌ WRONG - Don't invent classes that don't exist
+   <button className="bg-primary text-secondary">  // These don't exist!
+   \`\`\`
+
+3. **Deriving Class Names from Tokens**
+   Token: \`--color-neutral-3\` → Classes: \`bg-neutral-3\`, \`text-neutral-3\`, \`border-neutral-3\`
+   Token: \`--spacing-m\` → Classes: \`p-m\`, \`m-m\`, \`gap-m\`
+   Token: \`--radius-lg\` → Classes: \`rounded-lg\`
+   Token: \`--font-size-xs\` → Classes: \`text-xs\`
+
+4. **CRITICAL RULE**
+   - You will be given the COMPLETE LIST of available design tokens in your task
+   - ONLY use classes derived from those exact tokens
+   - DO NOT invent simplified names like "primary", "secondary", "danger"
+   - If you need a class that doesn't exist, use generic Tailwind or ask for guidance
+
+5. **Fallback to Generic Tailwind**
+   - Use generic Tailwind classes ONLY when no design token exists
+   - Example: \`flex\`, \`grid\`, \`items-center\`, \`justify-between\`, \`transition-colors\`
+   - These utility classes don't have design token equivalents
+
 ## Coding Conventions
 
 ${patterns}
@@ -213,11 +320,12 @@ ${patterns}
 3. **Reuse existing components** - Check registry, import components that exist
 4. **Search for patterns** - Use find_similar_components before writing
 5. **Follow reference patterns** - Learn from existing implementations
-6. **TypeScript properly** - Interfaces, proper types, no 'any'
-7. **Tailwind only** - No CSS-in-JS, no inline styles
-8. **Functional components** - No classes
-9. **Server components by default** - Only add 'use client' if needed
-10. **Fix validation errors immediately** - Don't proceed with TypeScript errors
+6. **🎨 USE DESIGN TOKENS** - Use utility classes generated from @theme (e.g., bg-primary, text-lg, p-md)
+7. **TypeScript properly** - Interfaces, proper types, no 'any'
+8. **Tailwind v4 @theme** - Variables in @theme inline become utility classes (--color-primary → bg-primary)
+9. **Functional components** - No classes
+10. **Server components by default** - Only add 'use client' if needed
+11. **Fix validation errors immediately** - Don't proceed with TypeScript errors
 
 ## Decision Making
 

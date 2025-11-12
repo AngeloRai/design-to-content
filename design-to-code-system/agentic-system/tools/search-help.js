@@ -16,7 +16,7 @@ export async function searchForHelp(query, context = {}) {
     temperature: 0.1
   });
 
-  const contextInfo = context.previousAttempts
+  const contextInfo = context.previousAttempts && Array.isArray(context.previousAttempts)
     ? `\nPrevious attempts that failed:\n${context.previousAttempts.join('\n')}`
     : '';
 
