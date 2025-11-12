@@ -639,39 +639,12 @@ export const buildComponentHierarchy = (components) => {
   return hierarchy;
 };
 
-/**
- * Test Figma integration with environment variable
- */
-export const testFigmaIntegration = async () => {
-  const testUrl = process.env.FIGMA_URL;
-
-  if (!testUrl) {
-    throw new Error('FIGMA_URL not found in environment variables');
-  }
-
-  console.log(`🧪 Testing Figma integration with: ${testUrl}`);
-
-  try {
-    const result = await processFigmaUrl(testUrl);
-
-    console.log('✅ Figma integration test successful!');
-    console.log(`📸 Screenshot: ${result.screenshot.localPath}`);
-    console.log(`📊 Node: ${result.nodeData.metadata.name} (${result.nodeData.metadata.type})`);
-
-    return result;
-  } catch (error) {
-    console.error('❌ Figma integration test failed:', error.message);
-    throw error;
-  }
-};
 
 export default {
   parseFigmaUrl,
   fetchFigmaScreenshot,
   fetchNodeData,
   processFigmaUrl,
-  testFigmaIntegration,
-  // Tree analysis utilities
   traverseFigmaTree,
   findComponents,
   extractDesignTokens,
