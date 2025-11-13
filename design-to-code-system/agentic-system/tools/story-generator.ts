@@ -9,6 +9,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { z } from 'zod';
 import { getChatModel } from '../config/openai-client.ts';
+import type { ComponentRegistry, ComponentMetadata } from '../types/component.ts';
+import type { ComponentSpec } from '../types/component.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -24,13 +26,54 @@ const StoryConfigSchema = z.object({
   })).describe('Array of story configurations')
 });
 
+type StoryConfigResult = z.infer<typeof StoryConfigSchema>;
+
+interface StoryConfig {
+  name: string;
+  args: Record<string, unknown>;
+  description: string;
+}
+
+interface GenerateOptions {
+  outputDir?: string;
+  force?: boolean;
+}
+
+interface ComponentWithFigma extends ComponentMetadata {
+  figmaSpec?: ComponentSpec;
+}
+
+interface StoryGenerationResult {
+  success: boolean;
+  name?: string;
+  type?: string;
+  path?: string;
+  content?: string;
+  totalStories?: number;
+  error?: string;
+}
+
+interface WriteStoryResult {
+  written: boolean;
+  path: string;
+  totalStories?: number;
+  reason?: string;
+}
+
+interface GenerateAllResults {
+  success: string[];
+  failed: Array<{ name: string; error: string }>;
+  skipped: string[];
+  totalStories: number;
+}
+
 /**
  * Generate Storybook story file for a component using AI analysis
- * @param {Object} component - Component metadata from registry
- * @param {Object} options - Generation options
- * @returns {Promise<Object>} Story file content and metadata
  */
-export async function generateStoryForComponent(component, options = {}) {
+export async function generateStoryForComponent(
+  component: ComponentWithFigma,
+  options: GenerateOptions = {}
+): Promise<StoryGenerationResult> {
   // outputDir is passed from workflow state (set by index.js) and is relative to process.cwd()
   // It already includes the '/ui' suffix (e.g., 'atomic-design-pattern/ui')
   const {
@@ -48,9 +91,10 @@ export async function generateStoryForComponent(component, options = {}) {
   try {
     componentCode = await fs.readFile(componentPath, 'utf-8');
   } catch (error) {
-    console.error(`Failed to read component ${name}:`, error.message);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`Failed to read component ${name}:`, errorMessage);
     console.error(`   Attempted path: ${componentPath}`);
-    return { success: false, error: error.message };
+    return { success: false, error: errorMessage };
   }
 
   // Use AI to analyze component and generate story config
@@ -80,7 +124,11 @@ export async function generateStoryForComponent(component, options = {}) {
 /**
  * Use AI to analyze component code and generate appropriate story configurations
  */
-async function analyzeComponentForStories(componentCode, figmaSpec, componentName) {
+async function analyzeComponentForStories(
+  componentCode: string,
+  figmaSpec: ComponentSpec | undefined,
+  componentName: string
+): Promise<{ stories: StoryConfig[] }> {
   const model = getChatModel('gpt-4o').withStructuredOutput(StoryConfigSchema);
 
   const prompt = `Analyze this React component and generate Storybook story configurations.
@@ -92,10 +140,10 @@ ${componentCode}
 
 ${figmaSpec ? `**Figma Design Spec:**
 - Variants: ${figmaSpec.variants?.join(', ') || 'none'}
-- States: ${figmaSpec.states?.join(', ') || 'default, hover, disabled'}
-- Text Content: ${figmaSpec.textContent?.join(', ') || 'N/A'}
+- States: default, hover, disabled
+- Text Content: N/A
 - Visual Properties:
-  ${JSON.stringify(figmaSpec.visualProperties, null, 2)}
+  ${JSON.stringify(figmaSpec, null, 2)}
 ` : ''}
 
 **Task:**
@@ -157,15 +205,16 @@ For a component with multiple prop types:
 
 Generate the story configurations now.`;
 
-  const result = await model.invoke([{ role: 'user', content: prompt }]);
+  const result = await model.invoke([{ role: 'user', content: prompt }]) as StoryConfigResult;
 
   // Parse the argsJson strings into actual objects with safe fallback
-  const parsedStories = (result.stories || []).map(story => {
-    let args = {};
+  const parsedStories: StoryConfig[] = (result.stories || []).map(story => {
+    let args: Record<string, unknown> = {};
     try {
-      args = JSON.parse(story.argsJson || '{}');
+      args = JSON.parse(story.argsJson || '{}') as Record<string, unknown>;
     } catch (error) {
-      console.warn(`Failed to parse argsJson for story ${story.name}:`, error.message);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.warn(`Failed to parse argsJson for story ${story.name}:`, errorMessage);
       args = {};
     }
     return {
@@ -181,11 +230,15 @@ Generate the story configurations now.`;
 /**
  * Build the complete Storybook story file from AI-generated configurations
  */
-function buildStoryFile({ name, type, stories }) {
+function buildStoryFile({ name, type, stories }: {
+  name: string;
+  type: string;
+  stories: StoryConfig[];
+}): string {
   const importPath = `@/ui/${type}/${name}`;
 
   // Generate title based on atomic level
-  const titleMap = {
+  const titleMap: Record<string, string> = {
     elements: 'Elements',
     components: 'Components',
     modules: 'Modules',
@@ -232,12 +285,19 @@ ${storyExports}
 /**
  * Write story file to filesystem
  */
-export async function writeStoryFile(storyResult, force = false) {
+export async function writeStoryFile(
+  storyResult: StoryGenerationResult,
+  force: boolean = false
+): Promise<WriteStoryResult> {
   if (!storyResult.success) {
     throw new Error(`Cannot write story: ${storyResult.error}`);
   }
 
   const { path: storyPath, content } = storyResult;
+
+  if (!storyPath || !content) {
+    throw new Error('Story path and content are required');
+  }
 
   // Ensure directory exists
   const dir = path.dirname(storyPath);
@@ -272,13 +332,16 @@ export async function writeStoryFile(storyResult, force = false) {
 /**
  * Generate stories for all components in registry
  */
-export async function generateAllStories(registry, options = {}) {
+export async function generateAllStories(
+  registry: ComponentRegistry,
+  options: GenerateOptions = {}
+): Promise<GenerateAllResults> {
   const { force = false } = options;
 
   console.log('\n📚 Generating Storybook Stories');
   console.log('='.repeat(60));
 
-  const results = {
+  const results: GenerateAllResults = {
     success: [],
     failed: [],
     skipped: [],
@@ -294,10 +357,10 @@ export async function generateAllStories(registry, options = {}) {
     for (const component of components) {
       try {
         // Generate story content with AI
-        const storyResult = await generateStoryForComponent(component, options);
+        const storyResult = await generateStoryForComponent(component as ComponentWithFigma, options);
 
         if (!storyResult.success) {
-          results.failed.push({ name: component.name, error: storyResult.error });
+          results.failed.push({ name: component.name, error: storyResult.error || 'Unknown error' });
           console.log(`   ❌ Failed: ${component.name} - ${storyResult.error}`);
           continue;
         }
@@ -307,14 +370,15 @@ export async function generateAllStories(registry, options = {}) {
 
         if (writeResult.written) {
           results.success.push(component.name);
-          results.totalStories += storyResult.totalStories;
+          results.totalStories += storyResult.totalStories || 0;
         } else {
           results.skipped.push(component.name);
         }
 
       } catch (error) {
-        results.failed.push({ name: component.name, error: error.message });
-        console.log(`   ❌ Failed: ${component.name} - ${error.message}`);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        results.failed.push({ name: component.name, error: errorMessage });
+        console.log(`   ❌ Failed: ${component.name} - ${errorMessage}`);
       }
     }
   }
