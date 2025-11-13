@@ -12,8 +12,8 @@
  * - Easier to test and mock
  */
 
-import dotenv from 'dotenv';
-import path from 'path';
+import * as dotenv from 'dotenv';
+import * as path from 'path';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -24,32 +24,88 @@ dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
 
 /**
  * Parse boolean environment variable
- * @param {string} value - Environment variable value
- * @param {boolean} defaultValue - Default value if not set
- * @returns {boolean}
  */
-const parseBoolean = (value, defaultValue = false) => {
+const parseBoolean = (value: string | undefined, defaultValue = false): boolean => {
   if (value === undefined || value === null || value === '') return defaultValue;
   return value.toLowerCase() === 'true';
 };
 
 /**
  * Parse number environment variable
- * @param {string} value - Environment variable value
- * @param {number} defaultValue - Default value if not set
- * @returns {number}
  */
-const parseNumber = (value, defaultValue) => {
+const parseNumber = (value: string | undefined, defaultValue: number): number => {
   if (value === undefined || value === null || value === '') return defaultValue;
   const parsed = Number(value);
   return isNaN(parsed) ? defaultValue : parsed;
 };
 
 /**
+ * Environment configuration type
+ */
+export interface EnvConfig {
+  openai: {
+    apiKey: string | undefined;
+  };
+  figma: {
+    accessToken: string | undefined;
+    fileId: string | undefined;
+    url: string | undefined;
+    useDesktop: boolean;
+    atomicLevels: {
+      atoms: string | undefined;
+      molecules: string | undefined;
+      organisms: string | undefined;
+    };
+  };
+  langsmith: {
+    tracing: boolean;
+    tracingV2: boolean;
+    apiKey: string | undefined;
+    project: string;
+    workspaceId: string | undefined;
+    flushDelayMs: number;
+  };
+  otel: {
+    logsEndpoint: string | undefined;
+    headers: string | undefined;
+  };
+  models: {
+    default: string;
+    fallback: string;
+    available: string[];
+  };
+  modelSelection: {
+    simpleThreshold: number;
+    complexThreshold: number;
+    preferSpeed: boolean;
+    preferQuality: boolean;
+  };
+  cost: {
+    maxSessionCost: number;
+    maxTaskCost: number;
+    enableTracking: boolean;
+    enableOptimization: boolean;
+  };
+  output: {
+    dir: string;
+    globalCssPath: string;
+  };
+  checkpointing: {
+    enabled: boolean;
+  };
+  debug: boolean;
+  logLevel: string;
+  enablePerformanceMonitoring: boolean;
+  nodeEnv: string;
+  isProduction: boolean;
+  isDevelopment: boolean;
+}
+
+/**
  * Environment configuration object
  * All environment variables are accessed through this object
  */
-export const env = {
+export const env: EnvConfig = {
   // =============================================================================
   // API Keys & Authentication
   // =============================================================================
@@ -167,8 +223,8 @@ export const env = {
  *
  * @throws {Error} If required environment variables are missing
  */
-export const validateEnv = () => {
-  const errors = [];
+export const validateEnv = (): void => {
+  const errors: string[] = [];
 
   // Check required API keys
   if (!env.openai.apiKey) {
@@ -198,12 +254,62 @@ export const validateEnv = () => {
 };
 
 /**
+ * Config summary type
+ */
+export interface ConfigSummary {
+  openai: {
+    hasApiKey: boolean;
+  };
+  figma: {
+    hasAccessToken: boolean;
+    fileId: string | undefined;
+    hasUrl: boolean;
+    atomicLevels: {
+      atoms: boolean;
+      molecules: boolean;
+      organisms: boolean;
+    };
+  };
+  langsmith: {
+    tracing: boolean;
+    hasApiKey: boolean;
+    project: string;
+    workspaceId: string | undefined;
+  };
+  models: {
+    default: string;
+    fallback: string;
+    available: string[];
+  };
+  modelSelection: {
+    simpleThreshold: number;
+    complexThreshold: number;
+    preferSpeed: boolean;
+    preferQuality: boolean;
+  };
+  cost: {
+    maxSessionCost: number;
+    maxTaskCost: number;
+    enableTracking: boolean;
+    enableOptimization: boolean;
+  };
+  output: {
+    dir: string;
+    globalCssPath: string;
+  };
+  checkpointing: {
+    enabled: boolean;
+  };
+  debug: boolean;
+  logLevel: string;
+  nodeEnv: string;
+}
+
+/**
  * Get a safe summary of environment config (without sensitive values)
  * Useful for logging and debugging
- *
- * @returns {Object} Safe config summary
  */
-export const getConfigSummary = () => ({
+export const getConfigSummary = (): ConfigSummary => ({
   openai: {
     hasApiKey: !!env.openai.apiKey,
   },

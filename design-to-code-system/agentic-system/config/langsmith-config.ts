@@ -9,9 +9,15 @@
  * - LANGCHAIN_PROJECT=<project-name> (optional, defaults to "design-to-code")
  */
 
-import { env } from './env.config.js';
+import { env } from './env.config.ts';
 
-export function configureLangSmith() {
+export interface LangSmithConfig {
+  enabled: boolean;
+  workspaceId?: string;
+  projectName?: string;
+}
+
+export function configureLangSmith(): LangSmithConfig {
   const tracingEnabled = env.langsmith.tracingV2;
 
   if (tracingEnabled) {
@@ -57,7 +63,7 @@ export function configureLangSmith() {
 /**
  * Print LangSmith setup instructions
  */
-export function printLangSmithSetup() {
+export function printLangSmithSetup(): void {
   console.log('\n' + '='.repeat(60));
   console.log('📊 LangSmith Observability Setup');
   console.log('='.repeat(60));

@@ -7,10 +7,10 @@
  */
 
 import { ChatOpenAI } from '@langchain/openai';
-import { env } from './env.config.js';
+import { env } from './env.config.ts';
 
 // Singleton model instances (LangChain recommended pattern)
-const modelInstances = new Map();
+const modelInstances = new Map<string, ChatOpenAI>();
 
 /**
  * Get a ChatOpenAI model instance (singleton pattern)
@@ -19,15 +19,15 @@ const modelInstances = new Map();
  * LangChain best practice: Create models once at startup and reuse them
  * throughout the application lifecycle
  *
- * @param {string} modelName - Model to use (e.g., 'gpt-4o', 'gpt-4o-mini')
- * @returns {ChatOpenAI} Singleton model instance
+ * @param modelName - Model to use (e.g., 'gpt-4o', 'gpt-4o-mini')
+ * @returns Singleton model instance
  */
-export const getChatModel = (modelName) => {
+export const getChatModel = (modelName?: string): ChatOpenAI => {
   const selectedModel = modelName || env.models.default;
 
   // Return existing instance if already created
   if (modelInstances.has(selectedModel)) {
-    return modelInstances.get(selectedModel);
+    return modelInstances.get(selectedModel)!;
   }
 
   // Create new singleton instance
