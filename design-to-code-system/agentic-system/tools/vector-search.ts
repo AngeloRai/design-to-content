@@ -7,10 +7,56 @@
 import { OpenAIEmbeddings } from "@langchain/openai";
 import { Document } from "@langchain/core/documents";
 
+interface ComponentMetadataForSearch {
+  name: string;
+  type: string;
+  path?: string;
+  relativePath?: string;
+  description?: string;
+  props?: string[] | Array<{ name: string; type: string; required: boolean; description?: string }>;
+  hasVariants?: boolean;
+  isInteractive?: boolean;
+  dependencies?: string[];
+  purpose?: string;
+  variants?: string[];
+  sizes?: string[];
+  states?: string[];
+  features?: string[];
+  patterns?: string[];
+}
+
+interface VectorSearchResult {
+  name: string;
+  type: string;
+  path: string;
+  relativePath: string;
+  description: string;
+  props: string[];
+  hasVariants: boolean;
+  isInteractive: boolean;
+  dependencies: string[];
+  purpose: string;
+  variants: string[];
+  sizes: string[];
+  states: string[];
+  features: string[];
+  patterns: string[];
+}
+
+interface VectorStore {
+  similaritySearch(query: string, k: number): Promise<Array<Document<VectorSearchResult>>>;
+  addDocuments(docs: Array<Document<VectorSearchResult>>): Promise<void>;
+}
+
+export interface VectorSearch {
+  search(query: string, k?: number): Promise<VectorSearchResult[]>;
+  addComponent(component: ComponentMetadataForSearch): Promise<void>;
+}
+
 /**
  * Calculate cosine similarity between two vectors
  */
-const cosineSimilarity = (a, b) => {
+const cosineSimilarity = (a: number[], b: number[]): number => {
   let dotProduct = 0;
   let normA = 0;
   let normB = 0;
@@ -28,9 +74,13 @@ const cosineSimilarity = (a, b) => {
  * Create simple in-memory vector store using closures
  * MemoryVectorStore was removed in langchain v1.0
  */
-const createSimpleVectorStore = async (texts, metadatas, embeddings) => {
+const createSimpleVectorStore = async (
+  texts: string[],
+  metadatas: VectorSearchResult[],
+  embeddings: OpenAIEmbeddings
+): Promise<VectorStore> => {
   // Convert texts to documents
-  const documents = texts.map((text, i) => new Document({
+  const documents: Array<Document<VectorSearchResult>> = texts.map((text, i) => new Document<VectorSearchResult>({
     pageContent: text,
     metadata: metadatas[i]
   }));
@@ -40,12 +90,12 @@ const createSimpleVectorStore = async (texts, metadatas, embeddings) => {
   const vectors = await embeddings.embedDocuments(documentTexts);
 
   // Mutable state captured in closure
-  let storedDocuments = [...documents];
+  let storedDocuments: Array<Document<VectorSearchResult>> = [...documents];
   let storedVectors = [...vectors];
 
   // Return API with closure over mutable state
   return {
-    async similaritySearch(query, k = 3) {
+    async similaritySearch(query: string, k: number = 3): Promise<Array<Document<VectorSearchResult>>> {
       if (storedDocuments.length === 0) return [];
 
       const queryVector = await embeddings.embedQuery(query);
@@ -63,7 +113,7 @@ const createSimpleVectorStore = async (texts, metadatas, embeddings) => {
         .map(s => storedDocuments[s.index]);
     },
 
-    async addDocuments(newDocs) {
+    async addDocuments(newDocs: Array<Document<VectorSearchResult>>): Promise<void> {
       const newTexts = newDocs.map(d => d.pageContent);
       const newVectors = await embeddings.embedDocuments(newTexts);
 
@@ -74,11 +124,25 @@ const createSimpleVectorStore = async (texts, metadatas, embeddings) => {
 };
 
 /**
- * Create vector search from components
- * @param {Array} components - Array of component objects with name, type, etc.
- * @returns {Object} - Object with search() and addComponent() functions
+ * Normalize props to string array
  */
-export const createVectorSearch = async (components) => {
+const normalizeProps = (props?: string[] | Array<{ name: string; type: string; required: boolean; description?: string }>): string[] => {
+  if (!props) return [];
+  if (Array.isArray(props) && props.length > 0 && typeof props[0] === 'string') {
+    return props as string[];
+  }
+  if (Array.isArray(props) && props.length > 0 && typeof props[0] === 'object') {
+    return (props as Array<{ name: string }>).map(p => p.name);
+  }
+  return [];
+};
+
+/**
+ * Create vector search from components
+ */
+export const createVectorSearch = async (
+  components: ComponentMetadataForSearch[]
+): Promise<VectorSearch> => {
   if (!components || components.length === 0) {
     console.log('⚠️  No components provided for vector search');
     return createEmptyVectorSearch();
@@ -92,12 +156,13 @@ export const createVectorSearch = async (components) => {
 
     // Create rich searchable text from each component
     const texts = components.map(comp => {
+      const normalizedProps = normalizeProps(comp.props);
       const parts = [
         comp.name,
         comp.type,
         comp.description || '',
         comp.purpose || '',
-        comp.props?.join(', ') || '',
+        normalizedProps.join(', '),
         comp.hasVariants ? 'has variants' : '',
         comp.isInteractive ? 'interactive' : '',
         comp.dependencies?.join(', ') || '',
@@ -113,23 +178,26 @@ export const createVectorSearch = async (components) => {
     });
 
     // Store enriched metadata for retrieval
-    const metadatas = components.map(comp => ({
-      name: comp.name,
-      type: comp.type,
-      path: comp.path || '',
-      relativePath: comp.relativePath || '',
-      description: comp.description || '',
-      props: comp.props || [],
-      hasVariants: comp.hasVariants || false,
-      isInteractive: comp.isInteractive || false,
-      dependencies: comp.dependencies || [],
-      purpose: comp.purpose || '',
-      variants: comp.variants || [],
-      sizes: comp.sizes || [],
-      states: comp.states || [],
-      features: comp.features || [],
-      patterns: comp.patterns || []
-    }));
+    const metadatas: VectorSearchResult[] = components.map(comp => {
+      const normalizedProps = normalizeProps(comp.props);
+      return {
+        name: comp.name,
+        type: comp.type,
+        path: comp.path || '',
+        relativePath: comp.relativePath || '',
+        description: comp.description || '',
+        props: normalizedProps,
+        hasVariants: comp.hasVariants || false,
+        isInteractive: comp.isInteractive || false,
+        dependencies: comp.dependencies || [],
+        purpose: comp.purpose || '',
+        variants: comp.variants || [],
+        sizes: comp.sizes || [],
+        states: comp.states || [],
+        features: comp.features || [],
+        patterns: comp.patterns || []
+      };
+    });
 
     // Create vector store using our functional implementation
     // (MemoryVectorStore was removed in LangChain v1.0)
@@ -143,32 +211,31 @@ export const createVectorSearch = async (components) => {
     return {
       /**
        * Search for similar components
-       * @param {string} query - Search query (e.g., "button with icon")
-       * @param {number} k - Number of results to return
        */
-      search: async (query, k = 3) => {
+      search: async (query: string, k: number = 3): Promise<VectorSearchResult[]> => {
         try {
           const results = await vectorStore.similaritySearch(query, k);
-          return results.map(r => r.metadata);
+          return results.map(r => r.metadata as VectorSearchResult);
         } catch (error) {
-          console.error('Vector search error:', error);
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          console.error('Vector search error:', errorMessage);
           return [];
         }
       },
 
       /**
        * Add new component to vector store
-       * @param {Object} component - Component to add
        */
-      addComponent: async (component) => {
+      addComponent: async (component: ComponentMetadataForSearch): Promise<void> => {
         try {
           // Build rich text for new component
+          const normalizedProps = normalizeProps(component.props);
           const parts = [
             component.name,
             component.type,
             component.description || '',
             component.purpose || '',
-            component.props?.join(', ') || '',
+            normalizedProps.join(', '),
             component.hasVariants ? 'has variants' : '',
             component.isInteractive ? 'interactive' : '',
             component.dependencies?.join(', ') || '',
@@ -182,33 +249,37 @@ export const createVectorSearch = async (components) => {
 
           const text = parts.join(' ');
 
-          await vectorStore.addDocuments([new Document({
+          const metadata: VectorSearchResult = {
+            name: component.name,
+            type: component.type,
+            path: component.path || '',
+            relativePath: component.relativePath || '',
+            description: component.description || '',
+            props: normalizedProps,
+            hasVariants: component.hasVariants || false,
+            isInteractive: component.isInteractive || false,
+            dependencies: component.dependencies || [],
+            purpose: component.purpose || '',
+            variants: component.variants || [],
+            sizes: component.sizes || [],
+            states: component.states || [],
+            features: component.features || [],
+            patterns: component.patterns || []
+          };
+
+          await vectorStore.addDocuments([new Document<VectorSearchResult>({
             pageContent: text,
-            metadata: {
-              name: component.name,
-              type: component.type,
-              path: component.path || '',
-              relativePath: component.relativePath || '',
-              description: component.description || '',
-              props: component.props || [],
-              hasVariants: component.hasVariants || false,
-              isInteractive: component.isInteractive || false,
-              dependencies: component.dependencies || [],
-              purpose: component.purpose || '',
-              variants: component.variants || [],
-              sizes: component.sizes || [],
-              states: component.states || [],
-              features: component.features || [],
-              patterns: component.patterns || []
-            }
+            metadata
           })]);
         } catch (error) {
-          console.error('Error adding component to vector store:', error);
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          console.error('Error adding component to vector store:', errorMessage);
         }
       }
     };
   } catch (error) {
-    console.error('Error creating vector search:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Error creating vector search:', errorMessage);
     return createEmptyVectorSearch();
   }
 };
@@ -216,12 +287,12 @@ export const createVectorSearch = async (components) => {
 /**
  * Create empty vector search (fallback)
  */
-const createEmptyVectorSearch = () => ({
-  search: async (query, _k = 3) => {
+const createEmptyVectorSearch = (): VectorSearch => ({
+  search: async (query: string, _k: number = 3): Promise<VectorSearchResult[]> => {
     console.log(`⚠️  Vector search not available, returning empty results for: "${query}"`);
     return [];
   },
-  addComponent: async (component) => {
+  addComponent: async (component: ComponentMetadataForSearch): Promise<void> => {
     console.log(`⚠️  Vector search not available, cannot add: ${component.name}`);
   }
 });
@@ -232,7 +303,7 @@ const createEmptyVectorSearch = () => ({
 if (import.meta.url === `file://${process.argv[1]}`) {
   console.log('🔍 Testing vector search...\n');
 
-  const testComponents = [
+  const testComponents: ComponentMetadataForSearch[] = [
     { name: 'Button', type: 'elements', path: 'ui/elements/Button.tsx' },
     { name: 'CTA', type: 'components', path: 'ui/components/CTA.tsx' },
     { name: 'Input', type: 'elements', path: 'ui/elements/Input.tsx' },
@@ -274,7 +345,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     newResults.forEach(r => console.log(`  - ${r.name} (${r.type})`));
 
   }).catch(error => {
-    console.error('Test failed:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Test failed:', errorMessage);
     process.exit(1);
   });
 }
