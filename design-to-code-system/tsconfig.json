@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
+    "module": "node16",
+    "moduleResolution": "node16",
     "lib": ["ES2022"],
     "allowJs": true,
     "checkJs": false,
@@ -18,7 +18,7 @@
       "@/*": ["./langgraph-workflow/*"],
       "@/prompts/*": ["./langgraph-workflow/prompts/*"]
     },
-    "allowImportingTsExtensions": false,
+    "allowImportingTsExtensions": true,
     "noEmit": true,
     "resolveJsonModule": true,
     "isolatedModules": true

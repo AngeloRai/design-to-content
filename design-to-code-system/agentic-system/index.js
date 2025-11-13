@@ -6,9 +6,9 @@
 
 import { EventEmitter } from 'events';
 import { Client } from 'langsmith';
-import { buildWorkflow } from './workflow/graph.js';
-import { configureLangSmith } from './config/langsmith-config.js';
-import { env } from './config/env.config.js';
+import { buildWorkflow } from './workflow/graph.ts';
+import { configureLangSmith } from './config/langsmith-config.ts';
+import { env } from "./config/env.config.ts";
 
 // Increase max listeners to prevent warnings during concurrent API calls
 // This is safe because we're making many concurrent LangChain/OpenAI API calls

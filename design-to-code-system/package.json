@@ -8,7 +8,8 @@
     "postinstall": "npx playwright install chromium",
     "lint": "eslint .",
     "dev": "node --watch langgraph-workflow/index.js",
-    "build": "tsc",
+    "start": "node agentic-system/index.js",
+    "build": "tsc --noEmit",
     "studio": "npx @langchain/langgraph-cli dev agentic-system/workflow/graph.js --env-file .env"
   },
   "dependencies": {
