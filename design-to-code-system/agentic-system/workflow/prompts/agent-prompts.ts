@@ -13,7 +13,7 @@ const __dirname = path.dirname(__filename);
 /**
  * Load reference patterns document
  */
-export const loadReferencePatterns = async () => {
+export const loadReferencePatterns = async (): Promise<string> => {
   const patternsPath = path.join(__dirname, '../../docs/REFERENCE_PATTERNS.md');
   return await fs.readFile(patternsPath, 'utf-8');
 };
@@ -21,7 +21,7 @@ export const loadReferencePatterns = async () => {
 /**
  * Main agent system prompt
  */
-export const AGENT_SYSTEM_PROMPT = async () => {
+export const AGENT_SYSTEM_PROMPT = async (): Promise<string> => {
   const patterns = await loadReferencePatterns();
 
   return `You are an expert React/Next.js component generator that converts Figma designs into production-ready code following ATOMIC DESIGN PRINCIPLES.
@@ -341,7 +341,7 @@ Work step-by-step, explaining your reasoning as you go.`;
 /**
  * Error recovery prompt
  */
-export const ERROR_RECOVERY_PROMPT = (error, attemptNumber) => `
+export const ERROR_RECOVERY_PROMPT = (error: string, attemptNumber: number): string => `
 You encountered this error:
 
 ${error}
@@ -360,7 +360,7 @@ Explain what went wrong and how you'll fix it, then regenerate the component.
 /**
  * Validation success prompt
  */
-export const VALIDATION_SUCCESS_PROMPT = (componentName) => `
+export const VALIDATION_SUCCESS_PROMPT = (componentName: string): string => `
 ✅ Component ${componentName} validated successfully!
 
 TypeScript compilation passed. The component is ready.
