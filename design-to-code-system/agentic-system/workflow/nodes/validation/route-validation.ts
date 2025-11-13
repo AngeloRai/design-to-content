@@ -4,9 +4,16 @@
  * Routes back to typescript_fix if issues found, or proceeds to finalize
  */
 
+import type { RouteDecision } from '../../../types/workflow.js';
+
 const MAX_VALIDATION_ATTEMPTS = 3;
 
-export function routeValidation(state) {
+// Accept a minimal state shape that LangGraph provides
+export function routeValidation(state: {
+  finalCheckPassed?: boolean;
+  finalCheckAttempts?: number;
+  failedComponents?: Record<string, unknown>;
+}): RouteDecision {
   const { finalCheckPassed, finalCheckAttempts = 0, failedComponents } = state;
 
   console.log('\n🔀 ROUTE VALIDATION DECISION:');
