@@ -7,10 +7,10 @@
   "scripts": {
     "postinstall": "npx playwright install chromium",
     "lint": "eslint .",
-    "dev": "node --watch langgraph-workflow/index.js",
-    "start": "node agentic-system/index.js",
+    "dev": "npx tsx --watch agentic-system/index.ts",
+    "start": "npx tsx agentic-system/index.ts",
     "build": "tsc --noEmit",
-    "studio": "npx @langchain/langgraph-cli dev agentic-system/workflow/graph.js --env-file .env"
+    "studio": "npx @langchain/langgraph-cli dev agentic-system/workflow/graph.ts --env-file .env"
   },
   "dependencies": {
     "@figma/rest-api-spec": "^0.33.0",
