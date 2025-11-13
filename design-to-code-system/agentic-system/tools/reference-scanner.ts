@@ -9,10 +9,11 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { z } from "zod";
 import { getChatModel } from '../config/openai-client.ts';
+import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
+import type { Runnable } from '@langchain/core/runnables';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
 
 // Zod schema for AI-extracted metadata
 const ComponentMetadataSchema = z.object({
@@ -29,12 +30,24 @@ const ComponentMetadataSchema = z.object({
   patterns: z.array(z.string()).describe("Implementation patterns used (e.g., ['polymorphic', 'composition', 'forwardRef', 'compound-component', 'render-props']). Empty array if simple component.")
 });
 
+type ComponentMetadata = z.infer<typeof ComponentMetadataSchema>;
+
+interface BaseComponent {
+  name: string;
+  type: string;
+  path: string;
+  relativePath: string;
+}
+
+export interface ReferenceComponent extends BaseComponent, ComponentMetadata {}
+
 /**
  * Extract metadata from component using AI
- * @param {string} filePath - Path to component file
- * @param {Object} model - Pre-configured model with structured output
  */
-const extractComponentMetadataWithModel = async (filePath, model) => {
+const extractComponentMetadataWithModel = async (
+  filePath: string,
+  model: Runnable
+): Promise<ComponentMetadata> => {
   try {
     const code = await fs.readFile(filePath, 'utf-8');
 
@@ -98,10 +111,11 @@ Extract the following (be thorough and specific):
 
 Be specific and extract ACTUAL VALUES from the code, not generic descriptions.`;
 
-    const metadata = await model.invoke(prompt);
+    const metadata = await model.invoke(prompt) as ComponentMetadata;
     return metadata;
   } catch (error) {
-    console.error(`Error extracting metadata from ${filePath}:`, error.message);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`Error extracting metadata from ${filePath}:`, errorMessage);
     return {
       description: '',
       props: [],
@@ -121,8 +135,8 @@ Be specific and extract ACTUAL VALUES from the code, not generic descriptions.`;
 /**
  * Scan reference directory for components
  */
-const scanReferenceDirectory = async (dir) => {
-  const components = [];
+const scanReferenceDirectory = async (dir: string): Promise<BaseComponent[]> => {
+  const components: BaseComponent[] = [];
 
   try {
     const entries = await fs.readdir(dir, { withFileTypes: true });
@@ -152,7 +166,8 @@ const scanReferenceDirectory = async (dir) => {
       }
     }
   } catch (error) {
-    console.error(`Error scanning directory ${dir}:`, error.message);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`Error scanning directory ${dir}:`, errorMessage);
   }
 
   return components;
@@ -160,16 +175,16 @@ const scanReferenceDirectory = async (dir) => {
 
 /**
  * Process items with limited concurrency to avoid MaxListeners warnings
- * @param {Array} items - Items to process
- * @param {number} limit - Max concurrent operations
- * @param {Function} worker - Async function to process each item
- * @returns {Promise<Array>} - Array of results in original order
  */
-async function mapLimit(items, limit, worker) {
-  const results = new Array(items.length);
+async function mapLimit<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
   let currentIndex = 0;
 
-  const runWorker = async () => {
+  const runWorker = async (): Promise<void> => {
     while (currentIndex < items.length) {
       const index = currentIndex++;
       results[index] = await worker(items[index], index);
@@ -188,10 +203,10 @@ async function mapLimit(items, limit, worker) {
 
 /**
  * Scan and analyze all reference components using AI
- * @param {string} referenceDir - Path to reference component directory
- * @returns {Array} - Array of analyzed components with rich metadata
  */
-export const scanReferenceComponents = async (referenceDir = null) => {
+export const scanReferenceComponents = async (
+  referenceDir: string | null = null
+): Promise<ReferenceComponent[]> => {
   // Use absolute path from this file's location to avoid context-dependent resolution issues
   const defaultPath = referenceDir || path.join(__dirname, '..', '..', '..', 'reference', 'reference-app', 'ui');
 
@@ -236,7 +251,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   scanReferenceComponents(null).then(components => {
     console.log('📋 Reference components by type:\n');
 
-    const byType = components.reduce((acc, comp) => {
+    const byType = components.reduce((acc: Record<string, ReferenceComponent[]>, comp) => {
       if (!acc[comp.type]) acc[comp.type] = [];
       acc[comp.type].push(comp);
       return acc;
@@ -260,7 +275,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.log(`📊 Total: ${components.length} reference components analyzed\n`);
 
   }).catch(error => {
-    console.error('❌ Test failed:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('❌ Test failed:', errorMessage);
     process.exit(1);
   });
 }
