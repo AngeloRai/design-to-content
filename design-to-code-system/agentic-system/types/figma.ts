@@ -16,7 +16,7 @@ export interface FigmaUrlParts {
  */
 export interface AtomicLevelNode {
   nodeId: string;
-  level: 'atoms' | 'molecules' | 'organisms';
+  level: 'atoms' | 'molecules' | 'organisms' | 'all';
   order: number;
 }
 
@@ -111,9 +111,10 @@ export interface McpExtractionResult {
   };
   figmaData?: {
     variables?: unknown;
-    metadata?: FigmaNodeMetadata;
+    metadata?: unknown;
     code?: FigmaCodeResult;
     screenshot?: string;
+    hasVariables?: boolean;
   };
 }
 

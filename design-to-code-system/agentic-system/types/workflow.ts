@@ -10,6 +10,7 @@ import type { DesignToken } from './figma.js';
  * Workflow phase names
  */
 export type WorkflowPhase =
+  | 'init'
   | 'analyze'
   | 'setup'
   | 'generate'
@@ -35,28 +36,45 @@ export interface WorkflowState {
 
   // Analysis results
   figmaAnalysis?: FigmaAnalysisResult;
+  componentsIdentified?: number;
 
   // Component tracking
-  registry?: ComponentRegistry;
-  generatedComponents?: ComponentMetadata[];
+  registry?: ComponentRegistry | null;
+  generatedComponents?: ComponentMetadata[] | number;
   failedComponents?: Record<string, ComponentFailureDetails>;
   validatedComponents?: string[];
 
   // Validation tracking
-  validationResults?: Record<string, ValidationResult>;
+  validationResults?: Record<string, unknown>; // Can be ValidationResult or QualityReviewResult
   finalCheckPassed?: boolean;
   finalCheckAttempts?: number;
 
-  // Vector search (for reference components)
+  // Reference components and vector search
+  referenceComponents?: unknown[];
   vectorSearch?: unknown; // VectorStore type from LangChain
 
   // Conversation history for agent
   conversationHistory?: unknown[]; // BaseMessage[] from LangChain
+  iterations?: number;
+
+  // MCP bridge instance and paths
+  mcpBridge?: unknown;
+  globalCssPath?: string | null;
+
+  // Story generation
+  storiesGenerated?: boolean;
+  storyResults?: unknown;
+
+  // Error tracking
+  errors?: Array<{ phase: string; error: string }>;
+  success?: boolean;
 
   // Completion tracking
   workflowCompleted?: boolean;
   completionTimestamp?: string;
   totalComponentsGenerated?: number;
+  startTime?: string;
+  endTime?: string | null;
 }
 
 /**
@@ -64,8 +82,9 @@ export interface WorkflowState {
  */
 export interface FigmaAnalysisResult {
   components: ComponentSpec[];
-  tokens?: DesignToken[];
+  tokens: DesignToken[];
   categories?: Record<string, number>;
+  tokenCategories?: Record<string, number>;
   summary?: string;
   metadata?: {
     nodeId?: string;
@@ -73,16 +92,30 @@ export interface FigmaAnalysisResult {
     totalTokens?: number;
     atomicLevels?: string[];
   };
+  analysis: {
+    totalComponents: number;
+    sections: Array<{
+      name: string;
+      componentCount: number;
+    }>;
+  };
+  processLog?: Array<{
+    level: string;
+    components: number;
+    tokensAdded: number;
+    totalTokens: number;
+  }>;
 }
 
 /**
  * Component failure details for validation
  */
 export interface ComponentFailureDetails {
-  name: string;
-  type: string;
+  name?: string;
+  type?: string;
+  componentType?: string;
   path: string;
-  errors: string[];
+  errors: string | string[];
   issues?: ValidationIssue[];
   attemptedFix?: boolean;
 }
@@ -118,7 +151,7 @@ export interface ValidationResult {
  */
 export interface ValidationState extends WorkflowState {
   failedComponents: Record<string, ComponentFailureDetails>;
-  validationResults: Record<string, ValidationResult>;
+  validationResults: Record<string, unknown>; // Can be ValidationResult or QualityReviewResult
   finalCheckPassed: boolean;
   finalCheckAttempts: number;
   validatedComponents: string[];
