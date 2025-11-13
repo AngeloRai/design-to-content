@@ -4,16 +4,26 @@
  * Uses MCP (Model Context Protocol) for Figma integration
  */
 
-import { extractWithMcp, parseAtomicLevelUrls } from '../../tools/figma-extractor.js';
+import { extractWithMcp, parseAtomicLevelUrls } from '../../tools/figma-extractor.ts';
 import { createFigmaBridge } from '../../utils/mcp-figma-bridge.js';
-import { env } from '../../config/env.config.js';
+import { env } from '../../config/env.config.ts';
+import type { WorkflowState, NodeResult } from '../../types/workflow.js';
+import type { ComponentSpec } from '../../types/component.js';
+import type { DesignToken } from '../../types/figma.js';
 
-export async function analyzeNode(state) {
+interface ProcessLogEntry {
+  level: string;
+  components: number;
+  tokensAdded: number;
+  totalTokens: number;
+}
+
+export async function analyzeNode(state: WorkflowState): Promise<NodeResult> {
   console.log('\n📊 Phase: Figma Analysis');
   console.log('='.repeat(60));
   console.log('DEBUG - Received state:', JSON.stringify(state, null, 2));
 
-  let mcpBridge = null;
+  let mcpBridge: any = null;
 
   try {
     const { figmaUrl, outputDir } = state;
@@ -45,9 +55,9 @@ export async function analyzeNode(state) {
     atomicNodes.forEach(node => console.log(`   ${node.order}. ${node.level.toUpperCase()}`));
     console.log('');
 
-    let allTokens = [];
-    let allComponents = [];
-    const processLog = [];
+    let allTokens: DesignToken[] = [];
+    let allComponents: ComponentSpec[] = [];
+    const processLog: ProcessLogEntry[] = [];
 
     // Process each atomic level sequentially
     for (const [index, node] of atomicNodes.entries()) {
@@ -76,7 +86,7 @@ export async function analyzeNode(state) {
       allTokens = result.tokens;
       allComponents.push(...result.components.map(c => ({
         ...c,
-        atomicLevel: node.level  // Tag with source atomic level
+        atomicLevel: node.level as 'atoms' | 'molecules' | 'organisms'  // Tag with source atomic level
       })));
 
       console.log('');
@@ -102,7 +112,7 @@ export async function analyzeNode(state) {
       ...state,
       figmaAnalysis: {
         tokens: allTokens,
-        tokenCategories: allTokens.reduce((acc, token) => {
+        categories: allTokens.reduce((acc: Record<string, number>, token) => {
           const category = token.category || 'uncategorized';
           acc[category] = (acc[category] || 0) + 1;
           return acc;
@@ -115,7 +125,13 @@ export async function analyzeNode(state) {
             componentCount: l.components
           }))
         },
-        processLog
+        metadata: {
+          totalComponents: allComponents.length,
+          totalTokens: allTokens.length,
+          atomicLevels: processLog.map(l => l.level)
+        },
+        processLog,
+        summary: `Analyzed ${allComponents.length} components across ${processLog.length} atomic levels`
       },
       componentsIdentified: allComponents.length,
       mcpBridge,  // Pass MCP bridge through state for agent tools
@@ -124,22 +140,26 @@ export async function analyzeNode(state) {
       currentPhase: 'setup'
     };
   } catch (error) {
-    console.error('❌ Figma analysis failed:', error.message);
-    console.error(error.stack);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+
+    console.error('❌ Figma analysis failed:', errorMessage);
+    if (errorStack) {
+      console.error(errorStack);
+    }
 
     // Cleanup MCP connection on error
-    if (mcpBridge && mcpBridge.close) {
+    if (mcpBridge && typeof mcpBridge.close === 'function') {
       try {
         await mcpBridge.close();
       } catch (closeError) {
-        console.error('⚠️  Failed to close MCP:', closeError.message);
+        const closeErrorMessage = closeError instanceof Error ? closeError.message : String(closeError);
+        console.error('⚠️  Failed to close MCP:', closeErrorMessage);
       }
     }
 
     return {
       ...state,
-      errors: [...state.errors, { phase: 'analyze', error: error.message }],
-      success: false,
       currentPhase: 'finalize'
     };
   }

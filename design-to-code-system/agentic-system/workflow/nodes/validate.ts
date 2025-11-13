@@ -8,10 +8,12 @@
  */
 
 import { StateGraph, Annotation, END } from '@langchain/langgraph';
-import { typescriptFixNode } from './validation/typescript-fix.js';
-import { qualityReviewNode } from './validation/quality-review.js';
-import { finalCheckNode } from './validation/final-check.js';
-import { routeValidation } from './validation/route-validation.js';
+import { typescriptFixNode } from './validation/typescript-fix.ts';
+import { qualityReviewNode } from './validation/quality-review.ts';
+import { finalCheckNode } from './validation/final-check.ts';
+import { routeValidation } from './validation/route-validation.ts';
+import type { ComponentMetadata, ComponentRegistry } from '../../types/component.js';
+import type { ComponentFailureDetails } from '../../types/workflow.js';
 
 /**
  * Validation-specific state
@@ -19,38 +21,38 @@ import { routeValidation } from './validation/route-validation.js';
  */
 const ValidationState = Annotation.Root({
   // Core inputs from parent
-  outputDir: Annotation({
+  outputDir: Annotation<string>({
     reducer: (existing, update) => update ?? existing
   }),
-  registry: Annotation({
+  registry: Annotation<ComponentRegistry | null>({
     reducer: (existing, update) => update ?? existing
   }),
-  generatedComponents: Annotation({
+  generatedComponents: Annotation<ComponentMetadata[] | number>({
     reducer: (existing, update) => update ?? existing
   }),
 
   // Components tracking (shared with parent)
-  failedComponents: Annotation({
+  failedComponents: Annotation<Record<string, ComponentFailureDetails>>({
     reducer: (existing, update) => update ?? existing,
     default: () => ({})
   }),
 
   // Validation progress
-  validationResults: Annotation({
+  validationResults: Annotation<Record<string, unknown>>({
     reducer: (existing, update) => update ?? existing,
     default: () => ({})
   }),
-  finalCheckPassed: Annotation({
+  finalCheckPassed: Annotation<boolean>({
     reducer: (existing, update) => update ?? existing,
     default: () => false
   }),
-  finalCheckAttempts: Annotation({
+  finalCheckAttempts: Annotation<number>({
     reducer: (existing, update) => update ?? existing,
     default: () => 0
   }),
 
   // Track validated components for reference
-  validatedComponents: Annotation({
+  validatedComponents: Annotation<string[]>({
     reducer: (existing, update) => {
       if (Array.isArray(update) && Array.isArray(existing)) {
         return [...new Set([...existing, ...update])];
@@ -65,15 +67,14 @@ const ValidationState = Annotation.Root({
  * Create validation subgraph
  */
 export function createValidationSubgraph() {
-  const validationGraph = new StateGraph(ValidationState);
-
-  // Add validation nodes
-  validationGraph.addNode('typescript_fix', typescriptFixNode);
-  validationGraph.addNode('quality_review', qualityReviewNode);
-  validationGraph.addNode('final_check', finalCheckNode);
+  // Build graph by chaining addNode calls to properly track node types
+  const validationGraph = new StateGraph(ValidationState)
+    .addNode('typescript_fix', typescriptFixNode)
+    .addNode('quality_review', qualityReviewNode)
+    .addNode('final_check', finalCheckNode);
 
   // Define flow
-  validationGraph.setEntryPoint('typescript_fix');
+  validationGraph.addEdge('__start__', 'typescript_fix');
   validationGraph.addEdge('typescript_fix', 'quality_review');
   validationGraph.addEdge('quality_review', 'final_check');
 

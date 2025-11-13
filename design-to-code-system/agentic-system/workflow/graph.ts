@@ -4,12 +4,13 @@
  */
 
 import { StateGraph, END, Annotation, MemorySaver } from '@langchain/langgraph';
-import { analyzeNode } from './nodes/analyze.js';
-import { setupNode } from './nodes/setup.js';
-import { generateNode } from './nodes/generate.js';
-import { generateStoriesNode } from './nodes/generate-stories.js';
-import { finalizeNode } from './nodes/finalize.js';
-import { createValidationSubgraph } from './nodes/validate.js';
+import { analyzeNode } from './nodes/analyze.ts';
+import { setupNode } from './nodes/setup.ts';
+import { generateNode } from './nodes/generate.ts';
+import { generateStoriesNode } from './nodes/generate-stories.ts';
+import { finalizeNode } from './nodes/finalize.ts';
+import { createValidationSubgraph } from './nodes/validate.ts';
+import type { WorkflowState } from '../types/workflow.js';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -27,94 +28,91 @@ dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
  * CRITICAL: Use reducer functions to merge state properly between nodes
  * Without reducers, each node completely replaces fields instead of merging
 */
-const WorkflowState = Annotation.Root({
+const WorkflowStateAnnotation = Annotation.Root({
   // Input fields - set once at workflow start, never updated during execution
   // Defaults read from env vars, can be overridden by passing explicit values
-  figmaUrl: Annotation({
-    description: 'Figma file/page URL to analyze'
-  }),
-  outputDir: Annotation({
+  figmaUrl: Annotation<string>,
+  outputDir: Annotation<string>({
+    reducer: (existing, update) => update ?? existing,
     default: () => process.env.OUTPUT_DIR || 'atomic-design-pattern/ui'
   }),
 
   // Phase 1: Figma Analysis
-  figmaAnalysis: Annotation({
+  figmaAnalysis: Annotation<WorkflowState['figmaAnalysis']>({
     reducer: (existing, update) => update ?? existing,
     default: () => null
   }),
-  componentsIdentified: Annotation({
+  componentsIdentified: Annotation<number>({
     reducer: (existing, update) => update ?? existing,
     default: () => 0
   }),
-  mcpBridge: Annotation({
-    reducer: (existing, update) => update ?? existing,
-    default: () => null,
-    description: 'Active MCP bridge instance for Figma tool access'
-  }),
-  globalCssPath: Annotation({
-    reducer: (existing, update) => update ?? existing,
-    default: () => null,
-    description: 'Path to globals.css for design token management'
-  }),
-
-  // Phase 2: Setup
-  referenceComponents: Annotation({
-    reducer: (existing, update) => update ?? existing,
-    default: () => []
-  }),
-  vectorSearch: Annotation({
+  mcpBridge: Annotation<unknown>({
     reducer: (existing, update) => update ?? existing,
     default: () => null
   }),
-  registry: Annotation({
+  globalCssPath: Annotation<string | null>({
+    reducer: (existing, update) => update ?? existing,
+    default: () => null
+  }),
+
+  // Phase 2: Setup
+  referenceComponents: Annotation<unknown[]>({
+    reducer: (existing, update) => update ?? existing,
+    default: () => []
+  }),
+  vectorSearch: Annotation<unknown>({
+    reducer: (existing, update) => update ?? existing,
+    default: () => null
+  }),
+  registry: Annotation<WorkflowState['registry']>({
     reducer: (existing, update) => update ?? existing,
     default: () => null
   }),
 
   // Phase 3: Generation
-  conversationHistory: Annotation({
+  conversationHistory: Annotation<unknown[]>({
     reducer: (existing, update) => update ?? existing,
     default: () => []
   }),
-  generatedComponents: Annotation({
+  generatedComponents: Annotation<number>({
     reducer: (existing, update) => update ?? existing,
     default: () => 0
   }),
-  iterations: Annotation({
+  iterations: Annotation<number>({
     reducer: (existing, update) => update ?? existing,
     default: () => 0
   }),
-  failedComponents: Annotation({
+  failedComponents: Annotation<Record<string, unknown>>({
     reducer: (existing, update) => update ?? existing,
     default: () => ({})
   }),
 
   // Phase 3.5: Story Generation (for visual validation)
-  storiesGenerated: Annotation({
+  storiesGenerated: Annotation<boolean>({
     reducer: (existing, update) => update ?? existing,
     default: () => false
   }),
-  storyResults: Annotation({
+  storyResults: Annotation<unknown>({
     reducer: (existing, update) => update ?? existing,
     default: () => null
   }),
 
   // Phase 4: Validation & Quality Review (always runs)
-  validationResults: Annotation({
+  validationResults: Annotation<Record<string, unknown>>({
     reducer: (existing, update) => update ?? existing,
     default: () => ({})
   }),
 
   // Workflow status
-  currentPhase: Annotation({
+  currentPhase: Annotation<string>({
     reducer: (existing, update) => update ?? existing,
     default: () => 'init'
   }),
-  success: Annotation({
+  success: Annotation<boolean>({
     reducer: (existing, update) => update ?? existing,
     default: () => false
   }),
-  errors: Annotation({
+  errors: Annotation<Array<{ phase: string; error: string }>>({
     reducer: (existing, update) => {
       // Merge arrays
       if (Array.isArray(update) && Array.isArray(existing)) {
@@ -130,15 +128,15 @@ const WorkflowState = Annotation.Root({
   }),
 
   // Validation state fields (used by validation subgraph)
-  finalCheckPassed: Annotation({
+  finalCheckPassed: Annotation<boolean>({
     reducer: (existing, update) => update ?? existing,
     default: () => false
   }),
-  finalCheckAttempts: Annotation({
+  finalCheckAttempts: Annotation<number>({
     reducer: (existing, update) => update ?? existing,
     default: () => 0
   }),
-  validatedComponents: Annotation({
+  validatedComponents: Annotation<string[]>({
     reducer: (existing, update) => {
       if (Array.isArray(update) && Array.isArray(existing)) {
         return [...new Set([...existing, ...update])];
@@ -149,11 +147,11 @@ const WorkflowState = Annotation.Root({
   }),
 
   // Metadata
-  startTime: Annotation({
+  startTime: Annotation<string | null>({
     reducer: (existing, update) => update ?? existing,
     default: () => null
   }),
-  endTime: Annotation({
+  endTime: Annotation<string | null>({
     reducer: (existing, update) => update ?? existing,
     default: () => null
   })
@@ -163,7 +161,7 @@ const WorkflowState = Annotation.Root({
  * Conditional edge function to determine if workflow should continue after analyze
  * If analyze fails, skip directly to finalize
  */
-function shouldContinueAfterAnalyze(state) {
+function shouldContinueAfterAnalyze(state: { figmaAnalysis?: unknown; currentPhase?: string }): 'setup' | 'finalize' {
   // Check if analyze was successful by verifying figmaAnalysis exists
   if (!state.figmaAnalysis || state.currentPhase === 'finalize') {
     return 'finalize';
@@ -177,21 +175,19 @@ function shouldContinueAfterAnalyze(state) {
 export function createWorkflowGraph() {
   // Create state graph with WorkflowState
   // Studio v1.0 will detect fields without defaults as inputs
-  const workflow = new StateGraph(WorkflowState);
-
-  // Create validation subgraph
+  // Use chained addNode calls to properly track node types
   const validationSubgraph = createValidationSubgraph();
 
-  // Add nodes
-  workflow.addNode('analyze', analyzeNode);
-  workflow.addNode('setup', setupNode);
-  workflow.addNode('generate', generateNode);
-  workflow.addNode('generate_stories', generateStoriesNode);
-  workflow.addNode('validate', validationSubgraph);
-  workflow.addNode('finalize', finalizeNode);
+  const workflow = new StateGraph(WorkflowStateAnnotation)
+    .addNode('analyze', analyzeNode)
+    .addNode('setup', setupNode)
+    .addNode('generate', generateNode)
+    .addNode('generate_stories', generateStoriesNode)
+    .addNode('validate', validationSubgraph as any)
+    .addNode('finalize', finalizeNode);
 
   // Define edges (workflow flow)
-  workflow.setEntryPoint('analyze');
+  workflow.addEdge('__start__', 'analyze');
 
   // Conditional edge after analyze - skip to finalize on failure
   workflow.addConditionalEdges(

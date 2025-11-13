@@ -5,8 +5,9 @@
  */
 
 import { generateAllStories } from '../../tools/story-generator.js';
+import type { WorkflowState, NodeResult } from '../../types/workflow.js';
 
-export async function generateStoriesNode(state) {
+export async function generateStoriesNode(state: WorkflowState): Promise<NodeResult> {
   console.log('\n📚 Phase: Generate Stories');
   console.log('='.repeat(60));
 
@@ -17,7 +18,6 @@ export async function generateStoriesNode(state) {
     console.log('⚠️  No component registry found, skipping story generation\n');
     return {
       ...state,
-      storiesGenerated: false,
       currentPhase: 'validate'
     };
   }
@@ -29,7 +29,6 @@ export async function generateStoriesNode(state) {
     console.log('⚠️  No components in registry, skipping story generation\n');
     return {
       ...state,
-      storiesGenerated: false,
       currentPhase: 'validate'
     };
   }
@@ -45,26 +44,21 @@ export async function generateStoriesNode(state) {
 
     return {
       ...state,
-      storiesGenerated: true,
-      storyResults: {
-        success: results.success.length,
-        failed: results.failed.length,
-        skipped: results.skipped.length,
-        totalStories: results.totalStories
-      },
       currentPhase: 'validate'
     };
 
   } catch (error) {
-    console.error('❌ Story generation failed:', error.message);
-    console.error(error.stack);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    console.error('❌ Story generation failed:', errorMessage);
+    if (errorStack) {
+      console.error(errorStack);
+    }
 
     // Continue to validation even if story generation fails
     // Stories are not critical for component generation
     return {
       ...state,
-      storiesGenerated: false,
-      storyGenerationError: error.message,
       currentPhase: 'validate'
     };
   }
