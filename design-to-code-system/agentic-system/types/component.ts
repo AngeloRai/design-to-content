@@ -58,6 +58,7 @@ export interface ComponentRegistry {
   components: {
     [key in ComponentType]?: ComponentMetadata[];
   };
+  importMap: Record<string, string>;
   totalCount: number;
   lastUpdated: string;
 }
