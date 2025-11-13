@@ -2,7 +2,7 @@
   "node_version": "20",
   "dependencies": ["."],
   "graphs": {
-    "design_to_code": "./agentic-system/workflow/graph.js:graph"
+    "design_to_code": "./agentic-system/workflow/graph.ts:graph"
   },
   "env": ".env",
   "store": {

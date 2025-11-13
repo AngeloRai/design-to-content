@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "LangGraph-powered design-to-code generation system",
   "type": "module",
-  "main": "langgraph-workflow/index.js",
+  "main": "langgraph-workflow/index.ts",
   "scripts": {
     "postinstall": "npx playwright install chromium",
     "lint": "eslint .",

@@ -4,8 +4,8 @@
  * Runs after component generation, before validation
  */
 
-import { generateAllStories } from '../../tools/story-generator.js';
-import type { WorkflowState, NodeResult } from '../../types/workflow.js';
+import { generateAllStories } from '../../tools/story-generator.ts';
+import type { WorkflowState, NodeResult } from '../../types/workflow.ts';
 
 export async function generateStoriesNode(state: WorkflowState): Promise<NodeResult> {
   console.log('\n📚 Phase: Generate Stories');

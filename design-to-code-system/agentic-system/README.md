@@ -23,7 +23,7 @@ cp .env.example .env
 # Edit .env and add your API keys
 
 # Run the workflow
-node index.js "https://figma.com/design/YOUR_FILE?node-id=1-2"
+node index.ts "https://figma.com/design/YOUR_FILE?node-id=1-2"
 ```
 
 ## Checkpointing & Resume Capability
@@ -45,13 +45,13 @@ Checkpointing automatically saves the workflow state at each node, allowing you 
 When you run a workflow, a thread ID is automatically generated:
 
 ```bash
-node index.js "https://figma.com/design/..."
+node index.ts "https://figma.com/design/..."
 ```
 
 Output:
 ```
 💾 Checkpoint Thread ID: run-1234567890-abcdef12
-   Resume this workflow: node index.js --resume=run-1234567890-abcdef12
+   Resume this workflow: node index.ts --resume=run-1234567890-abcdef12
    (Workflow state is preserved in memory for this session)
 ```
 
@@ -60,7 +60,7 @@ Output:
 If the workflow is interrupted (Ctrl+C, crash, timeout), you can resume:
 
 ```bash
-node index.js --resume=run-1234567890-abcdef12
+node index.ts --resume=run-1234567890-abcdef12
 ```
 
 **Note**: MemorySaver checkpoints are only preserved for the current process. If you restart the Node.js process, checkpoints are lost. For persistent checkpoints, we'll add SqliteSaver in the future.
@@ -70,7 +70,7 @@ node index.js --resume=run-1234567890-abcdef12
 For testing or debugging, specify your own thread ID:
 
 ```bash
-node index.js "https://figma.com/..." --thread-id=my-debug-session
+node index.ts "https://figma.com/..." --thread-id=my-debug-session
 ```
 
 ### Common Use Cases
@@ -79,10 +79,10 @@ node index.js "https://figma.com/..." --thread-id=my-debug-session
 
 ```bash
 # Start workflow, interrupt after Figma analysis
-node index.js "https://figma.com/..."
+node index.ts "https://figma.com/..."
 # Review what components were detected
 # Then resume to continue generation
-node index.js --resume=run-1234567890-abcdef12
+node index.ts --resume=run-1234567890-abcdef12
 ```
 
 #### 2. Recover from Failures
@@ -93,18 +93,18 @@ If the workflow fails due to API timeout, network issues, or errors:
 # Workflow fails during component generation
 # Fix the issue (check network, API limits, etc.)
 # Resume from where it left off
-node index.js --resume=run-1234567890-abcdef12
+node index.ts --resume=run-1234567890-abcdef12
 ```
 
 #### 3. Debugging Specific Nodes
 
 ```bash
 # Use consistent thread ID for debugging
-node index.js "https://figma.com/..." --thread-id=debug-validation
+node index.ts "https://figma.com/..." --thread-id=debug-validation
 
 # Make code changes to a specific node
 # Resume with same thread ID to replay from that node
-node index.js --resume=debug-validation
+node index.ts --resume=debug-validation
 ```
 
 ## Environment Variables
@@ -159,7 +159,7 @@ The LangGraph workflow consists of these nodes:
 ```
 design-to-code-system/
 ├── agentic-system/
-│   ├── index.js                 # Entry point with checkpointing
+│   ├── index.ts                 # Entry point with checkpointing
 │   ├── workflow/
 │   │   ├── graph.js            # LangGraph workflow definition (with MemorySaver)
 │   │   └── nodes/              # Workflow node implementations
@@ -183,7 +183,7 @@ LANGCHAIN_TRACING_V2=true
 LANGCHAIN_API_KEY=lsv2_...
 
 # Run workflow
-node index.js "https://figma.com/..."
+node index.ts "https://figma.com/..."
 
 # Visit URL shown in output:
 # https://smith.langchain.com/o/projects/p/design-to-code-system

@@ -4,10 +4,10 @@
  * Extracted from agent.js lines 247-252
  */
 
-import { scanReferenceComponents } from '../../tools/reference-scanner.js';
-import { createVectorSearch } from '../../tools/vector-search.js';
-import { buildRegistry } from '../../tools/registry.js';
-import type { WorkflowState, NodeResult } from '../../types/workflow.js';
+import { scanReferenceComponents } from '../../tools/reference-scanner.ts';
+import { createVectorSearch } from '../../tools/vector-search.ts';
+import { buildRegistry } from '../../tools/registry.ts';
+import type { WorkflowState, NodeResult } from '../../types/workflow.ts';
 
 export async function setupNode(state: WorkflowState): Promise<NodeResult> {
   console.log('\n📦 Phase: Setup - Loading Resources');

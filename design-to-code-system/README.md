@@ -12,17 +12,17 @@ This is an **isolated system** that implements a modern LangGraph workflow for c
 design-to-code-system/
 ├── README.md                    # This file
 ├── langgraph-workflow/         # Main LangGraph workflow implementation
-│   ├── index.js                # Main workflow entry point
+│   ├── index.ts                # Main workflow entry point
 │   ├── schemas/                # State management and data validation
-│   │   └── state.js            # Modern Annotation.Root state schema
+│   │   └── state.ts            # Modern Annotation.Root state schema
 │   ├── nodes/                  # Workflow nodes with Command routing
-│   │   ├── analysis.js         # Visual analysis node
-│   │   ├── routing.js          # AI routing decision node
-│   │   ├── generation.js       # Component generation node
-│   │   └── validation.js       # Validation and audit nodes
+│   │   ├── analysis.ts         # Visual analysis node
+│   │   ├── routing.ts          # AI routing decision node
+│   │   ├── generation.ts       # Component generation node
+│   │   └── validation.ts       # Validation and audit nodes
 │   └── test/                   # Test files
-│       ├── state.test.js       # State schema tests
-│       └── workflow.test.js    # End-to-end workflow tests
+│       ├── state.test.ts       # State schema tests
+│       └── workflow.test.ts    # End-to-end workflow tests
 ├── prompts/                    # Centralized prompt system
 │   ├── analysis/               # Visual analysis prompts
 │   ├── generation/             # Component generation prompts
@@ -128,7 +128,7 @@ const StateAnnotation = Annotation.Root({
 
 ## 🎨 Component Generation
 
-Smart categorization into Next.js UI structure:
+Smart categorization into Next.ts UI structure:
 - `elements/` - Atomic components (Button, Input, Label)
 - `components/` - Molecular components (Card, Modal, Form)
 - `modules/` - Organism components (Header, Footer, Layout)

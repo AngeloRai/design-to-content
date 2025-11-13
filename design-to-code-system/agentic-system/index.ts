@@ -76,22 +76,22 @@ You must provide either:
      FIGMA_ORGANISMS=https://figma.com/design/...?node-id=29-3330  (optional)
 
   2. Single URL via command line or .env:
-     node index.js "https://figma.com/file/abc123/design?node-id=1:2"
+     node index.ts "https://figma.com/file/abc123/design?node-id=1:2"
      OR
-     FIGMA_URL="https://figma.com/file/abc123/design?node-id=1:2" node index.js
+     FIGMA_URL="https://figma.com/file/abc123/design?node-id=1:2" node index.ts
 
 Examples:
   # Multi-node workflow (processes atoms, molecules, organisms sequentially)
-  FIGMA_ATOMS="..." FIGMA_MOLECULES="..." node index.js
+  FIGMA_ATOMS="..." FIGMA_MOLECULES="..." node index.ts
 
   # Single node workflow
-  node index.js "https://figma.com/file/abc123/design?node-id=1:2" [output-dir]
+  node index.ts "https://figma.com/file/abc123/design?node-id=1:2" [output-dir]
 
   # Resume interrupted workflow
-  node index.js --resume=run-1234567890-abcdef12
+  node index.ts --resume=run-1234567890-abcdef12
 
   # Use specific thread ID (for debugging/testing)
-  node index.js "https://figma.com/..." --thread-id=my-custom-id
+  node index.ts "https://figma.com/..." --thread-id=my-custom-id
 
 Arguments:
   figma-url    Figma file URL with node-id parameter (optional if atomic URLs set)
@@ -155,7 +155,7 @@ Options:
 
     // Display thread ID for resumption capability
     console.log(`\n💾 Checkpoint Thread ID: ${threadId}`);
-    console.log(`   Resume this workflow: node index.js --resume=${threadId}`);
+    console.log(`   Resume this workflow: node index.ts --resume=${threadId}`);
     console.log(`   (Workflow state is preserved in memory for this session)`);
 
     console.log('='.repeat(60) + '\n');

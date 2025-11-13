@@ -74,7 +74,7 @@ export async function generateStoryForComponent(
   component: ComponentWithFigma,
   options: GenerateOptions = {}
 ): Promise<StoryGenerationResult> {
-  // outputDir is passed from workflow state (set by index.js) and is relative to process.cwd()
+  // outputDir is passed from workflow state (set by index.ts) and is relative to process.cwd()
   // It already includes the '/ui' suffix (e.g., 'atomic-design-pattern/ui')
   const {
     outputDir = process.env.OUTPUT_DIR || '../atomic-design-pattern/ui'

@@ -10,10 +10,10 @@ import {
   ToolMessage,
 } from "@langchain/core/messages";
 import type { BaseMessage } from "@langchain/core/messages";
-import { AGENT_SYSTEM_PROMPT } from "../prompts/agent-prompts.js";
+import { AGENT_SYSTEM_PROMPT } from "../prompts/agent-prompts.ts";
 import { getChatModel } from "../../config/openai-client.ts";
 import { createToolExecutor, TOOLS, type VectorSearch } from "../../utils/tool-executor.ts";
-import { buildRegistry } from "../../tools/registry.js";
+import { buildRegistry } from "../../tools/registry.ts";
 import { MCP_TOOLS, createMcpToolExecutor } from "../../utils/mcp-agent-tools.ts";
 import type { WorkflowState, NodeResult, ComponentFailureDetails } from "../../types/workflow.ts";
 import type { ComponentSpec } from "../../types/component.ts";
