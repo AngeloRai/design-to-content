@@ -6,8 +6,9 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import { getChatModel } from '../config/openai-client.js';
+import { getChatModel } from '../config/openai-client.ts';
 import { z } from 'zod';
+import type { DesignToken } from '../types/figma.js';
 
 /**
  * Design tokens schema as arrays (compatible with OpenAI structured output)
@@ -24,29 +25,43 @@ const DesignTokensSchema = z.object({
   recommendations: z.string().describe('Brief explanation of how tokens were organized')
 });
 
+type TokensResult = {
+  tokens: DesignToken[];
+  categories: Record<string, number>;
+  recommendations?: string;
+};
+
+interface CodeSnippet {
+  nodeId: string;
+  code: string;
+  metadata: Record<string, unknown>;
+}
+
 /**
  * Extract and organize design tokens using AI analysis
- *
- * @param {Object} variablesData - Raw data from MCP get_variable_defs
- * @param {string} existingThemePath - Path to existing theme.css (optional)
- * @returns {Object} { tokens, categories, recommendations }
  */
-export async function extractDesignTokens(variablesData, existingThemePath = null) {
+export async function extractDesignTokens(
+  variablesData: unknown,
+  existingThemePath: string | null = null
+): Promise<TokensResult> {
   console.log('━'.repeat(60));
   console.log('🤖 AI-Powered Design Token Extraction');
   console.log('━'.repeat(60));
 
   // Parse variables from MCP format
-  let variablesObj = {};
+  let variablesObj: Record<string, unknown> = {};
 
-  if (typeof variablesData === 'object' && !variablesData.content) {
-    variablesObj = variablesData;
-  } else if (variablesData.content?.[0]?.text) {
-    try {
-      variablesObj = JSON.parse(variablesData.content[0].text);
-    } catch (e) {
-      console.error('❌ Could not parse variables JSON');
-      return null;
+  if (typeof variablesData === 'object' && variablesData !== null && !('content' in variablesData)) {
+    variablesObj = variablesData as Record<string, unknown>;
+  } else if (variablesData && typeof variablesData === 'object' && 'content' in variablesData) {
+    const content = (variablesData as { content?: Array<{ text?: string }> }).content;
+    if (content?.[0]?.text) {
+      try {
+        variablesObj = JSON.parse(content[0].text);
+      } catch (e) {
+        console.error('❌ Could not parse variables JSON');
+        return { tokens: [], categories: {} };
+      }
     }
   }
 
@@ -54,7 +69,7 @@ export async function extractDesignTokens(variablesData, existingThemePath = nul
   console.log(`📊 Input: ${variableCount} Figma variables`);
 
   // Read existing theme if it exists
-  let existingTokens = null;
+  let existingTokens: Record<string, string> | null = null;
   if (existingThemePath) {
     try {
       const existingCss = await fs.readFile(existingThemePath, 'utf-8');
@@ -129,7 +144,7 @@ Return:
       type: 'human',
       content: prompt
     }
-  ]);
+  ]) as z.infer<typeof DesignTokensSchema>;
 
   // Log results
   console.log('✅ AI Analysis Complete');
@@ -146,14 +161,25 @@ Return:
   console.log('━'.repeat(60));
   console.log('');
 
-  return result;
+  // Convert to expected format
+  const categoryCounts = result.tokens.reduce((acc: Record<string, number>, token) => {
+    const cat = token.category || 'uncategorized';
+    acc[cat] = (acc[cat] || 0) + 1;
+    return acc;
+  }, {});
+
+  return {
+    tokens: result.tokens as DesignToken[],
+    categories: categoryCounts,
+    recommendations: result.recommendations
+  };
 }
 
 /**
  * Parse existing theme.css to extract current tokens
  */
-function parseExistingTokens(css) {
-  const tokens = {};
+function parseExistingTokens(css: string): Record<string, string> {
+  const tokens: Record<string, string> = {};
   const themeRegex = /@theme\s*\{([^}]+)\}/s;
   const match = css.match(themeRegex);
 
@@ -175,16 +201,17 @@ function parseExistingTokens(css) {
 /**
  * Generate Tailwind v4 CSS using @theme directive
  * Organizes tokens by categories determined by AI
- *
- * @param {Object} result - Result from extractDesignTokens
- * @returns {string} CSS string with @theme directive
  */
-export function generateTailwindV4Css(result) {
+export function generateTailwindV4Css(result: {
+  tokens: DesignToken[];
+  categories: string[];
+  recommendations: string;
+}): string {
   console.log('🎨 Generating Tailwind v4 CSS...');
 
   const { tokens, categories, recommendations } = result;
 
-  const lines = [];
+  const lines: string[] = [];
 
   lines.push('/**');
   lines.push(' * Design Tokens - Tailwind CSS v4');
@@ -225,11 +252,8 @@ export function generateTailwindV4Css(result) {
 /**
  * Infer design tokens from code snippets when Figma variables are not available
  * Uses AI to analyze CSS/code and extract design tokens
- *
- * @param {Array<Object>} codeSnippets - Array of code objects from get_code { nodeId, code, metadata }
- * @returns {Object} { tokens, categories, recommendations }
  */
-export async function inferTokensFromCode(codeSnippets) {
+export async function inferTokensFromCode(codeSnippets: CodeSnippet[]): Promise<TokensResult> {
   console.log('━'.repeat(60));
   console.log('🔍 AI-Powered Token Inference from Code');
   console.log('━'.repeat(60));
@@ -297,7 +321,7 @@ Return:
       type: 'human',
       content: prompt
     }
-  ]);
+  ]) as z.infer<typeof DesignTokensSchema>;
 
   // Log results
   console.log('✅ AI Analysis Complete');
@@ -314,18 +338,29 @@ Return:
   console.log('━'.repeat(60));
   console.log('');
 
-  return result;
+  // Convert to expected format
+  const categoryCounts = result.tokens.reduce((acc: Record<string, number>, token) => {
+    const cat = token.category || 'uncategorized';
+    acc[cat] = (acc[cat] || 0) + 1;
+    return acc;
+  }, {});
+
+  return {
+    tokens: result.tokens as DesignToken[],
+    categories: categoryCounts,
+    recommendations: result.recommendations
+  };
 }
 
 /**
  * Parse existing tokens from globals.css file
  * Extracts tokens from :root block (--ds-* variables) which are the source of truth
  * Falls back to @theme inline block if no :root design system block exists
- *
- * @param {string} cssPath - Path to CSS file (e.g., globals.css)
- * @returns {Object} { tokens: [{name, value, category}], raw: string }
  */
-export async function parseGlobalCssTokens(cssPath) {
+export async function parseGlobalCssTokens(cssPath: string): Promise<{
+  tokens: DesignToken[];
+  raw: string | null;
+}> {
   console.log(`📖 Reading existing tokens from: ${cssPath}`);
 
   try {
@@ -336,7 +371,7 @@ export async function parseGlobalCssTokens(cssPath) {
 
     if (dsRootMatch) {
       const rootBlock = dsRootMatch[1];
-      const tokens = [];
+      const tokens: DesignToken[] = [];
 
       // Parse --ds-* variables
       const varMatches = rootBlock.matchAll(/--ds-([^:]+):\s*([^;]+);/g);
@@ -365,7 +400,7 @@ export async function parseGlobalCssTokens(cssPath) {
     }
 
     const themeBlock = themeMatch[1];
-    const tokens = [];
+    const tokens: DesignToken[] = [];
 
     // Parse CSS variables from theme block
     const varMatches = themeBlock.matchAll(/--([^:]+):\s*([^;]+);/g);
@@ -388,7 +423,7 @@ export async function parseGlobalCssTokens(cssPath) {
     return { tokens, raw: cssContent };
 
   } catch (error) {
-    if (error.code === 'ENOENT') {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       console.log(`   ℹ️  File not found, will create new file`);
       return { tokens: [], raw: null };
     }
@@ -398,12 +433,8 @@ export async function parseGlobalCssTokens(cssPath) {
 
 /**
  * Merge new tokens with existing tokens (add only, never remove)
- *
- * @param {Array} existingTokens - Tokens from existing CSS file
- * @param {Array} newTokens - Newly extracted/inferred tokens
- * @returns {Array} Merged token list with no duplicates
  */
-export function mergeTokens(existingTokens, newTokens) {
+export function mergeTokens(existingTokens: DesignToken[], newTokens: DesignToken[]): DesignToken[] {
   console.log('');
   console.log('🔀 Merging tokens...');
   console.log(`   Existing: ${existingTokens.length} tokens`);
@@ -438,17 +469,17 @@ export function mergeTokens(existingTokens, newTokens) {
  * - Runtime theming (override :root variables)
  * - JavaScript access to design tokens
  * - Single source of truth for all values
- *
- * @param {string} cssPath - Path to globals.css
- * @param {Array} mergedTokens - All tokens to include
- * @param {string} existingRaw - Original CSS content
  */
-export async function updateGlobalCss(cssPath, mergedTokens, existingRaw) {
+export async function updateGlobalCss(
+  cssPath: string,
+  mergedTokens: DesignToken[],
+  existingRaw: string | null
+): Promise<void> {
   console.log(`💾 Updating global CSS: ${cssPath}`);
   console.log('   Using CSS variables as source of truth');
 
   // Group tokens by category
-  const categories = {};
+  const categories: Record<string, DesignToken[]> = {};
   for (const token of mergedTokens) {
     if (!categories[token.category]) {
       categories[token.category] = [];
@@ -476,7 +507,7 @@ export async function updateGlobalCss(cssPath, mergedTokens, existingRaw) {
   rootBlock += '}';
 
   // Parse existing @theme inline block to preserve non-design-system tokens
-  let existingThemeTokens = new Set();
+  const existingThemeTokens = new Set<string>();
   if (existingRaw) {
     const themeMatch = existingRaw.match(/@theme inline\s*\{([^}]+)\}/s);
     if (themeMatch) {
@@ -525,7 +556,7 @@ export async function updateGlobalCss(cssPath, mergedTokens, existingRaw) {
   const designSystemBlocks = rootBlock + themeBlock;
 
   // Replace or insert blocks
-  let updatedCss;
+  let updatedCss: string;
   if (existingRaw) {
     let cleanedCss = existingRaw;
 
@@ -570,11 +601,8 @@ export async function updateGlobalCss(cssPath, mergedTokens, existingRaw) {
 
 /**
  * Save design tokens CSS to file
- *
- * @param {string} css - Generated CSS string
- * @param {string} outputPath - Full path to output file (e.g., 'path/to/theme.css')
  */
-export async function saveDesignTokens(css, outputPath) {
+export async function saveDesignTokens(css: string, outputPath: string): Promise<void> {
   console.log(`💾 Saving design tokens to: ${outputPath}`);
 
   // Ensure directory exists

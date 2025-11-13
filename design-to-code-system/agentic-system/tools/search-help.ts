@@ -5,12 +5,25 @@
 
 import { ChatOpenAI } from '@langchain/openai';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
+import type { SearchHelpResult } from '../types/tools.js';
+
+interface SearchContext {
+  previousAttempts?: string[];
+  errorMessage?: string;
+  componentType?: string;
+  [key: string]: unknown;
+}
+
+interface CodebaseContext {
+  additionalContext?: string;
+  [key: string]: unknown;
+}
 
 /**
  * Search for help on any technical issue
  * Let the AI determine what's relevant
  */
-export async function searchForHelp(query, context = {}) {
+export async function searchForHelp(query: string, context: SearchContext = {}): Promise<SearchHelpResult> {
   const model = new ChatOpenAI({
     modelName: 'gpt-4o',
     temperature: 0.1
@@ -45,15 +58,15 @@ Follow React best practices.`),
 
     return {
       success: true,
-      content: response.content,
-      query
+      help: typeof response.content === 'string' ? response.content : JSON.stringify(response.content)
     };
   } catch (error) {
-    console.error('Search failed:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Search failed:', errorMessage);
     return {
       success: false,
-      error: error.message,
-      query
+      error: errorMessage,
+      help: ''
     };
   }
 }
@@ -62,7 +75,15 @@ Follow React best practices.`),
  * Search for working examples in existing code
  * Returns relevant code snippets without being prescriptive
  */
-export async function searchCodeExamples(searchTerm, codebaseContext = {}) {
+export async function searchCodeExamples(
+  searchTerm: string,
+  codebaseContext: CodebaseContext = {}
+): Promise<{
+  success: boolean;
+  examples?: string;
+  searchTerm: string;
+  error?: string;
+}> {
   const model = new ChatOpenAI({
     modelName: 'gpt-4o-mini',
     temperature: 0
@@ -89,13 +110,14 @@ Provide:
 
     return {
       success: true,
-      examples: response.content,
+      examples: typeof response.content === 'string' ? response.content : JSON.stringify(response.content),
       searchTerm
     };
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     return {
       success: false,
-      error: error.message,
+      error: errorMessage,
       searchTerm
     };
   }

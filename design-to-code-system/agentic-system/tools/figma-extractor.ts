@@ -13,7 +13,9 @@ import {
   parseGlobalCssTokens,
   mergeTokens,
   updateGlobalCss
-} from './design-tokens-extractor.js';
+} from './design-tokens-extractor.ts';
+import type { DesignToken } from '../types/figma.js';
+import type { FigmaUrlParts, AtomicLevelNode, McpExtractionOptions, McpExtractionResult } from '../types/figma.js';
 
 /**
  * Base64 image format signatures (magic numbers)
@@ -21,7 +23,7 @@ import {
 const IMAGE_SIGNATURES = {
   PNG: 'iVBORw0KGgo',  // PNG magic number in base64
   JPEG: '/9j/'          // JPEG magic number in base64
-};
+} as const;
 
 /**
  * Zod schemas for structured Figma analysis
@@ -64,7 +66,7 @@ const FigmaAnalysisSchema = z.object({
 /**
  * Parse Figma URL to extract file key and node ID
  */
-export const parseFigmaUrl = (figmaUrl) => {
+export const parseFigmaUrl = (figmaUrl: string): FigmaUrlParts => {
   const urlPattern = /figma\.com\/(?:file|design)\/([^/]+)\/[^?]*\?.*node-id=([^&]+)/;
   const match = figmaUrl.match(urlPattern);
 
@@ -73,36 +75,45 @@ export const parseFigmaUrl = (figmaUrl) => {
   }
 
   return {
-    fileKey: match[1],
+    fileId: match[1],
     nodeId: match[2].replace(/-/g, ':') // Convert node ID format (123-456 -> 123:456)
   };
 };
 
 /**
  * Parse atomic level URLs from config into processable nodes
- * @param {Object} atomicLevels - Object with atoms, molecules, organisms URLs
- * @returns {Array} Array of {nodeId, level, order} objects
  */
-export const parseAtomicLevelUrls = (atomicLevels) => {
-  const nodes = [];
+export const parseAtomicLevelUrls = (atomicLevels: {
+  atoms?: string;
+  molecules?: string;
+  organisms?: string;
+}): AtomicLevelNode[] => {
+  const nodes: AtomicLevelNode[] = [];
 
   if (atomicLevels.atoms) {
     const { nodeId } = parseFigmaUrl(atomicLevels.atoms);
-    nodes.push({ nodeId, level: 'atoms', order: 1 });
+    nodes.push({ nodeId: nodeId || '', level: 'atoms', order: 1 });
   }
 
   if (atomicLevels.molecules) {
     const { nodeId } = parseFigmaUrl(atomicLevels.molecules);
-    nodes.push({ nodeId, level: 'molecules', order: 2 });
+    nodes.push({ nodeId: nodeId || '', level: 'molecules', order: 2 });
   }
 
   if (atomicLevels.organisms) {
     const { nodeId } = parseFigmaUrl(atomicLevels.organisms);
-    nodes.push({ nodeId, level: 'organisms', order: 3 });
+    nodes.push({ nodeId: nodeId || '', level: 'organisms', order: 3 });
   }
 
   return nodes;
 };
+
+interface McpBridge {
+  callTool(name: string, args: Record<string, unknown>): Promise<{
+    isError: boolean;
+    content?: Array<{ text?: string; data?: string }>;
+  }>;
+}
 
 /**
  * Extract design tokens and components using MCP bridge
@@ -111,17 +122,11 @@ export const parseAtomicLevelUrls = (atomicLevels) => {
  * 2. Merges with existing globals.css (adds only, never removes)
  * 3. Updates globals.css before component generation
  * 4. Extracts components using MCP get_metadata, get_code, get_screenshot
- *
- * @param {Object} mcpBridge - MCP Figma bridge instance
- * @param {Object} options - Extraction options
- * @param {string} options.nodeId - Figma node ID (empty string = selected node)
- * @param {string} options.globalCssPath - Path to globals.css for token merging
- * @param {boolean} options.isFirstNode - True if this is the first atomic level being processed
- * @param {Array} options.existingTokens - Tokens from previous atomic levels (for merging)
- * @param {string} options.atomicLevel - Atomic level name (atoms, molecules, organisms)
- * @returns {Object} { tokens, components, figmaData }
  */
-export async function extractWithMcp(mcpBridge, options = {}) {
+export async function extractWithMcp(
+  mcpBridge: McpBridge,
+  options: McpExtractionOptions = {}
+): Promise<McpExtractionResult> {
   const {
     nodeId = '',
     globalCssPath = null,
@@ -151,7 +156,7 @@ export async function extractWithMcp(mcpBridge, options = {}) {
       clientFrameworks: 'react'
     });
 
-    let tokenResult = null;
+    let tokenResult: { tokens: DesignToken[]; categories: Record<string, number> } | null = null;
     let hasVariables = false;
 
     // Parse variables
@@ -179,8 +184,6 @@ export async function extractWithMcp(mcpBridge, options = {}) {
             console.log(`   Existing: ${existingTokens.length} tokens`);
             console.log(`   New: ${newTokens.tokens.length} tokens`);
 
-            // Import mergeTokens from design-tokens-extractor
-            const { mergeTokens } = await import('./design-tokens-extractor.js');
             const merged = mergeTokens(existingTokens, newTokens.tokens);
             const added = merged.length - existingTokens.length;
 
@@ -230,7 +233,7 @@ export async function extractWithMcp(mcpBridge, options = {}) {
 
       console.log(`3️⃣  Fetching code from ${childNodeIds.length} components...`);
 
-      const codeSnippets = [];
+      const codeSnippets: Array<{ nodeId: string; code: string; metadata: Record<string, unknown> }> = [];
       for (const childId of childNodeIds) {
         const codeResult = await mcpBridge.callTool('get_code', {
           nodeId: childId,
@@ -260,7 +263,7 @@ export async function extractWithMcp(mcpBridge, options = {}) {
       // Only update globals.css if we have tokens
       const tokensToSave = tokenResult.tokens || tokenResult;
 
-      if (tokensToSave && tokensToSave.length > 0) {
+      if (tokensToSave && Array.isArray(tokensToSave) && tokensToSave.length > 0) {
         console.log('5️⃣  Updating globals.css...');
 
         const { tokens: existingGlobalTokens, raw: existingRaw } = await parseGlobalCssTokens(globalCssPath);
@@ -304,9 +307,15 @@ export async function extractWithMcp(mcpBridge, options = {}) {
       console.log('   ⚠️  Could not fetch metadata, skipping component extraction');
       console.log('');
       return {
-        tokens: tokenResult,
+        tokens: tokenResult?.tokens || [],
+        categories: tokenResult?.categories || {},
         components: [],
-        figmaData: { nodeId, hasVariables }
+        metadata: {
+          nodeId,
+          totalComponents: 0,
+          totalTokens: tokenResult?.tokens?.length || 0
+        },
+        figmaData: { hasVariables }
       };
     }
 
@@ -331,7 +340,7 @@ export async function extractWithMcp(mcpBridge, options = {}) {
       clientFrameworks: 'react'
     });
 
-    let screenshotUrl = null;
+    let screenshotUrl: string | null = null;
     if (!screenshotResult.isError) {
       // Check different possible response formats
       if (screenshotResult.content?.[0]?.text) {
@@ -380,7 +389,7 @@ export async function extractWithMcp(mcpBridge, options = {}) {
 
     // Step 3: Get code for each component
     console.log('3️⃣  Fetching Figma code for components...');
-    const componentCodes = new Map();
+    const componentCodes = new Map<string, string>();
 
     for (const childId of childNodeIds) {
       const codeResult = await mcpBridge.callTool('get_code', {
@@ -510,7 +519,7 @@ Return structured data following the schema.`;
             }
           ]
         }
-      ]);
+      ]) as z.infer<typeof FigmaAnalysisSchema>;
 
       console.log('   ✅ AI analysis complete');
       console.log(`   📊 Extracted ${structuredAnalysis.components.length} components`);
@@ -523,19 +532,34 @@ Return structured data following the schema.`;
 
       // Return structure compatible with workflow expectations
       return {
-        tokens: tokenResult.tokens || [],
-        tokenCategories: (tokenResult.tokens || []).reduce((acc, token) => {
+        tokens: tokenResult?.tokens || [],
+        categories: (tokenResult?.tokens || []).reduce((acc: Record<string, number>, token) => {
           const category = token.category || 'uncategorized';
           acc[category] = (acc[category] || 0) + 1;
           return acc;
         }, {}),
-        components: structuredAnalysis.components,
-        analysis: structuredAnalysis.analysis,
-        figmaData: {
+        components: structuredAnalysis.components.map(comp => ({
+          name: comp.name || 'UnknownComponent',
+          type: comp.type || 'unknown',
+          description: comp.description || '',
+          visualDescription: JSON.stringify(comp.visualProperties || {}),
+          variants: comp.variants || [],
+          propsRequired: comp.propsRequired || [],
+          propsOptional: comp.propsOptional || [],
+          behavior: comp.behavior || '',
+          figmaCode: comp.figmaCode || '',
+          atomicLevel: comp.atomicLevel,
+          figmaNodeId: nodeId
+        })),
+        metadata: {
           nodeId,
-          hasVariables,
-          screenshotUrl,
-          metadata: metadataXml
+          totalComponents: structuredAnalysis.components.length,
+          totalTokens: tokenResult?.tokens?.length || 0
+        },
+        figmaData: {
+          variables: hasVariables ? {} : undefined,
+          metadata: metadataXml as unknown,
+          screenshot: screenshotUrl
         }
       };
     } else {
@@ -543,24 +567,30 @@ Return structured data following the schema.`;
       console.log('');
 
       return {
-        tokens: tokenResult.tokens || [],
-        tokenCategories: (tokenResult.tokens || []).reduce((acc, token) => {
+        tokens: tokenResult?.tokens || [],
+        categories: (tokenResult?.tokens || []).reduce((acc: Record<string, number>, token) => {
           const category = token.category || 'uncategorized';
           acc[category] = (acc[category] || 0) + 1;
           return acc;
         }, {}),
         components: [],
-        analysis: { totalComponents: 0, sections: [] },
-        figmaData: { nodeId, hasVariables }
+        metadata: {
+          nodeId,
+          totalComponents: 0,
+          totalTokens: tokenResult?.tokens?.length || 0
+        },
+        figmaData: { hasVariables }
       };
     }
 
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
     console.error('');
     console.error('═'.repeat(60));
     console.error('❌ Extraction Failed');
     console.error('═'.repeat(60));
-    console.error('Error:', error.message);
+    console.error('Error:', errorMessage);
     throw error;
   }
 }
