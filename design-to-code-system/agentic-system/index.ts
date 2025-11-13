@@ -21,10 +21,20 @@ const langSmithConfig = configureLangSmith();
 // Initialize LangSmith client for trace management
 const langsmithClient = langSmithConfig.enabled ? new Client() : null;
 
+interface WorkflowResult {
+  componentsIdentified?: number;
+  generatedComponents?: number | unknown[];
+  iterations?: number;
+  success?: boolean;
+  startTime: string;
+  endTime?: string;
+  [key: string]: unknown;
+}
+
 /**
  * Main workflow using LangGraph
  */
-const main = async () => {
+const main = async (): Promise<void> => {
   const args = process.argv.slice(2);
 
   // Parse command-line arguments
@@ -37,7 +47,7 @@ const main = async () => {
 
   // Generate or extract thread ID for checkpointing
   // Thread ID format: run-<timestamp>-<url-hash>
-  let threadId;
+  let threadId: string;
   if (threadIdArg) {
     threadId = threadIdArg.split('=')[1];
   } else if (resumeArg) {
@@ -124,7 +134,7 @@ Options:
     // Thread ID enables workflow resumption after interruptions
     const result = await workflow.invoke(initialState, {
       configurable: { thread_id: threadId }
-    });
+    }) as WorkflowResult;
 
     // Report final results
     console.log('\n📊 Final Results');
@@ -133,7 +143,10 @@ Options:
     console.log(`Components Generated: ${result.generatedComponents}`);
     console.log(`Total Iterations: ${result.iterations}`);
     console.log(`Status: ${result.success ? '✅ Success' : '⚠️  Completed with errors'}`);
-    console.log(`Duration: ${new Date(result.endTime) - new Date(result.startTime)}ms`);
+    if (result.endTime) {
+      const duration = new Date(result.endTime).getTime() - new Date(result.startTime).getTime();
+      console.log(`Duration: ${duration}ms`);
+    }
 
     if (langSmithConfig.enabled) {
       console.log(`\n💡 View detailed traces in LangSmith:`);
