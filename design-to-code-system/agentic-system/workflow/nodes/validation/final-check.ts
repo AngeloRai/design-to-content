@@ -12,7 +12,7 @@ import {
   runTypeScriptValidation,
   runESLintValidation,
   type ESLintIssue
-} from '../../../utils/validation-utils.js';
+} from '../../../utils/validation-utils.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

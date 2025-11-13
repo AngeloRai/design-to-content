@@ -5,6 +5,7 @@
 
 import type { ComponentMetadata, ComponentRegistry, ComponentSpec } from './component.js';
 import type { DesignToken } from './figma.js';
+import type { FigmaBridge } from '../utils/mcp-figma-bridge.ts';
 
 /**
  * Workflow phase names
@@ -58,7 +59,7 @@ export interface WorkflowState {
   iterations?: number;
 
   // MCP bridge instance and paths
-  mcpBridge?: unknown;
+  mcpBridge?: FigmaBridge;
   globalCssPath?: string | null;
 
   // Story generation

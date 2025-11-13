@@ -36,6 +36,7 @@ export interface FigmaToolResult {
     type?: string;
     text?: string;
     data?: string;
+    mimeType?: string;
   }>;
   isError?: boolean;
   [key: string]: unknown;

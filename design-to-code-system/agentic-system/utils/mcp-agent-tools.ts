@@ -13,9 +13,113 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import type { FigmaBridge } from './mcp-figma-bridge.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+/**
+ * Design token category types
+ */
+type TokenCategory = 'color' | 'typography' | 'spacing' | 'border-radius' | 'shadow' | 'other';
+
+/**
+ * MCP tool parameters interfaces
+ */
+interface FetchScreenshotParams {
+  nodeId: string;
+  reason: string;
+}
+
+interface FetchCodeParams {
+  nodeId: string;
+  reason: string;
+}
+
+interface FetchChildNodesParams {
+  nodeId: string;
+  reason: string;
+}
+
+interface AddDesignTokenParams {
+  category: TokenCategory;
+  name: string;
+  value: string;
+  reason: string;
+}
+
+interface ReadDesignTokensParams {
+  category?: TokenCategory;
+}
+
+/**
+ * MCP tool result interfaces
+ */
+interface ScreenshotResult {
+  success: boolean;
+  nodeId?: string;
+  screenshot?: {
+    type: string;
+    data: string;
+    mimeType?: string;
+  };
+  message?: string;
+  error?: string;
+}
+
+interface CssValues {
+  colors: string[];
+  spacing: string[];
+  typography: string[];
+  borderRadius: string[];
+  shadows: string[];
+}
+
+interface CodeResult {
+  success: boolean;
+  nodeId?: string;
+  code?: string;
+  cssValues?: CssValues;
+  message?: string;
+  error?: string;
+}
+
+interface ChildNode {
+  type: string;
+  name: string;
+}
+
+interface ChildNodesResult {
+  success: boolean;
+  nodeId?: string;
+  metadata?: string;
+  childNodes?: ChildNode[];
+  message?: string;
+  error?: string;
+}
+
+interface DesignToken {
+  name: string;
+  value: string;
+  category: string;
+}
+
+interface AddTokenResult {
+  success: boolean;
+  token?: DesignToken;
+  message?: string;
+  error?: string;
+  suggestion?: string;
+}
+
+interface ReadTokensResult {
+  success: boolean;
+  tokens?: DesignToken[];
+  totalCount?: number;
+  filteredCount?: number;
+  message?: string;
+  error?: string;
+}
 
 /**
  * MCP Tool Definitions
@@ -138,40 +242,46 @@ export const MCP_TOOLS = [
  * Create MCP tool executor
  * Wraps MCP bridge calls as OpenAI function executors
  *
- * @param {Object} mcpBridge - Active MCP bridge instance
- * @param {string} globalCssPath - Path to globals.css file
- * @returns {Function} Tool executor function
+ * @param mcpBridge - Active MCP bridge instance
+ * @param globalCssPath - Path to globals.css file
+ * @returns Tool executor function
  */
-export function createMcpToolExecutor(mcpBridge, globalCssPath) {
-  return async function executeMcpTool(toolName, args) {
+export function createMcpToolExecutor(
+  mcpBridge: FigmaBridge,
+  globalCssPath: string
+): (toolName: string, args: Record<string, unknown>) => Promise<unknown> {
+  return async function executeMcpTool(
+    toolName: string,
+    args: Record<string, unknown>
+  ): Promise<unknown> {
     console.log(`\n🔧 Executing MCP tool: ${toolName}`);
     console.log(`   Args:`, args);
 
     try {
       switch (toolName) {
         case 'fetch_figma_screenshot':
-          return await fetchFigmaScreenshot(mcpBridge, args);
+          return await fetchFigmaScreenshot(mcpBridge, args as unknown as FetchScreenshotParams);
 
         case 'fetch_figma_code':
-          return await fetchFigmaCode(mcpBridge, args);
+          return await fetchFigmaCode(mcpBridge, args as unknown as FetchCodeParams);
 
         case 'fetch_child_nodes':
-          return await fetchChildNodes(mcpBridge, args);
+          return await fetchChildNodes(mcpBridge, args as unknown as FetchChildNodesParams);
 
         case 'add_design_token':
-          return await addDesignToken(globalCssPath, args);
+          return await addDesignToken(globalCssPath, args as unknown as AddDesignTokenParams);
 
         case 'read_design_tokens':
-          return await readDesignTokens(globalCssPath, args);
+          return await readDesignTokens(globalCssPath, args as unknown as ReadDesignTokensParams);
 
         default:
           throw new Error(`Unknown MCP tool: ${toolName}`);
       }
     } catch (error) {
-      console.error(`❌ Error executing ${toolName}:`, error.message);
+      console.error(`❌ Error executing ${toolName}:`, (error as Error).message);
       return {
         success: false,
-        error: error.message
+        error: (error as Error).message
       };
     }
   };
@@ -181,7 +291,10 @@ export function createMcpToolExecutor(mcpBridge, globalCssPath) {
  * Fetch Figma Screenshot
  * Calls get_screenshot via MCP bridge
  */
-async function fetchFigmaScreenshot(mcpBridge, { nodeId, reason }) {
+async function fetchFigmaScreenshot(
+  mcpBridge: FigmaBridge,
+  { nodeId, reason }: FetchScreenshotParams
+): Promise<ScreenshotResult> {
   console.log(`   📸 Fetching screenshot for node ${nodeId}: ${reason}`);
 
   const result = await mcpBridge.callTool('get_screenshot', {
@@ -197,8 +310,8 @@ async function fetchFigmaScreenshot(mcpBridge, { nodeId, reason }) {
       success: true,
       nodeId,
       screenshot: {
-        type: screenshot.type,
-        data: screenshot.data || screenshot.text,
+        type: screenshot.type || '',
+        data: screenshot.data || screenshot.text || '',
         mimeType: screenshot.mimeType
       },
       message: `Screenshot captured for node ${nodeId}`
@@ -215,7 +328,10 @@ async function fetchFigmaScreenshot(mcpBridge, { nodeId, reason }) {
  * Fetch Figma Code
  * Calls get_code via MCP bridge and extracts CSS values
  */
-async function fetchFigmaCode(mcpBridge, { nodeId, reason }) {
+async function fetchFigmaCode(
+  mcpBridge: FigmaBridge,
+  { nodeId, reason }: FetchCodeParams
+): Promise<CodeResult> {
   console.log(`   💻 Fetching code for node ${nodeId}: ${reason}`);
 
   const result = await mcpBridge.callTool('get_code', {
@@ -251,7 +367,10 @@ async function fetchFigmaCode(mcpBridge, { nodeId, reason }) {
  * Fetch Child Nodes
  * Calls get_metadata via MCP bridge to explore component structure
  */
-async function fetchChildNodes(mcpBridge, { nodeId, reason }) {
+async function fetchChildNodes(
+  mcpBridge: FigmaBridge,
+  { nodeId, reason }: FetchChildNodesParams
+): Promise<ChildNodesResult> {
   console.log(`   🔍 Fetching child nodes for ${nodeId}: ${reason}`);
 
   const result = await mcpBridge.callTool('get_metadata', {
@@ -286,7 +405,10 @@ async function fetchChildNodes(mcpBridge, { nodeId, reason }) {
  * Add Design Token
  * Appends a new design token to globals.css
  */
-async function addDesignToken(globalCssPath, { category, name, value, reason }) {
+async function addDesignToken(
+  globalCssPath: string,
+  { category, name, value, reason }: AddDesignTokenParams
+): Promise<AddTokenResult> {
   console.log(`   ➕ Adding design token: ${name} = ${value} (${category})`);
   console.log(`      Reason: ${reason}`);
 
@@ -306,7 +428,7 @@ async function addDesignToken(globalCssPath, { category, name, value, reason }) 
 
     // Find the appropriate category section or create it
     const categoryComment = getCategoryComment(category);
-    let updatedContent;
+    let updatedContent: string;
 
     if (content.includes(categoryComment)) {
       // Add to existing category
@@ -347,7 +469,7 @@ async function addDesignToken(globalCssPath, { category, name, value, reason }) 
   } catch (error) {
     return {
       success: false,
-      error: `Failed to add design token: ${error.message}`
+      error: `Failed to add design token: ${(error as Error).message}`
     };
   }
 }
@@ -356,7 +478,10 @@ async function addDesignToken(globalCssPath, { category, name, value, reason }) 
  * Read Design Tokens
  * Parses and returns existing design tokens from globals.css
  */
-async function readDesignTokens(globalCssPath, { category } = {}) {
+async function readDesignTokens(
+  globalCssPath: string,
+  { category }: ReadDesignTokensParams = {}
+): Promise<ReadTokensResult> {
   console.log(`   📖 Reading design tokens${category ? ` (category: ${category})` : ''}`);
 
   try {
@@ -372,7 +497,7 @@ async function readDesignTokens(globalCssPath, { category } = {}) {
     }
 
     const themeContent = themeBlockMatch[1];
-    const tokens = [];
+    const tokens: DesignToken[] = [];
     let currentCategory = 'uncategorized';
 
     // Parse tokens line by line
@@ -414,7 +539,7 @@ async function readDesignTokens(globalCssPath, { category } = {}) {
   } catch (error) {
     return {
       success: false,
-      error: `Failed to read design tokens: ${error.message}`
+      error: `Failed to read design tokens: ${(error as Error).message}`
     };
   }
 }
@@ -423,8 +548,8 @@ async function readDesignTokens(globalCssPath, { category } = {}) {
  * Extract CSS values from Figma code
  * Looks for colors, spacing, typography, shadows, etc.
  */
-function extractCssValues(code) {
-  const values = {
+function extractCssValues(code: string): CssValues {
+  const values: CssValues = {
     colors: [],
     spacing: [],
     typography: [],
@@ -446,15 +571,24 @@ function extractCssValues(code) {
 
   // Extract font sizes
   const fontSizes = code.match(/fontSize:\s*['"]([^'"]+)['"]/g) || [];
-  values.typography.push(...fontSizes.map(m => m.match(/['"]([^'"]+)['"]/)[1]));
+  values.typography.push(...fontSizes.map(m => {
+    const match = m.match(/['"]([^'"]+)['"]/);
+    return match ? match[1] : '';
+  }).filter(Boolean));
 
   // Extract border radius
   const borderRadius = code.match(/borderRadius:\s*['"]([^'"]+)['"]/g) || [];
-  values.borderRadius.push(...borderRadius.map(m => m.match(/['"]([^'"]+)['"]/)[1]));
+  values.borderRadius.push(...borderRadius.map(m => {
+    const match = m.match(/['"]([^'"]+)['"]/);
+    return match ? match[1] : '';
+  }).filter(Boolean));
 
   // Extract box shadows
   const shadows = code.match(/boxShadow:\s*['"]([^'"]+)['"]/g) || [];
-  values.shadows.push(...shadows.map(m => m.match(/['"]([^'"]+)['"]/)[1]));
+  values.shadows.push(...shadows.map(m => {
+    const match = m.match(/['"]([^'"]+)['"]/);
+    return match ? match[1] : '';
+  }).filter(Boolean));
 
   return values;
 }
@@ -462,8 +596,8 @@ function extractCssValues(code) {
 /**
  * Parse child nodes from XML metadata
  */
-function parseChildNodesFromXml(xml) {
-  const nodes = [];
+function parseChildNodesFromXml(xml: string): ChildNode[] {
+  const nodes: ChildNode[] = [];
 
   // Simple XML parsing for node structure
   const nodeMatches = xml.matchAll(/<(\w+)[^>]*name="([^"]*)"[^>]*>/g);
@@ -482,8 +616,8 @@ function parseChildNodesFromXml(xml) {
 /**
  * Get category comment for globals.css
  */
-function getCategoryComment(category) {
-  const comments = {
+function getCategoryComment(category: TokenCategory): string {
+  const comments: Record<TokenCategory, string> = {
     'color': '/* Colors */',
     'typography': '/* Typography */',
     'spacing': '/* Spacing */',

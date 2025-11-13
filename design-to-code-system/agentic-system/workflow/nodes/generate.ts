@@ -12,12 +12,12 @@ import {
 import type { BaseMessage } from "@langchain/core/messages";
 import { AGENT_SYSTEM_PROMPT } from "../prompts/agent-prompts.js";
 import { getChatModel } from "../../config/openai-client.ts";
-import { createToolExecutor, TOOLS, type VectorSearch } from "../../utils/tool-executor.js";
+import { createToolExecutor, TOOLS, type VectorSearch } from "../../utils/tool-executor.ts";
 import { buildRegistry } from "../../tools/registry.js";
-import { MCP_TOOLS, createMcpToolExecutor } from "../../utils/mcp-agent-tools.js";
-import type { WorkflowState, NodeResult, ComponentFailureDetails } from "../../types/workflow.js";
-import type { ComponentSpec } from "../../types/component.js";
-import type { DesignToken } from "../../types/figma.js";
+import { MCP_TOOLS, createMcpToolExecutor } from "../../utils/mcp-agent-tools.ts";
+import type { WorkflowState, NodeResult, ComponentFailureDetails } from "../../types/workflow.ts";
+import type { ComponentSpec } from "../../types/component.ts";
+import type { DesignToken } from "../../types/figma.ts";
 
 interface ToolCall {
   id: string;
@@ -74,7 +74,7 @@ export async function generateNode(state: WorkflowState): Promise<NodeResult> {
 
     if (mcpBridge && globalCssPath) {
       console.log('🔧 MCP bridge available - exposing Figma tools to agent');
-      mcpToolExecutor = createMcpToolExecutor(mcpBridge, globalCssPath) as (name: string, args: Record<string, unknown>) => Promise<unknown>;
+      mcpToolExecutor = createMcpToolExecutor(mcpBridge, globalCssPath);
       allTools = [...TOOLS, ...MCP_TOOLS] as unknown[];
       console.log(`   Total tools available: ${allTools.length} (${TOOLS.length} standard + ${MCP_TOOLS.length} MCP)\n`);
     } else {

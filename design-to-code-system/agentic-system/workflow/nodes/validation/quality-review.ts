@@ -12,7 +12,7 @@ import {
   trimMessages,
 } from "@langchain/core/messages";
 import { getChatModel } from "../../../config/openai-client.ts";
-import { createToolExecutor, TOOLS } from "../../../utils/tool-executor.js";
+import { createToolExecutor, TOOLS } from "../../../utils/tool-executor.ts";
 import type { ValidationState, NodeResult } from "../../../types/workflow.js";
 import type { ComponentMetadata, ComponentRegistry } from "../../../types/component.js";
 import type { BaseMessage } from "@langchain/core/messages";

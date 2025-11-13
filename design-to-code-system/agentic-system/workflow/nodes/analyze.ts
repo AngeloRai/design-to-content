@@ -5,7 +5,7 @@
  */
 
 import { extractWithMcp, parseAtomicLevelUrls } from '../../tools/figma-extractor.ts';
-import { createFigmaBridge } from '../../utils/mcp-figma-bridge.js';
+import { createFigmaBridge } from '../../utils/mcp-figma-bridge.ts';
 import { env } from '../../config/env.config.ts';
 import type { WorkflowState, NodeResult } from '../../types/workflow.js';
 import type { ComponentSpec } from '../../types/component.js';
