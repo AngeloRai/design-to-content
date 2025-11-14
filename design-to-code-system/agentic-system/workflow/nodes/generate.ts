@@ -8,14 +8,28 @@ import {
   HumanMessage,
   SystemMessage,
   ToolMessage,
+  BaseMessage as BaseMessageCtor,
+  AIMessage,
+  FunctionMessage,
 } from "@langchain/core/messages";
-import type { BaseMessage } from "@langchain/core/messages";
+import type { BaseMessage, StoredMessage } from "@langchain/core/messages";
 import { AGENT_SYSTEM_PROMPT } from "../prompts/agent-prompts.ts";
 import { getChatModel } from "../../config/openai-client.ts";
-import { createToolExecutor, TOOLS, type VectorSearch } from "../../utils/tool-executor.ts";
+import {
+  createToolExecutor,
+  TOOLS,
+  type VectorSearch,
+} from "../../tools/tool-executor.ts";
 import { buildRegistry } from "../../tools/registry.ts";
-import { MCP_TOOLS, createMcpToolExecutor } from "../../utils/mcp-agent-tools.ts";
-import type { WorkflowState, NodeResult, ComponentFailureDetails } from "../../types/workflow.ts";
+import {
+  MCP_TOOLS,
+  createMcpToolExecutor,
+} from "../../tools/mcp-agent-tools.ts";
+import type {
+  WorkflowState,
+  NodeResult,
+  ComponentFailureDetails,
+} from "../../types/workflow.ts";
 import type { ComponentSpec } from "../../types/component.ts";
 import type { DesignToken } from "../../types/figma.ts";
 
@@ -38,6 +52,41 @@ interface ToolResult {
 interface ValidationResult {
   valid: boolean;
   errors?: string;
+}
+
+function rehydrateStoredMessage(entry: StoredMessage): BaseMessage | null {
+  if (!entry?.data) return null;
+  const common = {
+    content: entry.data.content ?? "",
+    additional_kwargs: entry.data.additional_kwargs ?? {},
+    response_metadata: entry.data.response_metadata ?? {},
+    name: entry.data.name,
+  };
+  switch (entry.type) {
+    case "system":
+      return new SystemMessage(common as any);
+    case "human":
+    case "user":
+      return new HumanMessage(common as any);
+    case "ai":
+    case "assistant":
+      return new AIMessage(common as any);
+    case "tool":
+      return new ToolMessage({
+        ...common,
+        tool_call_id:
+          entry.data.tool_call_id ??
+          (common.additional_kwargs as Record<string, unknown>).tool_call_id ??
+          "",
+      } as any);
+    case "function":
+      return new FunctionMessage({
+        ...common,
+        name: entry.data.name ?? "",
+      } as any);
+    default:
+      return null;
+  }
 }
 
 export async function generateNode(state: WorkflowState): Promise<NodeResult> {
@@ -66,19 +115,27 @@ export async function generateNode(state: WorkflowState): Promise<NodeResult> {
     }
 
     // Setup tool executor
-    const toolExecutor = createToolExecutor(vectorSearch as VectorSearch | null, registry, outputDir);
+    const toolExecutor = createToolExecutor(
+      vectorSearch as VectorSearch | null,
+      registry,
+      outputDir
+    );
 
     // Setup MCP tool executor if MCP bridge is available
-    let mcpToolExecutor: ((name: string, args: Record<string, unknown>) => Promise<unknown>) | null = null;
+    let mcpToolExecutor:
+      | ((name: string, args: Record<string, unknown>) => Promise<unknown>)
+      | null = null;
     let allTools: unknown[] = [...TOOLS];
 
     if (mcpBridge && globalCssPath) {
-      console.log('🔧 MCP bridge available - exposing Figma tools to agent');
+      console.log("🔧 MCP bridge available - exposing Figma tools to agent");
       mcpToolExecutor = createMcpToolExecutor(mcpBridge, globalCssPath);
       allTools = [...TOOLS, ...MCP_TOOLS] as unknown[];
-      console.log(`   Total tools available: ${allTools.length} (${TOOLS.length} standard + ${MCP_TOOLS.length} MCP)\n`);
+      console.log(
+        `   Total tools available: ${allTools.length} (${TOOLS.length} standard + ${MCP_TOOLS.length} MCP)\n`
+      );
     } else {
-      console.log('ℹ️  MCP bridge not available - using standard tools only\n');
+      console.log("ℹ️  MCP bridge not available - using standard tools only\n");
     }
 
     // Get ChatOpenAI model with tool binding (uses DEFAULT_MODEL env var or 'gpt-4o')
@@ -99,29 +156,37 @@ export async function generateNode(state: WorkflowState): Promise<NodeResult> {
       .join("\n");
 
     // Format design tokens by category for agent
-    const tokensByCategory = figmaAnalysis.tokens.reduce((acc: Record<string, DesignToken[]>, token: DesignToken) => {
-      const category = token.category || 'uncategorized';
-      if (!acc[category]) acc[category] = [];
-      acc[category].push(token);
-      return acc;
-    }, {});
+    const tokensByCategory = figmaAnalysis.tokens.reduce(
+      (acc: Record<string, DesignToken[]>, token: DesignToken) => {
+        const category = token.category || "uncategorized";
+        if (!acc[category]) acc[category] = [];
+        acc[category].push(token);
+        return acc;
+      },
+      {}
+    );
 
     const designTokensSummary = Object.entries(tokensByCategory)
       .map(([category, tokens]) => {
         const tokenList = (tokens as DesignToken[])
-          .map(t => `  - ${t.name}: ${t.value}`)
-          .join('\n');
+          .map((t) => `  - ${t.name}: ${t.value}`)
+          .join("\n");
         return `**${category}** (${tokens.length} tokens):\n${tokenList}`;
       })
-      .join('\n\n');
+      .join("\n\n");
 
     const userContent = `Generate React components following the ATOMIC DESIGN pattern based on this structured analysis from Figma:
 
 📊 ANALYSIS SUMMARY:
 - Total Components Identified: ${figmaAnalysis.analysis.totalComponents}
-- Design Tokens Extracted: ${figmaAnalysis.tokens.length} tokens across ${Object.keys(tokensByCategory).length} categories
+- Design Tokens Extracted: ${figmaAnalysis.tokens.length} tokens across ${
+      Object.keys(tokensByCategory).length
+    } categories
 - Sections: ${figmaAnalysis.analysis.sections
-      .map((s: { name: string; componentCount: number }) => `${s.name} (${s.componentCount} components)`)
+      .map(
+        (s: { name: string; componentCount: number }) =>
+          `${s.name} (${s.componentCount} components)`
+      )
       .join(", ")}
 
 🎨 DESIGN TOKENS (MANDATORY - use ONLY these classes):
@@ -191,10 +256,33 @@ ${JSON.stringify(figmaAnalysis.components, null, 2)}
 BEGIN NOW: Call get_registry() then start generating atoms.`;
 
     // Initialize messages as LangChain message objects
-    const messages: BaseMessage[] =
-      conversationHistory.length > 0
-        ? (conversationHistory as BaseMessage[])
-        : [new SystemMessage(systemPrompt), new HumanMessage(userContent)];
+    const storedHistory = Array.isArray(conversationHistory)
+      ? conversationHistory
+      : [];
+    const rehydratedHistory: BaseMessage[] = [];
+
+    for (const entry of storedHistory) {
+      if (BaseMessageCtor.isInstance(entry)) {
+        rehydratedHistory.push(entry as BaseMessage);
+        continue;
+      }
+      if (entry && typeof entry === "object") {
+        const rehydrated = rehydrateStoredMessage(entry as StoredMessage);
+        if (rehydrated) {
+          rehydratedHistory.push(rehydrated);
+          continue;
+        }
+      }
+      console.warn(
+        "⚠️  Skipping invalid stored message in conversation history"
+      );
+    }
+
+    const messages: BaseMessage[] = [
+      new SystemMessage(systemPrompt),
+      new HumanMessage(userContent),
+      ...rehydratedHistory,
+    ];
 
     let continueLoop = true;
     let iterationCount = 0;
@@ -205,7 +293,7 @@ BEGIN NOW: Call get_registry() then start generating atoms.`;
     // Agent loop - keep going until agent says it's done
     // Track ALL failed components with their error details
     const failedComponents: Record<string, ComponentFailureDetails> = {};
-    const componentFixAttempts: Record<string, number> = {}; // Track how many times we've tried to fix each component
+    const componentFixAttempts: Record<string, number> = {};
 
     while (continueLoop && iterationCount < maxIterations) {
       iterationCount++;
@@ -238,17 +326,23 @@ BEGIN NOW: Call get_registry() then start generating atoms.`;
           console.log(`   Input: ${JSON.stringify(functionArgs, null, 2)}`);
 
           // Determine if this is an MCP tool or standard tool
-          const mcpToolNames = MCP_TOOLS.map(t => t.function.name);
+          const mcpToolNames = MCP_TOOLS.map((t) => t.function.name);
           const isMcpTool = mcpToolNames.includes(functionName);
 
           let result: ToolResult;
           if (isMcpTool && mcpToolExecutor) {
             // Execute MCP tool
             console.log(`   [MCP Tool]`);
-            result = await mcpToolExecutor(functionName, functionArgs) as ToolResult;
+            result = (await mcpToolExecutor(
+              functionName,
+              functionArgs
+            )) as ToolResult;
           } else {
             // Execute standard tool
-            result = await toolExecutor.execute(functionName, functionArgs) as ToolResult;
+            result = (await toolExecutor.execute(
+              functionName,
+              functionArgs
+            )) as ToolResult;
           }
 
           console.log(
@@ -257,17 +351,17 @@ BEGIN NOW: Call get_registry() then start generating atoms.`;
             }\n`
           );
 
-          // CRITICAL: If write_component was called, auto-validate immediately
+          // If write_component was called, auto-validate immediately
           if (functionName === "write_component" && result.success) {
             console.log("   🔍 Auto-validating component...");
             const filePath = path.relative(
               path.resolve(outputDir, ".."),
               result.path!
             );
-            const validation = await toolExecutor.execute(
+            const validation = (await toolExecutor.execute(
               "validate_typescript",
               { file_path: filePath }
-            ) as ValidationResult;
+            )) as ValidationResult;
 
             if (validation.valid) {
               console.log("   ✅ Validation passed - component is complete\n");
@@ -346,7 +440,9 @@ BEGIN NOW: Call get_registry() then start generating atoms.`;
             );
             console.log(
               "ToolMessage preview:",
-              typeof toolMessage.content === 'string' ? toolMessage.content.substring(0, 500) : JSON.stringify(toolMessage.content).substring(0, 500)
+              typeof toolMessage.content === "string"
+                ? toolMessage.content.substring(0, 500)
+                : JSON.stringify(toolMessage.content).substring(0, 500)
             );
             console.log("================================================\n");
           }
@@ -389,15 +485,17 @@ BEGIN NOW: Call get_registry() then start generating atoms.`;
 
     return {
       ...state,
-      conversationHistory: messages as unknown[],
+      conversationHistory: messages.map((message) =>
+        message.toDict()
+      ) as StoredMessage[],
       iterations: iterationCount,
       generatedComponents: totalComponents,
       registry: {
         ...finalRegistry,
         totalCount: totalComponents,
-        lastUpdated: new Date(finalRegistry.lastUpdated).toISOString()
-      }, // Update registry in state
-      failedComponents, // Pass failed components to validation node
+        lastUpdated: new Date(finalRegistry.lastUpdated).toISOString(),
+      },
+      failedComponents,
       currentPhase: "finalize",
     };
   } catch (error) {
@@ -409,7 +507,10 @@ BEGIN NOW: Call get_registry() then start generating atoms.`;
 
     return {
       ...state,
-      errors: [...(state.errors || []), { phase: "generate", error: errorMessage }],
+      errors: [
+        ...(state.errors || []),
+        { phase: "generate", error: errorMessage },
+      ],
       success: false,
       currentPhase: "finalize",
     };

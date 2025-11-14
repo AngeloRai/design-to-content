@@ -5,7 +5,7 @@
 
 import type { ComponentMetadata, ComponentRegistry, ComponentSpec } from './component.js';
 import type { DesignToken } from './figma.js';
-import type { FigmaBridge } from '../utils/mcp-figma-bridge.ts';
+import type { FigmaBridge } from '../tools/mcp-figma-bridge.ts';
 
 /**
  * Workflow phase names

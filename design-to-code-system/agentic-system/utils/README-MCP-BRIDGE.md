@@ -25,7 +25,7 @@ Functional bridge to connect to Figma's Model Context Protocol (MCP) server for 
 ### 2. Basic Usage
 
 ```javascript
-import { createFigmaBridge } from "./agentic-system/utils/mcp-figma-bridge.js";
+import { createFigmaBridge } from "./agentic-system/tools/mcp-figma-bridge.js";
 
 // Connect to desktop server
 const bridge = await createFigmaBridge({ useDesktop: true });
@@ -155,7 +155,7 @@ Creates and connects to Figma MCP server.
 ### In LangGraph Nodes
 
 ```javascript
-import { createFigmaBridge } from "./agentic-system/utils/mcp-figma-bridge.js";
+import { createFigmaBridge } from "./agentic-system/tools/mcp-figma-bridge.js";
 
 export const figmaExtractorNode = async (state) => {
   const bridge = await createFigmaBridge({ useDesktop: true });

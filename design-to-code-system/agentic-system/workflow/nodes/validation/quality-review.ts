@@ -12,9 +12,9 @@ import {
   trimMessages,
 } from "@langchain/core/messages";
 import { getChatModel } from "../../../config/openai-client.ts";
-import { createToolExecutor, TOOLS } from "../../../utils/tool-executor.ts";
-import type { ValidationState, NodeResult } from "../../../types/workflow.js";
-import type { ComponentMetadata, ComponentRegistry } from "../../../types/component.js";
+import { createToolExecutor, TOOLS } from "../../../tools/tool-executor.ts";
+import type { ValidationState, NodeResult } from "../../../types/workflow.ts";
+import type { ComponentMetadata, ComponentRegistry } from "../../../types/component.ts";
 import type { BaseMessage } from "@langchain/core/messages";
 
 interface QualityReviewResult {
@@ -37,7 +37,7 @@ async function reviewComponentQuality(
 
   // Load reference patterns for the agent to follow
   const { loadReferencePatterns } = await import(
-    "../../prompts/agent-prompts.js"
+    "../../prompts/agent-prompts.ts"
   );
   const referencePatterns = await loadReferencePatterns();
 

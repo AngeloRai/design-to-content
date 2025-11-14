@@ -13,7 +13,7 @@ import {
   extractFileErrors,
   runESLintValidation,
   type ESLintIssue
-} from './validation-utils.ts';
+} from '../utils/validation-utils.ts';
 import type { ComponentRegistry } from '../types/component.js';
 
 const __filename = fileURLToPath(import.meta.url);
