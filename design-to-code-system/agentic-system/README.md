@@ -1,5 +1,9 @@
 # Agentic Component Generator
 
+**Quick Start & Usage Guide**
+
+> **📐 Looking for architecture details?** See [../README.md](../README.md) for system overview and [../docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) for detailed architecture.
+
 An AI-powered system that automatically generates React components from Figma designs using LangGraph workflows.
 
 ## Features
@@ -15,15 +19,16 @@ An AI-powered system that automatically generates React components from Figma de
 ## Quick Start
 
 ```bash
-# Install dependencies
+# Install dependencies (from design-to-code-system root)
+cd design-to-code-system
 npm install
 
 # Set up environment variables
 cp .env.example .env
-# Edit .env and add your API keys
+# Edit .env and add your OPENAI_API_KEY and FIGMA_ACCESS_TOKEN
 
 # Run the workflow
-node index.ts "https://figma.com/design/YOUR_FILE?node-id=1-2"
+npx tsx agentic-system/index.ts "https://figma.com/design/YOUR_FILE?node-id=1-2"
 ```
 
 ## Checkpointing & Resume Capability
@@ -45,13 +50,13 @@ Checkpointing automatically saves the workflow state at each node, allowing you 
 When you run a workflow, a thread ID is automatically generated:
 
 ```bash
-node index.ts "https://figma.com/design/..."
+npx tsx agentic-system/index.ts "https://figma.com/design/..."
 ```
 
 Output:
 ```
 💾 Checkpoint Thread ID: run-1234567890-abcdef12
-   Resume this workflow: node index.ts --resume=run-1234567890-abcdef12
+   Resume this workflow: npx tsx agentic-system/index.ts --resume=run-1234567890-abcdef12
    (Workflow state is preserved in memory for this session)
 ```
 
@@ -60,7 +65,7 @@ Output:
 If the workflow is interrupted (Ctrl+C, crash, timeout), you can resume:
 
 ```bash
-node index.ts --resume=run-1234567890-abcdef12
+npx tsx agentic-system/index.ts --resume=run-1234567890-abcdef12
 ```
 
 **Note**: MemorySaver checkpoints are only preserved for the current process. If you restart the Node.js process, checkpoints are lost. For persistent checkpoints, we'll add SqliteSaver in the future.
@@ -70,22 +75,39 @@ node index.ts --resume=run-1234567890-abcdef12
 For testing or debugging, specify your own thread ID:
 
 ```bash
-node index.ts "https://figma.com/..." --thread-id=my-debug-session
+npx tsx agentic-system/index.ts "https://figma.com/..." --thread-id=my-debug-session
 ```
 
 ### Common Use Cases
 
-#### 1. Review Figma Analysis Before Generation
+#### 1. Single Figma Node
+
+```bash
+# Generate components from a single Figma node
+npx tsx agentic-system/index.ts "https://figma.com/design/FILE?node-id=1-2"
+```
+
+#### 2. Multi-Node Workflow (Recommended)
+
+```bash
+# Process atoms, molecules, and organisms separately
+FIGMA_ATOMS="https://figma.com/design/FILE?node-id=1-2" \
+FIGMA_MOLECULES="https://figma.com/design/FILE?node-id=3-4" \
+FIGMA_ORGANISMS="https://figma.com/design/FILE?node-id=5-6" \
+npx tsx agentic-system/index.ts
+```
+
+#### 3. Review Figma Analysis Before Generation
 
 ```bash
 # Start workflow, interrupt after Figma analysis
-node index.ts "https://figma.com/..."
+npx tsx agentic-system/index.ts "https://figma.com/..."
 # Review what components were detected
 # Then resume to continue generation
-node index.ts --resume=run-1234567890-abcdef12
+npx tsx agentic-system/index.ts --resume=run-1234567890-abcdef12
 ```
 
-#### 2. Recover from Failures
+#### 4. Recover from Failures
 
 If the workflow fails due to API timeout, network issues, or errors:
 
@@ -93,18 +115,18 @@ If the workflow fails due to API timeout, network issues, or errors:
 # Workflow fails during component generation
 # Fix the issue (check network, API limits, etc.)
 # Resume from where it left off
-node index.ts --resume=run-1234567890-abcdef12
+npx tsx agentic-system/index.ts --resume=run-1234567890-abcdef12
 ```
 
-#### 3. Debugging Specific Nodes
+#### 5. Debugging Specific Nodes
 
 ```bash
 # Use consistent thread ID for debugging
-node index.ts "https://figma.com/..." --thread-id=debug-validation
+npx tsx agentic-system/index.ts "https://figma.com/..." --thread-id=debug-validation
 
 # Make code changes to a specific node
 # Resume with same thread ID to replay from that node
-node index.ts --resume=debug-validation
+npx tsx agentic-system/index.ts --resume=debug-validation
 ```
 
 ## Environment Variables
@@ -119,28 +141,38 @@ OPENAI_API_KEY=sk-...
 FIGMA_ACCESS_TOKEN=figd_...
 ```
 
-### Optional
+### Optional - Workflow Configuration
 
 ```env
+# Multi-node workflow (recommended for atomic design)
+FIGMA_ATOMS=https://figma.com/design/...?node-id=1-2
+FIGMA_MOLECULES=https://figma.com/design/...?node-id=3-4
+FIGMA_ORGANISMS=https://figma.com/design/...?node-id=5-6
+
+# Or single URL workflow
+FIGMA_URL=https://figma.com/design/...?node-id=1-2
+
+# Output directory (default: atomic-design-pattern/ui)
+OUTPUT_DIR=atomic-design-pattern/ui
+
 # Checkpointing (enabled by default)
 ENABLE_CHECKPOINTING=true
+```
 
-# LangSmith Tracing
+### Optional - LangSmith Tracing
+
+```env
 LANGCHAIN_TRACING_V2=true
 LANGCHAIN_API_KEY=lsv2_...
 LANGSMITH_PROJECT=design-to-code-system
-LANGSMITH_WORKSPACE_ID=...
+LANGSMITH_WORKSPACE_ID=...  # Required when tracing is enabled
+```
 
-# Model Configuration
+### Optional - Model Configuration
+
+```env
 DEFAULT_MODEL=gpt-4o
 FALLBACK_MODEL=gpt-4o-mini
-
-# Output Configuration
-OUTPUT_DIR=atomic-design-pattern/ui
-
-# Debugging
-DEBUG=true
-LOG_LEVEL=info
 ```
 
 ## Workflow Nodes
@@ -156,22 +188,40 @@ The LangGraph workflow consists of these nodes:
 
 ## Architecture
 
+**TypeScript Implementation**:
+
 ```
 design-to-code-system/
 ├── agentic-system/
-│   ├── index.ts                 # Entry point with checkpointing
+│   ├── index.ts                   # Entry point with checkpointing
 │   ├── workflow/
-│   │   ├── graph.js            # LangGraph workflow definition (with MemorySaver)
-│   │   └── nodes/              # Workflow node implementations
+│   │   ├── graph.ts               # LangGraph workflow (StateGraph + MemorySaver)
+│   │   ├── nodes/                 # Workflow node implementations
+│   │   │   ├── analyze.ts         # Figma analysis with GPT-4o Vision
+│   │   │   ├── setup.ts           # Load references & vector search
+│   │   │   ├── generate.ts        # AI component generation
+│   │   │   ├── generate-stories.ts # Storybook story generation
+│   │   │   ├── validate.ts        # Validation subgraph
+│   │   │   ├── finalize.ts        # Results reporting
+│   │   │   └── validation/        # Validation subnodes
+│   │   └── prompts/               # AI prompts
 │   ├── config/
-│   │   ├── env.config.js       # Environment configuration (with checkpointing)
-│   │   └── langsmith-config.js # LangSmith tracing setup
-│   ├── tools/
-│   │   └── figma-extractor.js  # Figma API integration
+│   │   ├── env.config.ts          # Environment configuration
+│   │   ├── openai-client.ts       # OpenAI setup
+│   │   └── langsmith-config.ts    # LangSmith tracing
+│   ├── tools/                     # Tool implementations
+│   │   ├── figma-extractor.ts     # Figma API + Zod schemas
+│   │   ├── mcp-figma-bridge.ts    # MCP Figma integration
+│   │   ├── registry.ts            # Component registry
+│   │   ├── vector-search.ts       # Semantic search
+│   │   ├── story-generator.ts     # Story generation
+│   │   └── tool-executor.ts       # Agent tools
+│   ├── types/                     # TypeScript type definitions
 │   └── utils/
-│       ├── validation-utils.js  # TypeScript/ESLint validation
-│       └── tool-executor.js     # AI agent tools
+│       └── validation-utils.ts    # TypeScript/ESLint validation
 ```
+
+> **📐 For detailed architecture**, see [../docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md)
 
 ## LangSmith Integration
 
@@ -183,7 +233,7 @@ LANGCHAIN_TRACING_V2=true
 LANGCHAIN_API_KEY=lsv2_...
 
 # Run workflow
-node index.ts "https://figma.com/..."
+npx tsx agentic-system/index.ts "https://figma.com/..."
 
 # Visit URL shown in output:
 # https://smith.langchain.com/o/projects/p/design-to-code-system

@@ -1,33 +1,73 @@
 # Visual Validation System for Pixel-Perfect Component Generation
 
+**Last Updated**: November 14, 2025
+**Status**: Phase 2 Complete (Story Generation), Phases 3-5 Not Implemented
+
+## 📊 Implementation Summary
+
+| Phase | Status | Description |
+|-------|--------|-------------|
+| Phase 0 | ✅ Complete | Foundation (validation utils, registry) |
+| Phase 1 | ❌ Skipped | Enhanced metadata (not required for stories) |
+| Phase 2 | ✅ Complete | **Automated story generator** |
+| Phase 3 | ❌ Not Implemented | Visual validation node with Playwright |
+| Phase 4 | ❌ Not Implemented | Visual refinement loop |
+| Phase 5 | ❌ Not Implemented | Integration & testing |
+
+**Current Capability**: System generates Storybook stories automatically, ready for manual visual review. Automated screenshot comparison not yet implemented.
+
 ## 🎯 Goal
 Add visual validation to achieve pixel-perfect accuracy by comparing generated components against Figma designs using Playwright screenshots.
+
+**What Works Now**:
+- ✅ Automatic `.stories.tsx` generation
+- ✅ Stories for all component variants/states
+- ✅ Manual visual review in Storybook
+
+**What's Planned** (Not Implemented):
+- ❌ Automated Playwright screenshot capture
+- ❌ Visual diff comparison with Figma
+- ❌ AI-driven visual refinement loop
 
 ---
 
 ## 📋 Current State Analysis
 
-### Existing Infrastructure
-- [x] **Figma Analysis** extracts rich component specs:
+### ✅ Existing Infrastructure (IMPLEMENTED)
+- [x] **Figma Analysis** (`analyze.ts`) - Fully implemented
   - Visual properties (colors, typography, spacing, borders, shadows)
   - Variants and states (hover, disabled, etc.)
   - Component metadata in `figmaAnalysis.components[]`
+  - TypeScript with Zod schemas
 
-- [x] **Storybook Setup** (`/storybook-app`):
-  - Configured with Next.js framework (@storybook/nextjs)
-  - Path aliases to `@/ui` components
-  - Addons: a11y, vitest, docs
-  - Can generate static build (`storybook-static/`)
-
-- [x] **Component Registry** (`agentic-system/tools/registry.js`):
+- [x] **Component Registry** (`agentic-system/tools/registry.ts`) - Fully implemented
   - Tracks generated components with metadata
   - Stores props, variants, dependencies
   - Available in workflow state
+  - TypeScript implementation
 
-- [x] **Playwright** installed as npm dependency (`@playwright/test`)
-  - Will be used programmatically for automated screenshot capture
-  - MCP Playwright server available for interactive debugging if needed
-- [x] **Code Validation** working (TypeScript + ESLint)
+- [x] **Code Validation** (`validation/final-check.ts`) - Fully implemented
+  - TypeScript + ESLint validation
+  - Auto-fix loop with AI (`typescript-fix.ts`)
+  - Validation subgraph architecture
+
+- [x] **Story Generation** (`generate-stories.ts`) - ✅ **FULLY IMPLEMENTED**
+  - Automatically generates `.stories.tsx` files
+  - Creates stories for all component variants and states
+  - Uses component metadata from registry
+  - Ready for visual testing
+
+### ⚠️ Available But Not Integrated
+- [ ] **Storybook Setup** (`/storybook-app`):
+  - Configured with Next.js framework (@storybook/nextjs)
+  - Path aliases to `@/ui` components
+  - Can generate static build (`storybook-static/`)
+  - **Not currently used in workflow**
+
+- [ ] **Playwright** installed as npm dependency
+  - Available for screenshot capture
+  - MCP Playwright server available
+  - **Not integrated into validation workflow**
 
 ---
 
@@ -167,17 +207,39 @@ Code Validation → Visual Validation → Visual Fix → Code Validation → Vis
 ## 📁 Implementation Phases
 
 ### ✅ Phase 0: Foundation (COMPLETED)
-- [x] Shared validation utilities (`validation-utils.js`)
-- [x] TypeScript + ESLint validation in `final-check.js`
-- [x] Component registry with metadata tracking
+- [x] Shared validation utilities (`validation-utils.ts`) - TypeScript
+- [x] TypeScript + ESLint validation in `final-check.ts`
+- [x] Component registry with metadata tracking (`registry.ts`)
 - [x] MaxListeners fix for concurrent API calls
 
-### ⬜ Phase 1: Enhanced Component Metadata (1-2 hours)
+### ✅ Phase 2: Automated Story Generator (COMPLETED)
+- [x] Created `tools/story-generator.ts` (TypeScript implementation)
+- [x] Function `generateStoriesForComponent(component)` implemented
+- [x] Generates `.stories.tsx` file per component
+- [x] Creates stories for each variant × state combination
+- [x] Uses extracted component metadata for props
+- [x] Created workflow node `nodes/generate-stories.ts`
+- [x] Integrated into main workflow graph (runs after generate node)
+- [x] Stories generated to appropriate directories
 
-**Goal:** Capture visual specs from Figma for story generation
+**Files Created**:
+- ✅ `/design-to-code-system/agentic-system/tools/story-generator.ts`
+- ✅ `/design-to-code-system/agentic-system/workflow/nodes/generate-stories.ts`
 
-#### Tasks:
-- [ ] Update `ComponentSpecSchema` in `figma-extractor.js`:
+**Files Modified**:
+- ✅ `/design-to-code-system/agentic-system/workflow/graph.ts` (added story generation node)
+
+---
+
+### ❌ Phase 1: Enhanced Component Metadata (SKIPPED - Not Required)
+
+**Goal:** Capture bounding boxes from Figma for visual cropping
+
+**Status**: Not implemented. Story generation works without this.
+Phase 3-5 (visual validation) would need this for screenshot cropping.
+
+#### Tasks (if implementing visual validation):
+- [ ] Update `ComponentSpecSchema` in `figma-extractor.ts`:
   ```javascript
   const ComponentSpecSchema = z.object({
     // ... existing fields
@@ -216,16 +278,14 @@ Code Validation → Visual Validation → Visual Fix → Code Validation → Vis
   }
   ```
 
-**Files to modify:**
-- `/design-to-code-system/agentic-system/tools/figma-extractor.js`
-- `/design-to-code-system/agentic-system/tools/registry.js`
-- `/design-to-code-system/agentic-system/workflow/nodes/analyze.js`
+**Files to modify (if implementing)**:
+- `/design-to-code-system/agentic-system/tools/figma-extractor.ts`
+- `/design-to-code-system/agentic-system/tools/registry.ts`
+- `/design-to-code-system/agentic-system/workflow/nodes/analyze.ts`
 
 ---
 
-### ⬜ Phase 2: Automated Story Generator (2-3 hours)
-
-**Goal:** Generate Storybook stories programmatically from component registry
+### ❌ Phase 3: Visual Validation Node (NOT IMPLEMENTED)
 
 #### Tasks:
 - [ ] Create `/design-to-code-system/agentic-system/tools/story-generator.js`:

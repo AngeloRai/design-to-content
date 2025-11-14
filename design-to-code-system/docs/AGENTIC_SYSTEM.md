@@ -1,66 +1,117 @@
 # Agentic Component Generation System
 
+**Last Updated**: November 14, 2025
+
 ## Overview
 
-An autonomous LangGraph-powered system that generates production-ready React components from Figma designs using GPT-4o with full LangSmith observability.
+A TypeScript-based autonomous system powered by LangGraph v1.0 that generates production-ready React components from Figma designs.
 
 **Key Features:**
-- 🤖 Autonomous agent with tool calling (find similar components, write files, validate TypeScript)
-- 🎨 Atomic design pattern (atoms → elements, molecules → components, organisms → modules)
-- ✅ Automatic TypeScript validation after every component write
-- 📊 Full LangSmith tracing of every LLM call and tool execution
-- 🔍 Semantic search of reference components for pattern reuse
-- 📈 Token usage tracking and cost monitoring
+- 🎯 **TypeScript Throughout**: 100% TypeScript implementation with comprehensive type definitions
+- 🤖 **LangGraph v1.0**: Modern Annotation.Root state management with MemorySaver checkpointing
+- 🔄 **Workflow Resumption**: Resume interrupted workflows via thread IDs
+- 🎨 **Atomic Design Pattern**: Auto-categorizes (atoms → elements, molecules → components, organisms → modules)
+- ✅ **Auto-Fix Validation**: Dedicated validation subgraph with TypeScript/ESLint auto-correction
+- 📖 **Storybook Integration**: Automatic `.stories.tsx` generation for all components
+- 📊 **Full Observability**: LangSmith tracing of every LLM call and tool execution
+- 🔍 **Semantic Search**: Vector search for finding similar reference components
+- 🔌 **MCP Integration**: Figma API access via Model Context Protocol
 
 ## Architecture
 
+**Current Implementation** (TypeScript + LangGraph v1.0):
+
 ```
-index.js (Entry Point)
+index.ts (Entry Point with Checkpointing)
   │
-  ├─> Extract Figma Design (GPT-4o Vision + Structured Output)
-  │   └─> Zod schemas for component analysis
-  │
-  └─> LangGraph Workflow
+  └─> LangGraph StateGraph Workflow
         │
-        ├─> Setup Node
-        │   ├─ Scan reference components
+        ├─> analyze (Figma Analysis)
+        │   ├─ MCP Figma bridge fetches design + screenshot
+        │   ├─ GPT-4o Vision analyzes with Zod schemas
+        │   └─ Extract components, variants, design tokens
+        │
+        ├─> setup (Load References)
+        │   ├─ Scan existing component library
         │   ├─ Build vector search index
-        │   └─ Create component registry
+        │   └─ Initialize component registry
         │
-        ├─> Generate Node (ChatOpenAI Agent)
-        │   └─ Agent Loop:
-        │       ├─ Plan component consolidation
-        │       ├─ find_similar_components (semantic search)
-        │       ├─ write_component (create .tsx file)
-        │       ├─ validate_typescript (auto-validate)
-        │       └─ Fix errors if needed → repeat
+        ├─> generate (AI Component Generation)
+        │   ├─ GPT-4o agent with tool calling
+        │   ├─ find_similar_components (semantic search)
+        │   ├─ write_component (create .tsx files)
+        │   ├─ read_file (inspect existing code)
+        │   └─ get_registry (check components)
         │
-        └─> Finalize Node
-            └─ Report results + flush LangSmith traces
+        ├─> generate_stories (Storybook)
+        │   └─ Auto-generate .stories.tsx for all components
+        │
+        ├─> validate (Validation Subgraph)
+        │   ├─ final-check (TypeScript + ESLint)
+        │   ├─ typescript-fix (AI auto-fix errors)
+        │   ├─ route-validation (decide retry/proceed)
+        │   └─ quality-review (final checks)
+        │
+        └─> finalize (Results & Cleanup)
+            ├─ Report generation statistics
+            ├─ Show thread ID for resumption
+            └─ Flush LangSmith traces
 ```
+
+**Key Differences from Original Design**:
+- ✅ **Validation Subgraph**: Dedicated sub-workflow for TypeScript validation with auto-fix loop
+- ✅ **Checkpointing**: MemorySaver enables workflow resumption via thread IDs
+- ✅ **Story Generation**: Always runs after component generation
+- ✅ **TypeScript**: All code migrated from JavaScript
+- ✅ **MCP Integration**: Direct Figma API access via Model Context Protocol
 
 ## File Structure
 
+**TypeScript Implementation**:
+
 ```
 agentic-system/
-├── index.js                    # Main entry point
-├── config/                     # System-wide configuration
-│   ├── openai-client.js        # ChatOpenAI model factory
-│   ├── tool-executor.js        # Tool implementations + definitions
-│   └── langsmith-config.js     # LangSmith setup & validation
-├── workflow/                   # LangGraph workflow
-│   ├── graph.js                # StateGraph definition
-│   ├── prompts/                # System prompts (extensible)
-│   │   └── agent-prompts.js    # Agent system prompts
-│   └── nodes/                  # Workflow execution nodes
-│       ├── setup.js            # Resource loading node
-│       ├── generate.js         # ChatOpenAI agent node
-│       └── finalize.js         # Reporting node
-└── tools/                      # Utility tools
-    ├── figma-extractor.js      # Figma API + GPT-4o Vision
-    ├── reference-scanner.js    # Component discovery
-    ├── vector-search.js        # Semantic search
-    └── registry.js             # Component registry
+├── index.ts                         # Main entry point with checkpointing
+├── README.md                        # Agentic system documentation
+├── config/                          # System-wide configuration
+│   ├── env.config.ts                # Environment variable handling
+│   ├── openai-client.ts             # ChatOpenAI model factory
+│   └── langsmith-config.ts          # LangSmith setup & validation
+├── workflow/                        # LangGraph workflow
+│   ├── graph.ts                     # StateGraph with Annotation.Root + MemorySaver
+│   ├── prompts/                     # System prompts
+│   │   └── agent-prompts.ts         # Agent system prompts
+│   └── nodes/                       # Workflow execution nodes
+│       ├── analyze.ts               # Figma analysis with GPT-4o Vision
+│       ├── setup.ts                 # Resource loading node
+│       ├── generate.ts              # ChatOpenAI agent node
+│       ├── generate-stories.ts      # Storybook story generation
+│       ├── validate.ts              # Validation subgraph
+│       ├── finalize.ts              # Reporting node
+│       └── validation/              # Validation subnodes
+│           ├── final-check.ts       # TypeScript + ESLint validation
+│           ├── typescript-fix.ts    # AI auto-fix errors
+│           ├── route-validation.ts  # Routing logic
+│           └── quality-review.ts    # Quality checks
+├── tools/                           # Tool implementations
+│   ├── figma-extractor.ts           # Figma API + GPT-4o Vision + Zod
+│   ├── mcp-figma-bridge.ts          # MCP Figma integration
+│   ├── mcp-agent-tools.ts           # MCP tool bridge
+│   ├── reference-scanner.ts         # Component discovery
+│   ├── vector-search.ts             # Semantic search
+│   ├── registry.ts                  # Component registry
+│   ├── story-generator.ts           # Storybook story generation
+│   ├── tool-executor.ts             # Agent tool executor
+│   └── design-tokens-extractor.ts   # Design token parsing
+├── types/                           # TypeScript type definitions
+│   ├── workflow.ts                  # Workflow state types
+│   ├── component.ts                 # Component types
+│   ├── figma.ts                     # Figma data types
+│   ├── tools.ts                     # Tool types
+│   └── index.ts                     # Unified exports
+└── utils/                           # Utility functions
+    ├── validation-utils.ts          # TypeScript/ESLint validation
+    └── figma-tokens-parser.ts       # Token parsing
 ```
 
 ## Environment Variables

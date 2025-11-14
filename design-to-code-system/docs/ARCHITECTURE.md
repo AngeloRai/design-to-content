@@ -1,186 +1,264 @@
-# Autonomous Design-to-Code System Architecture
+# Design-to-Code System Architecture
+
+**Last Updated**: November 14, 2025
 
 ## Overview
 
-This system autonomously converts Figma design components into React code using LangGraph workflows with AI-powered decision making and iterative refinement.
+A TypeScript-based autonomous system that converts Figma designs into production-ready React components using:
+- **LangGraph v1.0** workflows with modern Annotation.Root state management
+- **OpenAI GPT-4o Vision** for design analysis with structured outputs
+- **Validation subgraph** with automatic TypeScript/ESLint error correction
+- **MCP integration** for Figma API and browser automation
+- **Checkpointing** for workflow resumption after interruptions
 
 ## Architecture Diagram
 
+**Current Implementation** (TypeScript + LangGraph v1.0):
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     PHASE 1: DISCOVERY                          │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ↓
-                    ┌──────────────────┐
-                    │    discovery     │ Fetch Figma data
-                    └────────┬─────────┘
-                             ↓
-                    ┌──────────────────┐
-                    │     analysis     │ AI visual analysis
-                    └────────┬─────────┘
-                             ↓
-                    ┌──────────────────┐
-                    │ early_validator  │ Check confidence
-                    └────┬───────┬─────┘
-                         │       │
-         (confidence<0.7)│       │(sufficient)
-                         ↓       ↓
-              ┌──────────────┐   │
-              │refetch_handler├──┘ (loop back to analysis)
-              └──────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│                PHASE 2: INVENTORY & MATCHING                    │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ↓
-                    ┌──────────────────┐
-                    │   repo_scanner   │ Scan existing components
-                    └────────┬─────────┘
-                             ↓
-                    ┌──────────────────┐
-                    │     matcher      │ Compare design vs existing
-                    └────────┬─────────┘
-                             ↓
-                    ┌──────────────────┐
-                    │strategy_planner  │ AI decides per component
-                    └────┬───┬───┬─────┘
-                         │   │   │
-            ┌────────────┘   │   └──────────────┐
-            ↓                ↓                   ↓
-
-┌─────────────────────────────────────────────────────────────────┐
-│                    PHASE 3: EXECUTION                           │
+│                   MAIN WORKFLOW (StateGraph)                    │
 └─────────────────────────────────────────────────────────────────┘
 
-    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
-    │  generator   │    │   patcher    │    │skip_handler  │
-    │ (new comp)   │    │(update comp) │    │   (log)      │
-    └──────┬───────┘    └──────┬───────┘    └──────┬───────┘
-           ↓                    ↓                    ↓
-   ┌───────────────┐    ┌───────────────┐          │
-   │syntax_validator│   │safety_validator│         │
-   └───────┬───────┘    └───────┬───────┘          │
-           └──────────────┬──────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│                PHASE 4: QUALITY ASSURANCE                       │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ↓
-                    ┌──────────────────┐
-                    │quality_checker   │ Multi-stage validation
-                    └────────┬─────────┘
-                             │
-                   (validation failed?)
-                             ↓
-                    ┌──────────────────┐
-                    │     refiner      │ Fix and retry
-                    └────────┬─────────┘
-                             │ (loop back to quality_checker)
-                             ↓
-                    ┌──────────────────┐
-                    │    finalizer     │ Export results
-                    └──────────────────┘
+START
+  │
+  ↓
+┌──────────────────┐
+│     analyze      │  Figma analysis with GPT-4o Vision
+│ (analyze.ts)     │  - MCP Figma bridge fetches design
+└────────┬─────────┘  - Zod schemas for structured output
+         │            - Extract components, variants, tokens
+         │
+         ├─────→ [Analysis Failed] ──→ finalize (skip generation)
+         │
+         ↓ [Success]
+┌──────────────────┐
+│      setup       │  Load reference components
+│  (setup.ts)      │  - Scan existing component library
+└────────┬─────────┘  - Build vector search index
+         │            - Initialize component registry
+         ↓
+┌──────────────────┐
+│    generate      │  AI agent generates components
+│ (generate.ts)    │  - Uses GPT-4o with tool calling
+└────────┬─────────┘  - Writes to elements/components/modules
+         │            - Tracks in registry
+         ↓
+┌────────────────────┐
+│ generate_stories   │  Create Storybook stories
+│(generate-stories.ts)│ - Generate .stories.tsx files
+└────────┬───────────┘ - Stories for all variants/states
+         │
+         ↓
+┌──────────────────────────────────────────────────────────────────┐
+│                  VALIDATION SUBGRAPH                             │
+│                     (validate.ts)                                │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│   ┌──────────────┐                                              │
+│   │ final-check  │  TypeScript + ESLint validation              │
+│   └──────┬───────┘                                              │
+│          │                                                       │
+│          ├─→ [Valid] ──→ quality-review ──→ END (success)       │
+│          │                                                       │
+│          ↓ [Errors]                                             │
+│   ┌──────────────┐                                              │
+│   │typescript-fix│  AI auto-fixes validation errors             │
+│   └──────┬───────┘                                              │
+│          │                                                       │
+│          ↓                                                       │
+│   ┌───────────────┐                                             │
+│   │route-validation│ Check attempt count                        │
+│   └──────┬────────┘                                             │
+│          │                                                       │
+│          ├─→ [< 3 attempts] ──→ final-check (retry)            │
+│          │                                                       │
+│          └─→ [>= 3 attempts] ──→ quality-review ──→ END        │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+         │
+         ↓
+┌──────────────────┐
+│    finalize      │  Report results & flush traces
+│ (finalize.ts)    │  - Display statistics
+└──────────────────┘  - Show thread ID for resume
+         │
+         ↓
+        END
 ```
+
+**Key Differences from Original Plan**:
+- ✅ Validation is a **subgraph**, not individual nodes
+- ✅ Conditional routing via **function**, not conditional edges everywhere
+- ✅ Story generation **always runs** after component generation
+- ✅ No separate "matcher" or "strategy_planner" - AI decides during generation
+- ✅ Auto-fix loop built into validation subgraph
 
 ---
 
 ## State Schema
 
-### Core State Structure
+### TypeScript State with Annotation.Root
 
-```javascript
-{
-  // Input
-  input: string,                    // Figma URL
+**Implementation**: Uses modern LangGraph v1.0 `Annotation.Root` pattern with reducers.
 
-  // Discovery phase
-  figmaData: {
-    fileKey: string,
-    nodeId: string,
-    screenshotUrl: string,
-    nodeMetadata: object,
-    componentMetadata: object
-  },
+```typescript
+const WorkflowStateAnnotation = Annotation.Root({
+  // === INPUT FIELDS (Set at workflow start) ===
+  figmaUrl: Annotation<string>(),
+  outputDir: Annotation<string>({
+    reducer: (existing, update) => update ?? existing,
+    default: () => process.env.OUTPUT_DIR || 'atomic-design-pattern/ui'
+  }),
 
-  visualAnalysis: {
-    summary: string,
-    componentCount: number,
+  // === PHASE 1: FIGMA ANALYSIS ===
+  figmaAnalysis: Annotation<{
     components: Array<{
-      name: string,
-      atomicLevel: "atom" | "molecule" | "organism",
-      props: array,
-      variants: object,
-      designTokens: object,
-      confidence: number
-    }>,
-    globalTokens: object
-  },
+      name: string;
+      atomicLevel: 'atom' | 'molecule' | 'organism';
+      type: string;  // button, input, card, etc.
+      visualProperties: {
+        colors: string;
+        typography: string;
+        spacing: string;
+        borders: string;
+        shadows: string | null;
+      };
+      states: string[];  // default, hover, disabled, etc.
+      variants: string[];  // primary, secondary, outline, etc.
+      textContent: string[];  // Actual text from design
+    }>;
+    designTokens: {
+      colors: Record<string, string>;
+      spacing: Record<string, string>;
+      typography: Record<string, string>;
+    };
+  } | null>({
+    reducer: (existing, update) => update ?? existing,
+    default: () => null
+  }),
+  componentsIdentified: Annotation<number>({
+    reducer: (existing, update) => update ?? existing,
+    default: () => 0
+  }),
+  mcpBridge: Annotation<unknown>({  // MCP Figma bridge instance
+    reducer: (existing, update) => update ?? existing,
+    default: () => null
+  }),
+  globalCssPath: Annotation<string | null>({
+    reducer: (existing, update) => update ?? existing,
+    default: () => null
+  }),
 
-  // Inventory phase
-  existingComponents: Array<{
-    name: string,
-    path: string,
-    props: array,
-    variants: array,
-    exports: array
-  }>,
+  // === PHASE 2: SETUP ===
+  referenceComponents: Annotation<unknown[]>({
+    reducer: (existing, update) => update ?? existing,
+    default: () => []
+  }),
+  vectorSearch: Annotation<unknown>({  // Vector search instance
+    reducer: (existing, update) => update ?? existing,
+    default: () => null
+  }),
+  registry: Annotation<{
+    getComponent: (name: string) => unknown;
+    addComponent: (component: unknown) => void;
+    getAllComponents: () => unknown[];
+  } | null>({
+    reducer: (existing, update) => update ?? existing,
+    default: () => null
+  }),
 
-  // Strategy phase
-  componentStrategy: Array<{
-    component: object,        // From visualAnalysis
-    action: "create_new" | "update_existing" | "skip",
-    targetPath: string | null,
-    reason: string,
-    confidence: number,
-    safetyChecks: {
-      dependencyCount: number,
-      riskLevel: "low" | "medium" | "high",
-      breakingChanges: boolean
-    }
-  }>,
+  // === PHASE 3: GENERATION ===
+  conversationHistory: Annotation<unknown[]>({  // AI conversation messages
+    reducer: (existing, update) => update ?? existing,
+    default: () => []
+  }),
+  generatedComponents: Annotation<number>({
+    reducer: (existing, update) => update ?? existing,
+    default: () => 0
+  }),
+  iterations: Annotation<number>({
+    reducer: (existing, update) => update ?? existing,
+    default: () => 0
+  }),
+  failedComponents: Annotation<Record<string, unknown>>({
+    reducer: (existing, update) => update ?? existing,
+    default: () => ({})
+  }),
 
-  // Execution phase
-  generatedComponents: Array<{
-    name: string,
-    filePath: string,
-    action: "created" | "updated",
-    linesOfCode: number,
-    timestamp: string
-  }>,
+  // === PHASE 3.5: STORYBOOK ===
+  storiesGenerated: Annotation<boolean>({
+    reducer: (existing, update) => update ?? existing,
+    default: () => false
+  }),
+  storyResults: Annotation<unknown>({
+    reducer: (existing, update) => update ?? existing,
+    default: () => null
+  }),
 
-  appliedPatches: Array<{
-    componentPath: string,
-    changes: object,
-    backupPath: string,
-    timestamp: string
-  }>,
+  // === PHASE 4: VALIDATION (Subgraph fields) ===
+  validationResults: Annotation<Record<string, unknown>>({
+    reducer: (existing, update) => update ?? existing,
+    default: () => ({})
+  }),
+  finalCheckPassed: Annotation<boolean>({
+    reducer: (existing, update) => update ?? existing,
+    default: () => false
+  }),
+  finalCheckAttempts: Annotation<number>({
+    reducer: (existing, update) => update ?? existing,
+    default: () => 0
+  }),
+  validatedComponents: Annotation<string[]>({
+    reducer: (existing, update) => {
+      if (Array.isArray(update) && Array.isArray(existing)) {
+        return [...new Set([...existing, ...update])];  // Deduplicate
+      }
+      return update ?? existing;
+    },
+    default: () => []
+  }),
 
-  // Validation phase
-  validationResults: {
-    typescript: { valid: boolean, errors: array },
-    visual: { similarity: number, differences: array },
-    dependencies: { safe: boolean, warnings: array }
-  },
+  // === WORKFLOW STATUS ===
+  currentPhase: Annotation<string>({
+    reducer: (existing, update) => update ?? existing,
+    default: () => 'init'
+  }),
+  success: Annotation<boolean>({
+    reducer: (existing, update) => update ?? existing,
+    default: () => false
+  }),
+  errors: Annotation<Array<{ phase: string; error: string }>>({
+    reducer: (existing, update) => {
+      if (Array.isArray(update) && Array.isArray(existing)) {
+        // Merge arrays, filter duplicates
+        const uniqueErrors = update.filter(
+          (err) => !existing.some((e) => e.phase === err.phase && e.error === err.error)
+        );
+        return [...existing, ...uniqueErrors];
+      }
+      return update ?? existing;
+    },
+    default: () => []
+  }),
 
-  // Control flow
-  currentPhase: "discovery" | "inventory" | "execution" | "validation" | "finalize",
-  iterationCount: number,
-  decisionLog: Array<{
-    timestamp: string,
-    node: string,
-    decision: string,
-    reasoning: array,
-    toolCalls: array
-  }>,
-
-  // Routing
-  nextNode: string,
-  loopReason: string | null
-}
+  // === METADATA ===
+  startTime: Annotation<string | null>({
+    reducer: (existing, update) => update ?? existing,
+    default: () => null
+  }),
+  endTime: Annotation<string | null>({
+    reducer: (existing, update) => update ?? existing,
+    default: () => null
+  })
+});
 ```
+
+**Key Features**:
+- **Reducers**: Properly merge state updates (e.g., append to arrays, deduplicate)
+- **Defaults**: Auto-initialize from environment variables where appropriate
+- **Type Safety**: Full TypeScript support via generics
+- **Validation Subgraph**: Dedicated fields for validation loop state
 
 ---
 
@@ -826,62 +904,81 @@ Every routing decision is logged:
 
 ## File Structure
 
+**Actual Implementation** (TypeScript):
+
 ```
 design-to-code-system/
-├── langgraph-workflow/
-│   ├── index.js                    # Entry point
-│   ├── graph.js                    # LangGraph workflow definition
-│   ├── state-schema.js             # State type definitions
-│   ├── nodes/
-│   │   ├── analysis.js             # Visual analysis node
-│   │   ├── early-validator.js      # Confidence checking
-│   │   ├── refetch-handler.js      # Additional data fetching
-│   │   ├── repo-scanner.js         # Component inventory
-│   │   ├── matcher.js              # Similarity analysis
-│   │   ├── strategy-planner.js     # AI decision maker
-│   │   ├── generator.js            # New component creation
-│   │   ├── patcher.js              # Component updates
-│   │   ├── quality-checker.js      # Validation orchestrator
-│   │   ├── refiner.js              # Error fixing
-│   │   └── finalizer.js            # Results export
-│   ├── tools/
-│   │   ├── figma-tools.js          # Figma API integrations
-│   │   ├── component-tools.js      # AST analysis, scanning
-│   │   ├── code-tools.js           # File read/write/diff
-│   │   └── validation-tools.js     # TypeScript/ESLint checks
-│   ├── prompts/
-│   │   ├── analysis-prompt.js
-│   │   ├── strategy-prompt.js
-│   │   └── generation-prompt.js
-│   └── utils/
-│       ├── ast-parser.js
-│       ├── similarity-calculator.js
-│       └── token-mapper.js
-├── utils/
-│   └── figma-integration.js        # Existing Figma utilities
-├── docs/
-│   └── ARCHITECTURE.md             # This file
-└── tests/
-    ├── nodes/
-    ├── tools/
-    └── integration/
+├── package.json                         # Dependencies (LangGraph, OpenAI, etc.)
+├── tsconfig.json                        # TypeScript configuration
+├── .env                                 # Environment variables
+├── agentic-system/                      # Main implementation (TypeScript)
+│   ├── index.ts                         # Entry point with checkpointing
+│   ├── README.md                        # Agentic system documentation
+│   ├── workflow/                        # LangGraph workflow
+│   │   ├── graph.ts                     # StateGraph with Annotation.Root + MemorySaver
+│   │   ├── nodes/                       # Workflow nodes
+│   │   │   ├── analyze.ts               # Figma analysis with GPT-4o Vision
+│   │   │   ├── setup.ts                 # Load references & vector search
+│   │   │   ├── generate.ts              # AI agent component generation
+│   │   │   ├── generate-stories.ts      # Storybook story creation
+│   │   │   ├── validate.ts              # Validation subgraph
+│   │   │   ├── finalize.ts              # Results reporting
+│   │   │   └── validation/              # Validation subnodes
+│   │   │       ├── final-check.ts       # TypeScript + ESLint validation
+│   │   │       ├── typescript-fix.ts    # AI auto-fix errors
+│   │   │       ├── route-validation.ts  # Routing logic
+│   │   │       └── quality-review.ts    # Quality checks
+│   │   └── prompts/                     # AI prompts
+│   │       └── agent-prompts.ts         # System prompts
+│   ├── tools/                           # Tool implementations
+│   │   ├── figma-extractor.ts           # Figma API + Zod schemas
+│   │   ├── mcp-figma-bridge.ts          # MCP Figma integration
+│   │   ├── mcp-agent-tools.ts           # MCP tool bridge
+│   │   ├── registry.ts                  # Component registry
+│   │   ├── reference-scanner.ts         # Component discovery
+│   │   ├── vector-search.ts             # Semantic similarity
+│   │   ├── story-generator.ts           # Storybook story generation
+│   │   ├── tool-executor.ts             # Agent tool executor
+│   │   ├── design-tokens-extractor.ts   # Design token parsing
+│   │   └── search-help.ts               # Search utilities
+│   ├── types/                           # TypeScript type definitions
+│   │   ├── workflow.ts                  # Workflow state types
+│   │   ├── component.ts                 # Component types
+│   │   ├── figma.ts                     # Figma data types
+│   │   ├── tools.ts                     # Tool types
+│   │   └── index.ts                     # Unified exports
+│   ├── config/                          # Configuration
+│   │   ├── env.config.ts                # Environment variables
+│   │   ├── openai-client.ts             # OpenAI setup
+│   │   └── langsmith-config.ts          # LangSmith tracing
+│   └── utils/                           # Utilities
+│       ├── validation-utils.ts          # TypeScript/ESLint validation
+│       └── figma-tokens-parser.ts       # Token parsing
+└── docs/                                # Documentation
+    ├── ARCHITECTURE.md                  # This file
+    ├── AGENTIC_SYSTEM.md               # Workflow details
+    └── VISUAL_VALIDATION_PLAN.md       # Visual validation (planned)
 ```
 
 ---
 
-## Implementation Checklist
+## Implementation Status
 
-- [ ] Phase 1: Documentation (current)
-- [ ] Phase 2: State schema + checkpointing
-- [ ] Phase 3: Tool implementations
-- [ ] Phase 4: Node implementations
-- [ ] Phase 5: Graph wiring with conditional edges
-- [ ] Phase 6: Integration testing
-- [ ] Phase 7: Error handling & logging
-- [ ] Phase 8: Performance optimization
-- [ ] Phase 9: Documentation & examples
-- [ ] Phase 10: Production deployment
+### ✅ Complete
+- **Phase 1**: TypeScript migration (100%)
+- **Phase 2**: State schema + checkpointing (Annotation.Root + MemorySaver)
+- **Phase 3**: Tool implementations (all tools built)
+- **Phase 4**: Node implementations (6 main nodes + 4 validation subnodes)
+- **Phase 5**: Graph wiring (StateGraph with conditional routing)
+- **Phase 6**: Error handling & auto-fix loop
+- **Phase 7**: LangSmith integration & observability
+
+### 📋 Planned
+- Visual validation with Playwright
+- SQLite checkpointing (replace MemorySaver)
+- Human-in-the-loop review UI
+- Checkpoint management CLI
 
 ---
 
-**Next Steps**: Proceed to Phase 2 - implement state schema and checkpointing infrastructure.
+**Status**: Production-ready workflow with TypeScript migration complete
