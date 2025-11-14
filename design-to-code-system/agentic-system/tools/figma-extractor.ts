@@ -228,8 +228,7 @@ export async function extractWithMcp(
       const nodeIdMatches = metadataXml.match(/id="([^"]+)"/g) || [];
       const childNodeIds = nodeIdMatches
         .map(match => match.match(/id="([^"]+)"/)?.[1])
-        .filter(Boolean)
-        .slice(0, 5); // Sample 5 components
+        .filter(Boolean);
 
       console.log(`3️⃣  Fetching code from ${childNodeIds.length} components...`);
 
@@ -326,8 +325,7 @@ export async function extractWithMcp(
     const childNodeIds = nodeIdMatches
       .map(match => match.match(/id="([^"]+)"/)?.[1])
       .filter(Boolean)
-      .filter(id => id !== nodeId) // Exclude parent node
-      .slice(0, 10); // Limit to 10 components for now
+      .filter(id => id !== nodeId); // Exclude parent node
 
     console.log(`   ✅ Found ${childNodeIds.length} child components`);
     console.log('');
